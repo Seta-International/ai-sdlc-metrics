@@ -1,3 +1,4 @@
+import { Unprocessable } from '@seta/middleware'
 import { GraphNotFound, GraphUnavailable } from '@seta/ms-graph'
 import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
@@ -137,7 +138,7 @@ function buildEntityCache(opts: EntityCacheOpts) {
 
     async softDelete(id: string): Promise<void> {
       const tenantId = getTenantId()
-      if (!ops.softDeleteRow) throw new Error('softDelete not supported for this entity')
+      if (!ops.softDeleteRow) throw new Unprocessable('softDelete not supported for this entity')
       await ops.softDeleteRow(sql, tenantId, id)
     },
   }

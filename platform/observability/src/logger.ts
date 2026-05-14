@@ -48,6 +48,7 @@ const REDACT_PATHS = [
 
 export function createLogger(opts: CreateLoggerOpts = {}): Logger {
   const baseOpts: LoggerOptions = {
+    // Sanctioned exception: logger bootstraps before env.ts is parsed; reads process.env directly.
     level: opts.level ?? (process.env.LOG_LEVEL as pino.LevelWithSilent) ?? 'info',
     base: { service: opts.service ?? 'seta-os', env: process.env.NODE_ENV ?? 'development' },
     timestamp: pino.stdTimeFunctions.isoTime,

@@ -94,7 +94,7 @@ export function createTasksCommitTool(
         const userId = tenantContext.getUserId()
         if (!userId) throw new Unauthorized('no user context')
 
-        await deps.registry.requireConsent(tenantId, 'ms365-planner')
+        await deps.registry.requireConsent('ms365-planner')
 
         let verified: { payload: Record<string, unknown>; etagSnapshot: Record<string, string> }
         try {

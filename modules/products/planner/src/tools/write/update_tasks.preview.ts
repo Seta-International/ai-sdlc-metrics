@@ -10,7 +10,7 @@ import type { MintInput } from './_continuation'
 const log = logger.child({ component: 'planner.update_tasks.preview' })
 
 export interface PreviewDepsBase {
-  registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }
+  registry: { requireConsent(connectorId: string): Promise<void> }
   tokenForUser: (tenantId: string, userId: string) => Promise<{ accessToken: string }>
   buildClient: (token: string) => PlannerClient
   buildCache: (client: PlannerClient) => PlannerCache
@@ -62,7 +62,7 @@ export function updateTasksPreviewTool(
         const userId = tenantContext.getUserId()
         if (!userId) throw new Unauthorized('no user context')
 
-        await deps.registry.requireConsent(tenantId, 'ms365-planner')
+        await deps.registry.requireConsent('ms365-planner')
 
         const { accessToken } = await deps.tokenForUser(tenantId, userId)
         const client = deps.buildClient(accessToken)

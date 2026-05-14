@@ -233,7 +233,8 @@ async function boot() {
     graph,
     getAppToken,
     intervalMs: env.PLANNER_SYNC_INTERVAL_MS,
-    afterSync: async (tenantId, changedTaskIds) => {
+    afterSync: async (changedTaskIds) => {
+      const tenantId = tenantContext.getTenantId()
       if (changedTaskIds.length > 0) {
         await taskIndexer.indexTasks(tenantId, changedTaskIds)
       }

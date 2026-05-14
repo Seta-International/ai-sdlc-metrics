@@ -1,3 +1,4 @@
+import { ServiceUnavailable } from '@seta/middleware'
 import { logger } from '@seta/observability'
 import { getBotToken } from './bot-token'
 import type { OutboundActivity } from './handler'
@@ -20,7 +21,8 @@ export async function replyToActivity(
     body: JSON.stringify(activity),
   })
   if (!res.ok) {
+    const body = await res.text()
     log.error({ status: res.status }, 'teams.reply-failed')
-    throw new Error(`Reply failed: ${res.status} ${await res.text()}`)
+    throw new ServiceUnavailable(`teams reply failed: ${res.status} ${body}`)
   }
 }

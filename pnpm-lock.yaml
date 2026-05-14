@@ -751,6 +751,9 @@ importers:
       '@seta/middleware':
         specifier: workspace:*
         version: link:../middleware
+      '@seta/tenant':
+        specifier: workspace:*
+        version: link:../tenant
       zod:
         specifier: 4.4.3
         version: 4.4.3
@@ -810,6 +813,9 @@ importers:
       '@seta/db':
         specifier: workspace:*
         version: link:../db
+      '@seta/middleware':
+        specifier: workspace:*
+        version: link:../middleware
       dotenv:
         specifier: 17.4.2
         version: 17.4.2

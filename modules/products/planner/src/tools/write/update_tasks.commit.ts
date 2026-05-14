@@ -12,7 +12,7 @@ import { ContinuationConsumed } from './_errors'
 const log = logger.child({ component: 'planner.update_tasks.commit' })
 
 export interface CommitDeps {
-  registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }
+  registry: { requireConsent(connectorId: string): Promise<void> }
   tokenForUser: (tenantId: string, userId: string) => Promise<{ accessToken: string }>
   buildGraph: () => GraphFetch
   buildCache: () => {
@@ -111,7 +111,7 @@ export function updateTasksCommitTool(
         const userId = tenantContext.getUserId()
         if (!userId) throw new Unauthorized('no user context')
 
-        await deps.registry.requireConsent(tenantId, 'ms365-planner')
+        await deps.registry.requireConsent('ms365-planner')
 
         let verified: { payload: Record<string, unknown>; etagSnapshot: Record<string, string> }
         try {

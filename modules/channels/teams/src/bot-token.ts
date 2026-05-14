@@ -1,3 +1,4 @@
+import { ServiceUnavailable } from '@seta/middleware'
 import { logger } from '@seta/observability'
 import { LRUCache } from 'lru-cache'
 
@@ -20,7 +21,7 @@ export async function getBotToken(botId: string, botSecret: string): Promise<str
       scope: 'https://api.botframework.com/.default',
     }),
   })
-  if (!res.ok) throw new Error(`Bot token fetch failed: ${res.status}`)
+  if (!res.ok) throw new ServiceUnavailable(`bot token fetch failed: ${res.status}`)
   const { access_token } = (await res.json()) as { access_token: string }
   cache.set('token', access_token)
   log.info({}, 'bot-token.fetched')

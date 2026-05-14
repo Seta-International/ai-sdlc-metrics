@@ -9,7 +9,7 @@ import type { MintInput } from './_continuation'
 const log = logger.child({ component: 'planner.create_plan.preview' })
 
 interface CreatePlanPreviewDeps {
-  registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }
+  registry: { requireConsent(connectorId: string): Promise<void> }
   continuationStore: { mint(i: MintInput): Promise<{ token: string; expiresAt: Date }> }
   ttlMinutes: number
 }
@@ -46,7 +46,7 @@ export function createPlanPreviewTool(
         const userId = tenantContext.getUserId()
         if (!userId) throw new Unauthorized('no user context')
 
-        await deps.registry.requireConsent(tenantId, 'ms365-planner')
+        await deps.registry.requireConsent('ms365-planner')
 
         const { token } = await deps.continuationStore.mint({
           tenantId,

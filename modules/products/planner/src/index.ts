@@ -28,7 +28,7 @@ import { updateTasksPreviewTool } from './tools/write/update_tasks.preview'
 
 export interface PlannerToolsDeps {
   sql: ReadToolDeps['sql']
-  registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }
+  registry: { requireConsent(connectorId: string): Promise<void> }
   tokenForUser: (tenantId: string, userId: string) => Promise<{ accessToken: string }>
   buildClient: (token: string) => PlannerClient
   buildCache: (client: PlannerClient) => PlannerCache

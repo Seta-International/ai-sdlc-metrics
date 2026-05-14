@@ -8,7 +8,7 @@ import { ContinuationConsumed } from './_errors'
 const log = logger.child({ component: 'planner.add_comments.commit' })
 
 export interface AddCommentsCommitDeps {
-  registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }
+  registry: { requireConsent(connectorId: string): Promise<void> }
   continuationStore: {
     verify(v: {
       token: string
@@ -55,7 +55,7 @@ export function addCommentsCommitTool(
         const userId = tenantContext.getUserId()
         if (!userId) throw new Unauthorized('no user context')
 
-        await deps.registry.requireConsent(tenantId, 'ms365-planner')
+        await deps.registry.requireConsent('ms365-planner')
 
         try {
           await deps.continuationStore.verify({

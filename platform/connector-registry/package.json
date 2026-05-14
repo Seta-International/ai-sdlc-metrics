@@ -18,6 +18,7 @@
   ],
   "dependencies": {
     "@seta/middleware": "workspace:*",
+    "@seta/tenant": "workspace:*",
     "zod": "4.4.3"
   },
   "devDependencies": {
