@@ -119,11 +119,11 @@ app.post('/agent/run', async (c: Context) => {
 
   return tenantContext.run(
     { tenantId, ...(userId ? { userId } : {}) },
-    () =>
+    async () =>
       streamKernelSSE(
         c,
         runKernel(
-          { ...PLANNER_AGENT_CONFIG, tools: plannerTools },
+          { ...PLANNER_AGENT_CONFIG, tools: plannerTools as Tool[] },
           body,
           { adapters: agentRegistry, memory: agentMemory, signal: c.req.raw.signal },
         ),
