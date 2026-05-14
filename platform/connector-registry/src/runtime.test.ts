@@ -1,3 +1,4 @@
+import { tenantContext } from '@seta/tenant'
 import { describe, expect, it } from 'vitest'
 import { type ConnectorDefinition, createConnectorRegistry } from './index'
 
@@ -57,15 +58,19 @@ describe('ConnectorRegistry', () => {
     const r = createConnectorRegistry(async (_t, c) => c === 'ms365-planner')
     r.register(plannerStub)
     r.register(dirStub)
-    await expect(r.requireConsent('tid', 'ms365-planner')).resolves.toBeUndefined()
-    await expect(r.requireConsent('tid', 'ms365-directory')).rejects.toThrow(/not consented/i)
+    await tenantContext.run({ tenantId: 'tid' }, async () => {
+      await expect(r.requireConsent('ms365-planner')).resolves.toBeUndefined()
+      await expect(r.requireConsent('ms365-directory')).rejects.toThrow(/not consented/i)
+    })
   })
 
   it('requireConsent without injected check throws a config error', async () => {
     const r = createConnectorRegistry()
     r.register(plannerStub)
-    await expect(r.requireConsent('tid', 'ms365-planner')).rejects.toThrow(
-      /consentCheck not configured/i,
-    )
+    await tenantContext.run({ tenantId: 'tid' }, async () => {
+      await expect(r.requireConsent('ms365-planner')).rejects.toThrow(
+        /consentCheck not configured/i,
+      )
+    })
   })
 })

@@ -1,6 +1,10 @@
 import type { Tool } from '@seta/agent-core'
+import { logger } from '@seta/observability'
+import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
 import type { ReadToolDeps } from './list_my_tasks'
+
+const log = logger.child({ component: 'planner.list_plan_tasks' })
 
 const Input = z.object({
   planId: z.string(),
@@ -23,6 +27,11 @@ export function listPlanTasksTool(
     annotations: { readOnlyHint: true, idempotentHint: true },
     async execute(input, _ctx) {
       try {
+        log.debug(
+          { tenantId: tenantContext.getTenantIdOrUndefined() },
+          'planner.list_plan_tasks.start',
+        )
+
         let rows = (await deps.sql`
           SELECT *
           FROM planner.v_visible_tasks
@@ -44,6 +53,7 @@ export function listPlanTasksTool(
 
         return { ok: true, value: { tasks: rows } }
       } catch (e) {
+        log.error({ err: e }, 'planner.list_plan_tasks.failed')
         return { ok: false, error: { name: (e as Error).name, message: (e as Error).message } }
       }
     },

@@ -29,7 +29,36 @@ export async function readWorkingMemory(
 
 export type UpsertWorkingMemoryResult =
   | { skipped: false; resourceId: string }
-  | { skipped: true; reason: 'no_resource_id' }
+  | { skipped: true; reason: 'no_resource_id' | 'no_user_id' }
+
+/** Resource-scoped read: bypasses the threads JOIN, looks up by resourceId directly. */
+export async function readWorkingMemoryByResource(
+  tx: TransactionSql,
+  _tenantId: string,
+  resourceId: string,
+): Promise<string | null> {
+  const rows = await tx<Array<{ working_memory: string | null }>>`
+    SELECT working_memory FROM agent_memory.resources WHERE id = ${resourceId} LIMIT 1
+  `
+  return rows[0]?.working_memory ?? null
+}
+
+/** Resource-scoped upsert: writes directly to resources by resourceId, no thread required. */
+export async function upsertWorkingMemoryByResource(
+  tx: TransactionSql,
+  tenantId: string,
+  resourceId: string,
+  text: string,
+): Promise<void> {
+  validateWorkingMemoryText(text)
+  await tx`
+    INSERT INTO agent_memory.resources (id, tenant_id, working_memory, updated_at)
+    VALUES (${resourceId}, ${tenantId}, ${text}, now())
+    ON CONFLICT (id) DO UPDATE
+      SET working_memory = EXCLUDED.working_memory,
+          updated_at     = now()
+  `
+}
 
 export async function upsertWorkingMemory(
   tx: TransactionSql,

@@ -1,3 +1,4 @@
+import { logger } from '@seta/observability'
 import type { ErrorHandler } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { ZodError } from 'zod'
@@ -103,7 +104,7 @@ export const onError: ErrorHandler = (err, c) => {
     )
   }
   // Unknown — log the real error, never leak internals to the client
-  console.error('[onError] unhandled error', err)
+  logger.error({ err }, '[onError] unhandled error')
   return c.json(
     {
       type: `${ERROR_TYPE_BASE}/internal`,

@@ -1,6 +1,7 @@
 import type { Tool } from '@seta/agent-core'
+import type { BatchRequest, GraphFetch } from '@seta/connector-ms365-planner'
 import { Unauthorized } from '@seta/middleware'
-import type { BatchRequest, GraphFetch } from '@seta/ms-graph'
+import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
 import PQueue from 'p-queue'
 import { z } from 'zod'
@@ -8,8 +9,10 @@ import type { OpResult } from './_classify'
 import { classifyBatchItem } from './_classify'
 import { ContinuationConsumed } from './_errors'
 
+const log = logger.child({ component: 'planner.update_tasks.commit' })
+
 export interface CommitDeps {
-  registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }
+  registry: { requireConsent(connectorId: string): Promise<void> }
   tokenForUser: (tenantId: string, userId: string) => Promise<{ accessToken: string }>
   buildGraph: () => GraphFetch
   buildCache: () => {
@@ -99,11 +102,16 @@ export function updateTasksCommitTool(
     annotations: { destructiveHint: true, idempotentHint: true },
     async execute(input, _ctx) {
       try {
+        log.debug(
+          { tenantId: tenantContext.getTenantIdOrUndefined() },
+          'planner.update_tasks.commit.start',
+        )
+
         const tenantId = tenantContext.getTenantId()
         const userId = tenantContext.getUserId()
         if (!userId) throw new Unauthorized('no user context')
 
-        await deps.registry.requireConsent(tenantId, 'ms365-planner')
+        await deps.registry.requireConsent('ms365-planner')
 
         let verified: { payload: Record<string, unknown>; etagSnapshot: Record<string, string> }
         try {
@@ -150,6 +158,7 @@ export function updateTasksCommitTool(
                 url: `/planner/tasks/${u.taskId}`,
                 headers: {
                   // etagSnapshot is populated for every taskId in the payload by the preview tool before minting
+                  // biome-ignore lint/style/noNonNullAssertion: guaranteed by preview tool contract
                   'If-Match': verified.etagSnapshot[u.taskId]!,
                   Prefer: 'return=representation',
                 },
@@ -197,6 +206,7 @@ export function updateTasksCommitTool(
           },
         }
       } catch (e) {
+        log.error({ err: e }, 'planner.update_tasks.commit.failed')
         return { ok: false, error: { name: (e as Error).name, message: (e as Error).message } }
       }
     },

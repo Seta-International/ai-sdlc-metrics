@@ -1,3 +1,4 @@
+import { ServiceUnavailable } from '@seta/middleware'
 import type { Sql } from 'postgres'
 
 export type IdTokenClaims = {
@@ -44,7 +45,7 @@ export function createJitMapper(sql: Sql): JitMapper {
           RETURNING id, tenant_id, email, display_name, status
         `
         const u = userRows[0]
-        if (!u) throw new Error('JIT mapper: upsert returned no row')
+        if (!u) throw new ServiceUnavailable('jit-mapper: upsert returned no row')
 
         await tx`
           INSERT INTO directory.external_identities (tenant_id, user_id, provider_id, external_subject, raw_profile, synced_at)

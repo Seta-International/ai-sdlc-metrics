@@ -1,11 +1,14 @@
 import type { Tool } from '@seta/agent-core'
 import { Unauthorized } from '@seta/middleware'
+import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
 import { ContinuationConsumed } from './_errors'
 
+const log = logger.child({ component: 'planner.add_comments.commit' })
+
 export interface AddCommentsCommitDeps {
-  registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }
+  registry: { requireConsent(connectorId: string): Promise<void> }
   continuationStore: {
     verify(v: {
       token: string
@@ -43,11 +46,16 @@ export function addCommentsCommitTool(
     annotations: { destructiveHint: true, idempotentHint: true },
     async execute(input, _ctx) {
       try {
+        log.debug(
+          { tenantId: tenantContext.getTenantIdOrUndefined() },
+          'planner.add_comments.commit.start',
+        )
+
         const tenantId = tenantContext.getTenantId()
         const userId = tenantContext.getUserId()
         if (!userId) throw new Unauthorized('no user context')
 
-        await deps.registry.requireConsent(tenantId, 'ms365-planner')
+        await deps.registry.requireConsent('ms365-planner')
 
         try {
           await deps.continuationStore.verify({
@@ -94,6 +102,7 @@ export function addCommentsCommitTool(
           },
         }
       } catch (e) {
+        log.error({ err: e }, 'planner.add_comments.commit.failed')
         return { ok: false, error: { name: (e as Error).name, message: (e as Error).message } }
       }
     },

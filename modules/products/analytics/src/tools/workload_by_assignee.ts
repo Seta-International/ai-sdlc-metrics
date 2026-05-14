@@ -1,6 +1,11 @@
 import type { Tool } from '@seta/agent-core'
+import { queryDisplayNames } from '@seta/connector-ms365-directory'
+import { queryPlanTitle, queryVisiblePlanIds } from '@seta/connector-ms365-planner'
+import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
+
+const log = logger.child({ component: 'analytics.workload_by_assignee' })
 
 type DbSql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>
 
@@ -50,16 +55,15 @@ export function workloadByAssigneeTool(
     annotations: { readOnlyHint: true, idempotentHint: true },
     async execute(input, _ctx) {
       try {
+        log.debug(
+          { tenantId: tenantContext.getTenantIdOrUndefined() },
+          'analytics.workload_by_assignee.start',
+        )
+
         const tenantId = tenantContext.getTenantId()
         const userId = tenantContext.getUserId()
 
-        // Fetch visible plan IDs for this user (using plan_members directly — no cross-product import)
-        const visiblePlanRows = (await deps.sql`
-          SELECT DISTINCT plan_id
-          FROM connector_ms365_planner.plan_members
-          WHERE tenant_id = ${tenantId} AND user_id = ${userId}
-        `) as Array<{ plan_id: string }>
-        const visiblePlanIds = visiblePlanRows.map((r) => r.plan_id)
+        const visiblePlanIds = await queryVisiblePlanIds(deps.sql, tenantId, userId)
 
         if (visiblePlanIds.length === 0) return { ok: true, value: { rows: [], planName: null } }
 
@@ -81,15 +85,8 @@ export function workloadByAssigneeTool(
           LIMIT ${input.limit}
         `) as WorkloadRow[]
 
-        // Resolve display names from directory (one query for all users)
         const userIds = [...new Set(rawRows.map((r) => r.user_id))]
-        const dirRows = (await deps.sql`
-          SELECT entra_object_id, display_name
-          FROM connector_ms365_directory.directory_users
-          WHERE tenant_id = ${tenantId} AND entra_object_id = ANY(${userIds}::text[])
-        `) as Array<{ entra_object_id: string; display_name: string }>
-
-        const nameMap = new Map(dirRows.map((r) => [r.entra_object_id, r.display_name]))
+        const nameMap = await queryDisplayNames(deps.sql, tenantId, userIds)
 
         const rows = rawRows.map((r) => ({
           userId: r.user_id,
@@ -100,17 +97,13 @@ export function workloadByAssigneeTool(
           completedThisWeek: Number(r.completed_this_week),
         }))
 
-        let planName: string | null = null
-        if (input.planId) {
-          const planRow = (await deps.sql`
-            SELECT title FROM connector_ms365_planner.planner_plans_cache
-            WHERE graph_plan_id = ${input.planId} AND tenant_id = ${tenantId} LIMIT 1
-          `) as Array<{ title: string }>
-          planName = planRow[0]?.title ?? null
-        }
+        const planName = input.planId
+          ? await queryPlanTitle(deps.sql, tenantId, input.planId)
+          : null
 
         return { ok: true, value: { rows, planName } }
       } catch (e) {
+        log.error({ err: e }, 'analytics.workload_by_assignee.failed')
         return { ok: false, error: { name: (e as Error).name, message: (e as Error).message } }
       }
     },

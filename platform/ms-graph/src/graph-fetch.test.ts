@@ -266,7 +266,7 @@ describe('graphFetch.batch', () => {
           url: '/x',
         })),
       }),
-    ).rejects.toThrow(/<= 20/)
+    ).rejects.toMatchObject({ problem: { detail: expect.stringMatching(/<= 20/) } })
   })
 })
 

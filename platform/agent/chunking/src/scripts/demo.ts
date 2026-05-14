@@ -53,6 +53,7 @@ for (const { label, input, opts } of SAMPLES) {
   console.log()
 
   for (let i = 0; i < chunks.length; i++) {
+    // biome-ignore lint/style/noNonNullAssertion: loop bounds guarantee valid index
     const c = chunks[i]!
     const roundtrip = c.content === input.slice(c.startChar, c.endChar)
     const icon = roundtrip ? `${GREEN}✓${RESET}` : `${YELLOW}✗${RESET}`

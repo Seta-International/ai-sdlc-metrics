@@ -50,8 +50,8 @@ function chunkTextInternal(input: string, opts: ChunkOptions): ChunkTrace {
   let i = 0
   while (i < tokens.length) {
     const end = Math.min(i + validated.maxTokens, tokens.length)
-    const startChar = charOfs[i]!
-    const endChar = charOfs[end]!
+    const startChar = charOfs[i] ?? 0
+    const endChar = charOfs[end] ?? input.length
     chunks.push({
       content: input.slice(startChar, endChar),
       tokenCount: end - i,

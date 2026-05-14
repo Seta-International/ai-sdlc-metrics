@@ -1,12 +1,15 @@
 import type { Tool } from '@seta/agent-core'
+import type { GraphFetch } from '@seta/connector-ms365-planner'
 import { Unauthorized } from '@seta/middleware'
-import type { GraphFetch } from '@seta/ms-graph'
+import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
 import { ContinuationConsumed } from './_errors'
 
+const log = logger.child({ component: 'planner.create_plan.commit' })
+
 export interface CreatePlanCommitDeps {
-  registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }
+  registry: { requireConsent(connectorId: string): Promise<void> }
   tokenForUser: (tenantId: string, userId: string) => Promise<{ accessToken: string }>
   buildGraph: () => GraphFetch
   buildCache: () => {
@@ -51,11 +54,16 @@ export function createPlanCommitTool(
     annotations: { destructiveHint: true, idempotentHint: true },
     async execute(input, _ctx) {
       try {
+        log.debug(
+          { tenantId: tenantContext.getTenantIdOrUndefined() },
+          'planner.create_plan.commit.start',
+        )
+
         const tenantId = tenantContext.getTenantId()
         const userId = tenantContext.getUserId()
         if (!userId) throw new Unauthorized('no user context')
 
-        await deps.registry.requireConsent(tenantId, 'ms365-planner')
+        await deps.registry.requireConsent('ms365-planner')
 
         let verified: { payload: Record<string, unknown>; etagSnapshot: Record<string, string> }
         try {
@@ -132,6 +140,7 @@ export function createPlanCommitTool(
           },
         }
       } catch (e) {
+        log.error({ err: e }, 'planner.create_plan.commit.failed')
         return { ok: false, error: { name: (e as Error).name, message: (e as Error).message } }
       }
     },

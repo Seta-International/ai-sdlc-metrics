@@ -1,9 +1,12 @@
 import type { Tool } from '@seta/agent-core'
 import { Unauthorized } from '@seta/middleware'
+import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
 import { buildPreviewCard } from './_card'
 import type { PreviewDepsBase } from './update_tasks.preview'
+
+const log = logger.child({ component: 'planner.create_tasks.preview' })
 
 const TaskToCreate = z.object({
   planId: z.string().min(1),
@@ -34,11 +37,16 @@ export function createTasksPreviewTool(
     annotations: { destructiveHint: true, requireApproval: true },
     async execute(input, _ctx) {
       try {
+        log.debug(
+          { tenantId: tenantContext.getTenantIdOrUndefined() },
+          'planner.create_tasks.preview.start',
+        )
+
         const tenantId = tenantContext.getTenantId()
         const userId = tenantContext.getUserId()
         if (!userId) throw new Unauthorized('no user context')
 
-        await deps.registry.requireConsent(tenantId, 'ms365-planner')
+        await deps.registry.requireConsent('ms365-planner')
 
         const { accessToken } = await deps.tokenForUser(tenantId, userId)
         const client = deps.buildClient(accessToken)
@@ -77,6 +85,7 @@ export function createTasksPreviewTool(
 
         return { ok: true, value: { card, token, ttlMinutes: deps.ttlMinutes } }
       } catch (e) {
+        log.error({ err: e }, 'planner.create_tasks.preview.failed')
         return { ok: false, error: { name: (e as Error).name, message: (e as Error).message } }
       }
     },
