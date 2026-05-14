@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
-import { ENCODING_FOR_MODEL, getEncoder } from './encoder-cache'
+import { _resetEncoderCacheForTests, ENCODING_FOR_MODEL, getEncoder } from './encoder-cache'
 import type { ChunkingError } from './errors'
 
 describe('ENCODING_FOR_MODEL', () => {
@@ -75,5 +75,6 @@ describe('getEncoder error path', () => {
 
     vi.doUnmock('js-tiktoken')
     vi.resetModules()
+    _resetEncoderCacheForTests()
   })
 })
