@@ -33,8 +33,8 @@ describe('tasksByPlanTool', () => {
     const result = await tenantContext.run({ tenantId: 't1', userId: 'u1' }, () =>
       tool.execute({ metric: 'open', limit: 10 }, makeCtx()),
     )
-    expect(result.ok).toBe(true)
-    if (result.ok) {
+    expect('ok' in result && result.ok).toBe(true)
+    if ('ok' in result && result.ok) {
       expect(result.value.rows[0]?.planName).toBe('Atlas')
       expect(result.value.rows[0]?.count).toBe(8)
     }

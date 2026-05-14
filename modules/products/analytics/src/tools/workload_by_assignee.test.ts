@@ -38,10 +38,10 @@ describe('workloadByAssigneeTool', () => {
       .mockResolvedValueOnce([dirRow])
     const tool = workloadByAssigneeTool({ sql: sql as never })
     const result = await tenantContext.run({ tenantId: 't1', userId: 'u1' }, () =>
-      tool.execute({ limit: 20 }, makeCtx()),
+      tool.execute({ limit: 20, lookbackDays: 7 }, makeCtx()),
     )
-    expect(result.ok).toBe(true)
-    if (result.ok) {
+    expect('ok' in result && result.ok).toBe(true)
+    if ('ok' in result && result.ok) {
       expect(result.value.rows[0]?.displayName).toBe('Alice')
       expect(result.value.rows[0]?.openTasks).toBe(5)
     }
@@ -64,9 +64,9 @@ describe('workloadByAssigneeTool', () => {
       .mockResolvedValueOnce([])
     const tool = workloadByAssigneeTool({ sql: sql as never })
     const result = await tenantContext.run({ tenantId: 't1', userId: 'u1' }, () =>
-      tool.execute({ limit: 20 }, makeCtx()),
+      tool.execute({ limit: 20, lookbackDays: 7 }, makeCtx()),
     )
-    expect(result.ok).toBe(true)
-    if (result.ok) expect(result.value.rows[0]?.displayName).toBe('u2')
+    expect('ok' in result && result.ok).toBe(true)
+    if ('ok' in result && result.ok) expect(result.value.rows[0]?.displayName).toBe('u2')
   })
 })

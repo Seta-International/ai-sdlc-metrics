@@ -33,8 +33,8 @@ describe('tasksByStatusTool', () => {
     const result = await tenantContext.run({ tenantId: 't1', userId: 'u1' }, () =>
       tool.execute({}, makeCtx()),
     )
-    expect(result.ok).toBe(true)
-    if (result.ok) {
+    expect('ok' in result && result.ok).toBe(true)
+    if ('ok' in result && result.ok) {
       expect(result.value.rows).toHaveLength(3)
       expect(result.value.rows.find((r) => r.status === 'not_started')?.count).toBe(5)
     }
