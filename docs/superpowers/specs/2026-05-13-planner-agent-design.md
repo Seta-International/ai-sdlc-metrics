@@ -405,13 +405,14 @@ export function hydrateAgent(
   profile: AgentProfileRow,
   actions: AgentActionRow[],
   ctx: RunContext,
+  toolRegistry: ToolRegistry,
 ): AgentConfig {
   return {
     name:         profile.slug ?? profile.agentId,
     instructions: interpolateInstructions(profile.instructions, ctx),
     model:        modelRegistry.get(profile.model),
     tools:        [
-      ...resolvePlatformTools(profile.toolIds),
+      ...toolRegistry.resolve(profile.toolIds),
       ...actions.map(buildActionTool),
     ],
     memory: profile.workingMemoryTemplate
@@ -429,19 +430,43 @@ function interpolateInstructions(template: string, ctx: RunContext): string {
 
 ### 5.5 Tool registry
 
+`@seta/agent-server` (platform) never imports product tool implementations — that would violate the `platform/*` boundary. Instead it exports an injectable registry that `apps/api` populates at startup.
+
 ```typescript
 // platform/agent/server/src/tool-registry.ts
-const TOOL_REGISTRY: Record<string, Tool> = {
+export interface ToolRegistry {
+  register(toolId: string, tool: Tool): void
+  resolve(toolIds: string[]): Tool[]
+}
+
+export function createToolRegistry(): ToolRegistry {
+  const map = new Map<string, Tool>()
+  return {
+    register(toolId, tool) {
+      map.set(toolId, tool)
+    },
+    resolve(toolIds) {
+      return toolIds.map((id) => {
+        const tool = map.get(id)
+        if (!tool) throw new DomainError('unknown_tool_id', { toolId: id })
+        return tool
+      })
+    },
+  }
+}
+```
+
+Each ERP module exports its tool map:
+
+```typescript
+// modules/products/planner/src/index.ts (excerpt)
+export const plannerTools: Record<string, Tool> = {
   list_my_tasks:          listMyTasksTool,
   list_plan_tasks:        listPlanTasksTool,
   get_task:               getTaskTool,
   list_plans:             listPlansTool,
   list_buckets:           listBucketsTool,
   search_tasks_semantic:  searchTasksSemanticTool,
-  workload_by_assignee:   workloadByAssigneeTool,
-  tasks_by_status:        tasksByStatusTool,
-  tasks_by_plan:          tasksByPlanTool,
-  query_analytics:        queryAnalyticsTool,
   get_project_status:     getProjectStatusTool,
   get_one_on_one_prep:    getOneOnOnePrepTool,
   update_tasks_preview:   updateTasksPreviewTool,
@@ -456,13 +481,28 @@ const TOOL_REGISTRY: Record<string, Tool> = {
   create_plan_commit:     createPlanCommitTool,
 }
 
-export function resolvePlatformTools(toolIds: string[]): Tool[] {
-  return toolIds.map(id => {
-    const tool = TOOL_REGISTRY[id]
-    if (!tool) throw new DomainError('unknown_tool_id', { toolId: id })
-    return tool
-  })
+// modules/products/analytics/src/index.ts (excerpt)
+export const analyticsTools: Record<string, Tool> = {
+  workload_by_assignee: workloadByAssigneeTool,
+  tasks_by_status:      tasksByStatusTool,
+  tasks_by_plan:        tasksByPlanTool,
+  query_analytics:      queryAnalyticsTool,
 }
+```
+
+`apps/api` wires everything together — the only place where product code meets platform code:
+
+```typescript
+// apps/api/src/main.ts (excerpt)
+import { createToolRegistry, createAgentRouter } from '@seta/agent-server'
+import { plannerTools } from '@seta/planner'
+import { analyticsTools } from '@seta/analytics'
+
+const toolRegistry = createToolRegistry()
+for (const [id, tool] of Object.entries(plannerTools)) toolRegistry.register(id, tool)
+for (const [id, tool] of Object.entries(analyticsTools)) toolRegistry.register(id, tool)
+
+app.route('/agent', createAgentRouter({ toolRegistry, memory, workflowEngine, connectorRegistry }))
 ```
 
 ### 5.6 OpenAPI Action builder
@@ -1114,7 +1154,7 @@ export function createTeamsHandler(deps: TeamsHandlerDeps): TeamsHandler {
     const ctx     = buildRunContext(runCtx, convType)
     const profile = await deps.profileRegistry.resolve(runCtx.tenantId, slug)
     const actions = await deps.profileRegistry.loadActions(runCtx.tenantId, profile.agentId)
-    const agent   = hydrateAgent(profile, actions, ctx)
+    const agent   = hydrateAgent(profile, actions, ctx, deps.toolRegistry)
     const threadId = buildThreadId(activity, runCtx)
 
     const result = await runKernel({
