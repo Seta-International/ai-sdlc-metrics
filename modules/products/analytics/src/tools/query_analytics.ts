@@ -1,4 +1,12 @@
 import type { Tool } from '@seta/agent-core'
+import { queryDirectReports } from '@seta/connector-ms365-directory'
+import {
+  queryBlockedTasks,
+  queryCompletionRate,
+  queryDueSoonTasks,
+  queryUnassignedTasks,
+  queryVisiblePlanIds,
+} from '@seta/connector-ms365-planner'
 import { tenantContext } from '@seta/tenant'
 import { LRUCache } from 'lru-cache'
 import { z } from 'zod'
@@ -51,14 +59,8 @@ export function queryAnalyticsTool(
         const cached = cache.get(cacheKey)
         if (cached) return { ok: true, value: cached }
 
-        // Resolve visible plan IDs
-        const visiblePlanRows = (await deps.sql`
-          SELECT DISTINCT plan_id FROM connector_ms365_planner.plan_members
-          WHERE tenant_id = ${tenantId} AND user_id = ${userId}
-        `) as Array<{ plan_id: string }>
-        const visiblePlanIds = visiblePlanRows.map((r) => r.plan_id)
+        const visiblePlanIds = await queryVisiblePlanIds(deps.sql, tenantId, userId)
 
-        // Permission gate by scope type
         let scopedPlanIds = visiblePlanIds
         if (input.scope.type === 'plan') {
           if (!input.scope.planId) {
@@ -75,11 +77,11 @@ export function queryAnalyticsTool(
           }
           scopedPlanIds = [input.scope.planId]
         } else if (input.scope.type === 'direct_reports') {
-          const dirReports = (await deps.sql`
-            SELECT entra_object_id FROM connector_ms365_directory.directory_users
-            WHERE manager_id = ${userId} AND tenant_id = ${tenantId}
-          `) as Array<{ entra_object_id: string }>
-          if (dirReports.length === 0) {
+          if (!userId) {
+            return { ok: false, error: { name: 'Forbidden', message: 'No direct reports found' } }
+          }
+          const reports = await queryDirectReports(deps.sql, tenantId, userId)
+          if (reports.length === 0) {
             return { ok: false, error: { name: 'Forbidden', message: 'No direct reports found' } }
           }
         }
@@ -116,69 +118,29 @@ export function queryAnalyticsTool(
             WHERE tenant_id = ${tenantId} AND plan_id = ANY(${scopedPlanIds}::text[])
             GROUP BY plan_id ORDER BY overdue_total DESC LIMIT ${input.limit}
           `) as Array<Record<string, unknown>>
-        } else if (input.metric === 'unassigned_tasks') {
-          rows = (await deps.sql`
-            SELECT graph_task_id, title, plan_id, due_date
-            FROM connector_ms365_planner.planner_tasks_cache
-            WHERE tenant_id = ${tenantId}
-              AND plan_id = ANY(${scopedPlanIds}::text[])
-              AND percent_complete < 100
-              AND (assignee_ids IS NULL OR array_length(assignee_ids, 1) IS NULL)
-              AND soft_deleted_at IS NULL
-            ORDER BY due_date NULLS LAST
-            LIMIT ${input.limit}
-          `) as Array<Record<string, unknown>>
-        } else if (input.metric === 'due_soon') {
-          const soonDate = new Date(Date.now() + 3 * 86400_000)
-          rows = (await deps.sql`
-            SELECT graph_task_id, title, plan_id, due_date, assignee_ids, percent_complete
-            FROM connector_ms365_planner.planner_tasks_cache
-            WHERE tenant_id = ${tenantId}
-              AND plan_id = ANY(${scopedPlanIds}::text[])
-              AND percent_complete < 100
-              AND due_date <= ${soonDate}
-              AND soft_deleted_at IS NULL
-            ORDER BY due_date
-            LIMIT ${input.limit}
-          `) as Array<Record<string, unknown>>
-        } else if (input.metric === 'completion_rate') {
-          rows = (await deps.sql`
-            SELECT
-              plan_id,
-              COUNT(*) FILTER (WHERE percent_complete = 100)::int AS completed,
-              COUNT(*) FILTER (WHERE percent_complete < 100)::int AS open,
-              ROUND(
-                100.0 * COUNT(*) FILTER (WHERE percent_complete = 100)
-                      / NULLIF(COUNT(*), 0), 1
-              ) AS rate_pct
-            FROM connector_ms365_planner.planner_tasks_cache
-            WHERE tenant_id = ${tenantId}
-              AND plan_id = ANY(${scopedPlanIds}::text[])
-              AND soft_deleted_at IS NULL
-            GROUP BY plan_id ORDER BY rate_pct DESC
-            LIMIT ${input.limit}
-          `) as Array<Record<string, unknown>>
-        } else if (input.metric === 'blocked_tasks') {
-          const staleThreshold = new Date(Date.now() - 3 * 86400_000)
-          rows = (await deps.sql`
-            SELECT graph_task_id, title, plan_id, last_modified_at_graph, assignee_ids
-            FROM connector_ms365_planner.planner_tasks_cache
-            WHERE tenant_id = ${tenantId}
-              AND plan_id = ANY(${scopedPlanIds}::text[])
-              AND percent_complete BETWEEN 1 AND 99
-              AND last_modified_at_graph < ${staleThreshold}
-              AND soft_deleted_at IS NULL
-            ORDER BY last_modified_at_graph
-            LIMIT ${input.limit}
-          `) as Array<Record<string, unknown>>
-        } else {
-          // capacity_forecast — aggregate open + completed per user
+        } else if (input.metric === 'capacity_forecast') {
           rows = (await deps.sql`
             SELECT user_id, SUM(open_tasks)::int AS open, SUM(completed_this_week)::int AS completed_this_week
             FROM analytics.mv_assignee_workload
             WHERE tenant_id = ${tenantId} AND plan_id = ANY(${scopedPlanIds}::text[])
             GROUP BY user_id ORDER BY open DESC LIMIT ${input.limit}
           `) as Array<Record<string, unknown>>
+        } else if (input.metric === 'unassigned_tasks') {
+          rows = await queryUnassignedTasks(deps.sql, tenantId, scopedPlanIds, input.limit)
+        } else if (input.metric === 'due_soon') {
+          const soonDate = new Date(Date.now() + 3 * 86400_000)
+          rows = await queryDueSoonTasks(deps.sql, tenantId, scopedPlanIds, soonDate, input.limit)
+        } else if (input.metric === 'completion_rate') {
+          rows = await queryCompletionRate(deps.sql, tenantId, scopedPlanIds, input.limit)
+        } else if (input.metric === 'blocked_tasks') {
+          const staleThreshold = new Date(Date.now() - 3 * 86400_000)
+          rows = await queryBlockedTasks(
+            deps.sql,
+            tenantId,
+            scopedPlanIds,
+            staleThreshold,
+            input.limit,
+          )
         }
 
         const value: z.infer<typeof Output> = {

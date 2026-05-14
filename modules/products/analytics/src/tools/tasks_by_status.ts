@@ -1,4 +1,9 @@
 import type { Tool } from '@seta/agent-core'
+import {
+  queryPlanTitle,
+  queryTaskCountByStatus,
+  queryVisiblePlanIds,
+} from '@seta/connector-ms365-planner'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
 import type { AnalyticsToolDeps } from './workload_by_assignee'
@@ -28,11 +33,7 @@ export function tasksByStatusTool(
         const tenantId = tenantContext.getTenantId()
         const userId = tenantContext.getUserId()
 
-        const visiblePlanRows = (await deps.sql`
-          SELECT DISTINCT plan_id FROM connector_ms365_planner.plan_members
-          WHERE tenant_id = ${tenantId} AND user_id = ${userId}
-        `) as Array<{ plan_id: string }>
-        const visiblePlanIds = visiblePlanRows.map((r) => r.plan_id)
+        const visiblePlanIds = await queryVisiblePlanIds(deps.sql, tenantId, userId)
 
         if (visiblePlanIds.length === 0) return { ok: true, value: { rows: [], planName: null } }
 
@@ -46,15 +47,7 @@ export function tasksByStatusTool(
           }
         }
 
-        const rawRows = (await deps.sql`
-          SELECT percent_complete, COUNT(*)::int AS count
-          FROM connector_ms365_planner.planner_tasks_cache
-          WHERE tenant_id = ${tenantId}
-            AND plan_id = ANY(${scopedIds}::text[])
-            AND soft_deleted_at IS NULL
-          GROUP BY percent_complete
-          ORDER BY percent_complete
-        `) as Array<{ percent_complete: number; count: number }>
+        const rawRows = await queryTaskCountByStatus(deps.sql, tenantId, scopedIds)
 
         const counts: Record<string, number> = { not_started: 0, in_progress: 0, completed: 0 }
         for (const r of rawRows) {
@@ -72,14 +65,9 @@ export function tasksByStatusTool(
           count: counts[s] ?? 0,
         }))
 
-        let planName: string | null = null
-        if (input.planId) {
-          const planRow = (await deps.sql`
-            SELECT title FROM connector_ms365_planner.planner_plans_cache
-            WHERE graph_plan_id = ${input.planId} AND tenant_id = ${tenantId} LIMIT 1
-          `) as Array<{ title: string }>
-          planName = planRow[0]?.title ?? null
-        }
+        const planName = input.planId
+          ? await queryPlanTitle(deps.sql, tenantId, input.planId)
+          : null
 
         return { ok: true, value: { rows, planName } }
       } catch (e) {

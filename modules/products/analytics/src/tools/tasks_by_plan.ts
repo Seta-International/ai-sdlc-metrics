@@ -1,4 +1,5 @@
 import type { Tool } from '@seta/agent-core'
+import { queryPlanTitles, queryVisiblePlanIds } from '@seta/connector-ms365-planner'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
 import type { AnalyticsToolDeps } from './workload_by_assignee'
@@ -33,15 +34,10 @@ export function tasksByPlanTool(
         const tenantId = tenantContext.getTenantId()
         const userId = tenantContext.getUserId()
 
-        const visiblePlanRows = (await deps.sql`
-          SELECT DISTINCT plan_id FROM connector_ms365_planner.plan_members
-          WHERE tenant_id = ${tenantId} AND user_id = ${userId}
-        `) as Array<{ plan_id: string }>
-        const visiblePlanIds = visiblePlanRows.map((r) => r.plan_id)
+        const visiblePlanIds = await queryVisiblePlanIds(deps.sql, tenantId, userId)
 
         if (visiblePlanIds.length === 0) return { ok: true, value: { rows: [] } }
 
-        // Use per-metric queries to avoid sql.unsafe() with a dynamic column name
         let rawRows: Array<{ plan_id: string; count: number }>
         if (input.metric === 'open') {
           rawRows = (await deps.sql`
@@ -66,13 +62,11 @@ export function tasksByPlanTool(
           `) as Array<{ plan_id: string; count: number }>
         }
 
-        const planIds = rawRows.map((r) => r.plan_id)
-        const planRows = (await deps.sql`
-          SELECT graph_plan_id, title FROM connector_ms365_planner.planner_plans_cache
-          WHERE tenant_id = ${tenantId} AND graph_plan_id = ANY(${planIds}::text[])
-        `) as Array<{ graph_plan_id: string; title: string }>
-
-        const planNameMap = new Map(planRows.map((r) => [r.graph_plan_id, r.title]))
+        const planNameMap = await queryPlanTitles(
+          deps.sql,
+          tenantId,
+          rawRows.map((r) => r.plan_id),
+        )
 
         const rows = rawRows.map((r) => ({
           planId: r.plan_id,
