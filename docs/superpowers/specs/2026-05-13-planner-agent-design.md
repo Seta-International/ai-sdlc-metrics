@@ -1,6 +1,7 @@
 # Planner Agent + Analytics Agent — Design Spec
 
 **Date:** 2026-05-13  
+**Revised:** 2026-05-14 — DB-driven agent profiles + Agent CRUD API  
 **Scope:** `modules/products/agent` (Planner + Analytics Agent slices) + `modules/connectors/ms365-planner` sync extension  
 **Status:** Approved for implementation  
 **WBS coverage:** EP-09 (partial), EP-10, EP-11, EP-13.5, EP-13.6, EP-14.3
@@ -22,6 +23,9 @@ The Planner Agent and Analytics Agent are two of three specialist agents in `mod
 - HTTP routes mounted at `/agent`
 - Materialized views for analytics performance
 - Task embedding pipeline for semantic search
+- **DB-driven agent profiles** — `agent.agent_profiles` table stores instructions, model, tool IDs, and working memory template; boot seeder inserts global defaults; per-tenant overrides shadow globals
+- **OpenAPI Actions** — `agent.agent_actions` table lets tenants attach custom OpenAPI-spec tools to their agents
+- **Agent CRUD API** — REST endpoints for managing agent profiles and actions
 
 **Out of scope (P2):**
 - Full RBAC (client-confidentiality flags, PM cross-project rules, CEO elevate mode)
@@ -29,6 +33,8 @@ The Planner Agent and Analytics Agent are two of three specialist agents in `mod
 - SharePoint RAG corpus sync
 - MCP server exposure
 - FAQ Agent (separate spec)
+- Agent studio / visual builder (later phase — see Mastra playground reference)
+- Versioned profile history (future addition once studio ships)
 
 ---
 
@@ -42,15 +48,19 @@ Teams activity
      │ TeamsActivity
      ▼
 modules/products/agent
-  ├── src/teams-handler.ts          trigger-phrase router
-  ├── src/agents/planner.ts         Planner Agent definition
-  ├── src/agents/analytics.ts       Analytics Agent definition
-  ├── src/tools/planner/            T1 + T2 Planner tools
-  ├── src/tools/analytics/          aggregation tools + query_analytics DSL
-  ├── src/workflows/                bulk-update, report-with-review
-  ├── src/cards/                    Adaptive Card builders
-  ├── src/indexer.ts                task embedding pipeline
-  └── src/routes.ts                 Hono routes at /agent
+  ├── src/agent-seeder.ts          Boot-time global profile seeder
+  ├── src/profile-registry.ts      Profile resolver + agent hydrator
+  ├── src/agents/planner-seed.ts   Planner seed constants (instructions, tool IDs)
+  ├── src/agents/analytics-seed.ts Analytics seed constants
+  ├── src/tools/registry.ts        tool_id → Tool implementation map
+  ├── src/tools/planner/           T1 + T2 Planner tools
+  ├── src/tools/analytics/         aggregation tools + query_analytics DSL
+  ├── src/actions/                 OpenAPI action builder (spec → Tool at runtime)
+  ├── src/teams-handler.ts         trigger-phrase router
+  ├── src/workflows/               bulk-update, report-with-review
+  ├── src/cards/                   Adaptive Card builders
+  ├── src/indexer.ts               task embedding pipeline
+  └── src/routes.ts                Hono routes at /agent
      │
      ├── @seta/agent-core           kernel, streamKernelSSE, testkit
      ├── @seta/agent-memory         thread + working memory persistence
@@ -65,6 +75,8 @@ modules/products/agent
 ```
 
 **Key principle — DB-first reads:** The agent reads all task/plan/member data from local Postgres. Graph is only called during write commits and the delta-sync background worker. This eliminates per-user Graph rate-limit risk at inference time.
+
+**Key principle — DB-driven profiles:** Agent configuration (instructions, model, tool IDs) lives in `agent.agent_profiles`. The TypeScript files in `src/agents/` are seed-data exporters, not runtime `AgentDefinition` objects. The profile resolver hydrates an `AgentConfig` from a DB row at request time, with a 5-minute LRU cache keyed `profile:{tenantId}:{slugOrId}`.
 
 ---
 
@@ -233,34 +245,247 @@ When a user queries a plan or task outside their visible set the view returns ze
 
 ---
 
-## 5. Planner Agent Definition
+## 5. Agent Profiles & Actions
 
-### 5.1 `src/agents/planner.ts`
+### 5.1 `agent.agent_profiles` table
+
+Stores all agent configuration. `tenant_id = NULL` means a global platform default visible to all tenants. A tenant row with the same `slug` shadows the global default for that tenant.
+
+```sql
+CREATE TABLE agent.agent_profiles (
+  agent_id                 uuid        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  tenant_id                uuid        NULL,
+  slug                     text        NULL,     -- 'planner' | 'analytics' | 'faq' for system agents
+  name                     text        NOT NULL,
+  description              text,
+  instructions             text        NOT NULL, -- system prompt; {{timezone}} {{convType}} etc.
+  model                    text        NOT NULL, -- model registry key e.g. 'default', 'gpt-4o'
+  tool_ids                 text[]      NOT NULL DEFAULT '{}',
+  working_memory_template  text,
+  temperature              numeric(3,2),
+  metadata                 jsonb       NOT NULL DEFAULT '{}',
+  status                   text        NOT NULL DEFAULT 'published'
+                             CHECK (status IN ('draft', 'published', 'archived')),
+  created_at               timestamptz NOT NULL DEFAULT now(),
+  updated_at               timestamptz NOT NULL DEFAULT now()
+);
+
+-- One global profile per slug
+CREATE UNIQUE INDEX agent_profiles_global_slug
+  ON agent.agent_profiles (slug)
+  WHERE tenant_id IS NULL AND slug IS NOT NULL;
+
+-- One tenant-scoped profile per slug
+CREATE UNIQUE INDEX agent_profiles_tenant_slug
+  ON agent.agent_profiles (tenant_id, slug)
+  WHERE tenant_id IS NOT NULL AND slug IS NOT NULL;
+
+ALTER TABLE agent.agent_profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY agent_profiles_select ON agent.agent_profiles FOR SELECT
+  USING (
+    tenant_id IS NULL
+    OR tenant_id = current_setting('app.tenant_id', true)::uuid
+  );
+
+CREATE POLICY agent_profiles_insert ON agent.agent_profiles FOR INSERT
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+CREATE POLICY agent_profiles_update ON agent.agent_profiles FOR UPDATE
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+CREATE POLICY agent_profiles_delete ON agent.agent_profiles FOR DELETE
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid);
+```
+
+Generated via `drizzle-kit generate` after adding the Drizzle table definition to `src/schema.ts`.
+
+### 5.2 `agent.agent_actions` table
+
+OpenAPI-spec-based custom tools. Always tenant-scoped — no global actions.
+
+```sql
+CREATE TABLE agent.agent_actions (
+  action_id    uuid        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  agent_id     uuid        NOT NULL REFERENCES agent.agent_profiles(agent_id) ON DELETE CASCADE,
+  tenant_id    uuid        NOT NULL,
+  name         text        NOT NULL,
+  description  text        NOT NULL,
+  spec         jsonb       NOT NULL,  -- single OpenAPI operation: path, method, parameters, requestBody
+  auth         jsonb,                 -- { type: 'bearer'|'api_key'|'oauth2', ... }
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE agent.agent_actions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY agent_actions_rls ON agent.agent_actions
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid);
+```
+
+### 5.3 Profile resolution
 
 ```typescript
-export const plannerAgent: AgentDefinition = {
-  name: 'planner',
-  instructions: buildPlannerPrompt,   // (ctx: RunContext) => string
-  model: modelRegistry.get('default'),
-  tools: plannerToolSet,              // see §6
-  memory: {
-    workingMemoryTemplate: `
+// src/profile-registry.ts
+export async function resolveAgentProfile(
+  sql: DbSql,
+  tenantId: string,
+  slugOrId: string,
+): Promise<AgentProfileRow> {
+  const rows = await sql<AgentProfileRow[]>`
+    SELECT *
+    FROM agent.agent_profiles
+    WHERE status = 'published'
+      AND (
+        (slug = ${slugOrId} AND (tenant_id = ${tenantId}::uuid OR tenant_id IS NULL))
+        OR (agent_id = ${slugOrId}::uuid AND (tenant_id = ${tenantId}::uuid OR tenant_id IS NULL))
+      )
+    ORDER BY tenant_id NULLS LAST
+    LIMIT 1
+  `
+  if (!rows.length) throw new DomainError('agent_profile_not_found', { slugOrId, tenantId })
+  return rows[0]
+}
+```
+
+Results cached in a per-process LRU with a 5-minute TTL, key `profile:{tenantId}:{slugOrId}`. Cache is invalidated when a `PATCH /agent/agents/:agentId` response commits.
+
+### 5.4 Agent hydration
+
+```typescript
+// src/profile-registry.ts
+export function hydrateAgent(
+  profile: AgentProfileRow,
+  actions: AgentActionRow[],
+  ctx: RunContext,
+): AgentConfig {
+  return {
+    name:         profile.slug ?? profile.agentId,
+    instructions: interpolateInstructions(profile.instructions, ctx),
+    model:        modelRegistry.get(profile.model),
+    tools:        [
+      ...resolvePlatformTools(profile.toolIds),
+      ...actions.map(buildActionTool),
+    ],
+    memory: profile.workingMemoryTemplate
+      ? { workingMemoryTemplate: profile.workingMemoryTemplate }
+      : undefined,
+  }
+}
+
+function interpolateInstructions(template: string, ctx: RunContext): string {
+  return template
+    .replaceAll('{{timezone}}', ctx.timezone)
+    .replaceAll('{{convType}}', ctx.convType)
+}
+```
+
+### 5.5 Tool registry
+
+```typescript
+// src/tools/registry.ts
+const TOOL_REGISTRY: Record<string, Tool> = {
+  list_my_tasks:          listMyTasksTool,
+  list_plan_tasks:        listPlanTasksTool,
+  get_task:               getTaskTool,
+  list_plans:             listPlansTool,
+  list_buckets:           listBucketsTool,
+  search_tasks_semantic:  searchTasksSemanticTool,
+  workload_by_assignee:   workloadByAssigneeTool,
+  tasks_by_status:        tasksByStatusTool,
+  tasks_by_plan:          tasksByPlanTool,
+  query_analytics:        queryAnalyticsTool,
+  get_project_status:     getProjectStatusTool,
+  get_one_on_one_prep:    getOneOnOnePrepTool,
+  update_tasks_preview:   updateTasksPreviewTool,
+  update_tasks_commit:    updateTasksCommitTool,
+  create_tasks_preview:   createTasksPreviewTool,
+  create_tasks_commit:    createTasksCommitTool,
+  complete_tasks_preview: completeTasksPreviewTool,
+  complete_tasks_commit:  completeTasksCommitTool,
+  add_comments_preview:   addCommentsPreviewTool,
+  add_comments_commit:    addCommentsCommitTool,
+  create_plan_preview:    createPlanPreviewTool,
+  create_plan_commit:     createPlanCommitTool,
+}
+
+export function resolvePlatformTools(toolIds: string[]): Tool[] {
+  return toolIds.map(id => {
+    const tool = TOOL_REGISTRY[id]
+    if (!tool) throw new DomainError('unknown_tool_id', { toolId: id })
+    return tool
+  })
+}
+```
+
+### 5.6 OpenAPI Action builder
+
+```typescript
+// src/actions/build-action-tool.ts
+export function buildActionTool(action: AgentActionRow): Tool {
+  return {
+    name:        action.name,
+    description: action.description,
+    inputSchema: extractInputSchema(action.spec),   // parse OpenAPI operation → Zod schema
+    execute:     async (args) => executeOpenApiAction(action, args),
+  }
+}
+```
+
+`executeOpenApiAction` resolves auth from `action.auth`, builds the HTTP request from the OpenAPI operation + `args`, and returns the response body. Network errors surface as tool errors (not agent crashes).
+
+### 5.7 Boot seeder
+
+```typescript
+// src/agent-seeder.ts
+export async function seedSystemAgentProfiles(sql: DbSql): Promise<void> {
+  const profiles = [PLANNER_PROFILE_SEED, ANALYTICS_PROFILE_SEED, FAQ_PROFILE_SEED]
+  for (const p of profiles) {
+    await sql`
+      INSERT INTO agent.agent_profiles
+        (slug, tenant_id, name, description, instructions, model, tool_ids,
+         working_memory_template, status)
+      VALUES
+        (${p.slug}, NULL, ${p.name}, ${p.description}, ${p.instructions},
+         ${p.model}, ${sql.array(p.toolIds)}, ${p.workingMemoryTemplate ?? null}, 'published')
+      ON CONFLICT DO NOTHING
+    `
+  }
+}
+```
+
+`ON CONFLICT DO NOTHING` is safe because the partial unique index on `(slug) WHERE tenant_id IS NULL` prevents duplicate global slugs. Called once from `apps/api/src/main.ts` at startup before `worker.start()`.
+
+---
+
+## 6. Planner Agent Definition
+
+### 6.1 `src/agents/planner-seed.ts`
+
+This file exports seed constants used only by `src/agent-seeder.ts`. There is no static `AgentDefinition` object — the runtime profile is loaded from `agent.agent_profiles` via `resolveAgentProfile`.
+
+```typescript
+export const PLANNER_SLUG = 'planner'
+
+export const PLANNER_TOOL_IDS = [
+  'list_my_tasks', 'list_plan_tasks', 'get_task', 'list_plans', 'list_buckets',
+  'search_tasks_semantic', 'query_analytics', 'get_project_status', 'get_one_on_one_prep',
+  'update_tasks_preview', 'update_tasks_commit',
+  'create_tasks_preview', 'create_tasks_commit',
+  'complete_tasks_preview', 'complete_tasks_commit',
+  'add_comments_preview', 'add_comments_commit',
+  'create_plan_preview', 'create_plan_commit',
+]
+
+export const PLANNER_WORKING_MEMORY_TEMPLATE = `
 Active context:
 - Last referenced plan: {{activePlan}}
 - Last referenced task: {{lastTaskId}}
 - Pending clarification: {{pendingQuestion}}
 - User timezone: {{timezone}}
-    `.trim(),
-  },
-}
-```
+`.trim()
 
-### 5.2 System prompt (`buildPlannerPrompt`)
-
-Function over `RunContext` — embeds live values (timezone, conversation type).
-
-**Role block**
-```
+export const PLANNER_INSTRUCTIONS = `
 You are the Planner Agent for SETA International — an IT services company with
 offices in Vietnam, the US, Ireland, and Japan. You help employees read and manage
 Microsoft Planner tasks through Microsoft Teams.
@@ -273,18 +498,12 @@ Capabilities:
 
 You cannot access plans or tasks the user is not authorised to see. Decline politely
 and show the user their visible plans via list_plans.
-```
 
-**Language block**
-```
 Detect the dominant language in the user's message — English, Vietnamese, or
 EN-VN mix. Respond in that same dominant language. SETA's Hanoi office uses
 EN-VN code-switching constantly; match their style. Never switch languages
 mid-response.
-```
 
-**Tool selection hints**
-```
 Tool selection:
 - "my tasks", "what do I have", "on my plate"          → list_my_tasks
 - "tasks in plan X", "show [plan name] tasks"           → list_plan_tasks
@@ -300,10 +519,7 @@ Tool selection:
 For ambiguous write requests ask ONE focused clarifying question before calling
 any preview tool. Never guess plan names or assignee names — confirm with
 list_plans first.
-```
 
-**Write / HITL block**
-```
 Write flow — always follow this order:
 1. If any required field is missing or ambiguous, ask one question.
 2. Call the preview tool once you have enough information.
@@ -313,58 +529,56 @@ Write flow — always follow this order:
 6. On cancel or silence: do nothing.
 
 Never re-supply the write payload at commit — the continuation_id contains it.
-```
 
-**Scope denial block**
-```
 If a plan or task query returns empty because the user lacks access:
 - Do not confirm or deny whether the plan exists.
 - Say: "I don't have visibility into that for your account."
 - Follow with the user's visible plans: call list_plans.
-```
 
-**Conversation scope block**
-```
 Conversation type: {{convType}}
 {{personal}} → 1:1 chat. Personal queries ("my tasks", "my workload") are primary.
 {{other}}    → Shared conversation. Avoid surfacing private individual details
                unless directly asked.
-```
 
-**Timezone block**
-```
 User timezone: {{timezone}}
 Resolve "today", "this week", "end of day", "before US comes online" relative to
 this timezone. Hanoi–California gap ≈ 15 h — "handoff before EOD" means before
 ~17:00 ICT.
+`.trim()
+
+export const PLANNER_PROFILE_SEED = {
+  slug:                   PLANNER_SLUG,
+  name:                   'Planner Agent',
+  description:            'Task and plan management for Microsoft Planner',
+  instructions:           PLANNER_INSTRUCTIONS,
+  model:                  'default',
+  toolIds:                PLANNER_TOOL_IDS,
+  workingMemoryTemplate:  PLANNER_WORKING_MEMORY_TEMPLATE,
+}
 ```
 
 ---
 
-## 6. Analytics Agent Definition
+## 7. Analytics Agent Definition
 
-### 6.1 `src/agents/analytics.ts`
+### 7.1 `src/agents/analytics-seed.ts`
+
+Same pattern as Planner — seed constants only, no static `AgentDefinition`.
 
 ```typescript
-export const analyticsAgent: AgentDefinition = {
-  name: 'analytics',
-  instructions: buildAnalyticsPrompt,
-  model: modelRegistry.get('default'),
-  tools: analyticsToolSet,   // see §7.2
-  memory: {
-    workingMemoryTemplate: `
+export const ANALYTICS_SLUG = 'analytics'
+
+export const ANALYTICS_TOOL_IDS = [
+  'workload_by_assignee', 'tasks_by_status', 'tasks_by_plan', 'query_analytics',
+]
+
+export const ANALYTICS_WORKING_MEMORY_TEMPLATE = `
 Active context:
 - Last queried plan: {{activePlan}}
 - Last metric: {{lastMetric}}
-    `.trim(),
-  },
-}
-```
+`.trim()
 
-### 6.2 System prompt (`buildAnalyticsPrompt`)
-
-**Role block**
-```
+export const ANALYTICS_INSTRUCTIONS = `
 You are the Analytics Agent for SETA International. You answer workload,
 distribution, velocity, and completion queries about Microsoft Planner tasks.
 
@@ -374,12 +588,10 @@ tasks_by_status, or tasks_by_plan to get the data, then render a chart-ybar
 card from the result.
 
 You are read-only. You do not create, update, or complete tasks.
-```
 
-**Language block** — identical to Planner Agent.
+Detect the dominant language in the user's message — English, Vietnamese, or
+EN-VN mix. Respond in that same dominant language.
 
-**Tool selection hints**
-```
 Tool selection:
 - "who's overloaded", "workload by person", "assignee distribution" → workload_by_assignee
 - "task breakdown by status", "how many in progress vs done"        → tasks_by_status
@@ -387,13 +599,24 @@ Tool selection:
 - trend queries ("velocity last N weeks", "completion rate")        → query_analytics
 
 Always render the result using the chart-ybar card template.
+`.trim()
+
+export const ANALYTICS_PROFILE_SEED = {
+  slug:                   ANALYTICS_SLUG,
+  name:                   'Analytics Agent',
+  description:            'Workload, velocity, and task distribution analytics',
+  instructions:           ANALYTICS_INSTRUCTIONS,
+  model:                  'default',
+  toolIds:                ANALYTICS_TOOL_IDS,
+  workingMemoryTemplate:  ANALYTICS_WORKING_MEMORY_TEMPLATE,
+}
 ```
 
 ---
 
-## 7. Tool Catalog
+## 8. Tool Catalog
 
-### 7.1 T1 Read tools — Planner Agent (DB-first)
+### 8.1 T1 Read tools — Planner Agent (DB-first)
 
 All read tools query `agent.v_visible_tasks` or `agent.v_visible_plans` via the `sql` dep. `app.tenant_id` and `app.user_id` session variables are set before tool execution by the handler.
 
@@ -529,7 +752,7 @@ LIMIT  $topK
 3. Filter `source_id` values through `agent.v_visible_tasks` — discard any chunk whose `graph_task_id` is not visible to the actor.
 4. Return ranked list; `snippet = content[:200]`.
 
-### 7.2 T2 Analytics tools — shared by Planner + Analytics Agents
+### 8.2 T2 Analytics tools — shared by Planner + Analytics Agents
 
 #### `workload_by_assignee`  *(EP-11.2)*
 
@@ -679,7 +902,7 @@ annotations: { readOnlyHint: true }
 
 Permission gate: `SELECT manager_id FROM connector_ms365_directory.directory_users WHERE entra_object_id = $targetUserId AND tenant_id = $tenantId` must equal `current_setting('app.user_id')`. Returns typed error otherwise.
 
-### 7.3 T1 Write tools — Planner Agent (preview/commit pairs)
+### 8.3 T1 Write tools — Planner Agent (preview/commit pairs)
 
 Architecture unchanged from current implementation. Each write pair:
 
@@ -701,7 +924,7 @@ Tools: `update_tasks_preview/commit`, `create_tasks_preview/commit`, `complete_t
 
 Annotations: preview → `{ readOnlyHint: true, idempotentHint: true }`, commit → `{ destructiveHint: true }`.
 
-### 7.4 Embedding pipeline — `TaskIndexer`
+### 8.4 Embedding pipeline — `TaskIndexer`
 
 Exported from `modules/products/agent/src/indexer.ts` (product concern — the product decides Planner tasks are embedded).
 
@@ -732,7 +955,7 @@ For each task ID (bounded by `p-queue`):
 
 ---
 
-## 8. Materialized Views
+## 9. Materialized Views
 
 Owned by `agent` schema. Refreshed by `apps/api`'s `afterSync` hook via `REFRESH MATERIALIZED VIEW CONCURRENTLY` (reads are never blocked during refresh — requires unique index, defined below).
 
@@ -786,11 +1009,11 @@ CREATE UNIQUE INDEX ON agent.mv_plan_weekly_velocity (tenant_id, plan_id, week);
 
 ---
 
-## 9. Workflows
+## 10. Workflows
 
 Uses `@seta/agent-workflows` `.then()` / `.parallel()` DSL. State persisted in `agent_workflows.runs` + `agent_workflows.steps`. `run_id` is the cross-audit correlation key.
 
-### 9.1 `bulkUpdateWorkflow`
+### 10.1 `bulkUpdateWorkflow`
 
 Triggered when the agent detects > 1 task matched by a single write intent ("reassign all overdue Atlas tasks to Phong", "mark all Sprint 14 tasks complete").
 
@@ -807,7 +1030,7 @@ bulkUpdateWorkflow
 
 `executeBulk` receives `selectedTaskIds` from the card's checklist — the user can deselect individual tasks before confirming.
 
-### 9.2 `generateReportWorkflow`
+### 10.2 `generateReportWorkflow`
 
 Triggered when the user requests a **client-facing** status report ("generate the client status report for Atlas"). Internal `get_project_status` calls bypass this workflow.
 
@@ -827,9 +1050,9 @@ generateReportWorkflow
 
 ---
 
-## 10. Teams Handler + Routing
+## 11. Teams Handler + Routing
 
-### 10.1 `src/teams-handler.ts`
+### 11.1 `src/teams-handler.ts`
 
 ```typescript
 export function createTeamsHandler(deps: TeamsHandlerDeps): TeamsHandler {
@@ -837,11 +1060,14 @@ export function createTeamsHandler(deps: TeamsHandlerDeps): TeamsHandler {
     const text     = stripMention(activity.text).trim()
     const convType = activity.conversation.conversationType
 
-    // Set DB session vars once — all tools read from these
     await deps.sql`SET LOCAL app.tenant_id = ${runCtx.tenantId}`
     await deps.sql`SET LOCAL app.user_id   = ${runCtx.userId}`
 
-    const agent    = selectAgent(text, deps.agents)
+    const slug    = selectSlug(text)
+    const ctx     = buildRunContext(runCtx, convType)
+    const profile = await deps.profileRegistry.resolve(runCtx.tenantId, slug)
+    const actions = await deps.profileRegistry.loadActions(runCtx.tenantId, profile.agentId)
+    const agent   = hydrateAgent(profile, actions, ctx)
     const threadId = buildThreadId(activity, runCtx)
 
     const result = await runKernel({
@@ -850,30 +1076,28 @@ export function createTeamsHandler(deps: TeamsHandlerDeps): TeamsHandler {
       abortSignal: runCtx.abortSignal,
     })
 
-    return buildReplyActivity(result, agent.name, convType)
+    return buildReplyActivity(result, profile.name, convType)
   }
 }
 ```
 
-### 10.2 Trigger-phrase routing
+### 11.2 Trigger-phrase routing
 
 ```typescript
-function selectAgent(text: string, agents: AgentMap): AgentDefinition {
-  const t = text.toLowerCase()
+function selectSlug(text: string): string {
+  if (/^(analytics:|chart|workload chart|show.*chart|velocity|burn.?down)/i.test(text))
+    return 'analytics'
 
-  if (/^(analytics:|chart|workload chart|show.*chart|velocity|burn.?down)/i.test(t))
-    return agents.analytics
+  if (/^(faq:|policy|how do (i|we)|what is (our|the|seta)|company.*rule|quy định)/i.test(text))
+    return 'faq'
 
-  if (/^(faq:|policy|how do (i|we)|what is (our|the|seta)|company.*rule|quy định)/i.test(t))
-    return agents.faq
-
-  return agents.planner   // default
+  return 'planner'   // default
 }
 ```
 
-Analytics and FAQ have explicit prefixes. Planner is the default — it handles any message that does not match the other prefixes, including workload text summaries (which route to `query_analytics` internally without a chart).
+Analytics and FAQ have explicit prefixes. Planner is the default — it handles any message that does not match the other prefixes. `selectSlug` returns a slug string; the profile is then loaded from DB (with LRU cache). This replaces the old static `AgentMap`.
 
-### 10.3 Thread ID strategy
+### 11.3 Thread ID strategy
 
 | Conversation type | Thread ID | Memory privacy |
 |---|---|---|
@@ -883,7 +1107,7 @@ Analytics and FAQ have explicit prefixes. Planner is the default — it handles 
 
 `personal` threads never share working memory with `groupChat`/`channel` threads for the same user.
 
-### 10.4 Conversation scope behaviour
+### 11.4 Conversation scope behaviour
 
 - **`personal`:** All queries allowed. Personal context is primary.
 - **`groupChat`:** @mention required. Avoid surfacing private individual task details unless directly asked.
@@ -891,7 +1115,7 @@ Analytics and FAQ have explicit prefixes. Planner is the default — it handles 
 
 ---
 
-## 11. Adaptive Cards
+## 12. Adaptive Cards
 
 All card builders in `src/cards/`. Cards are plain objects validated against Adaptive Card v1.5 spec. `adaptivecards-templating@2.3.1` used for the chart card only.
 
@@ -967,47 +1191,86 @@ Analytics Agent system prompt instructs it to always call `chartYBarCard` with t
 
 ---
 
-## 12. HTTP Routes
+## 13. HTTP Routes
 
 Exported from `routes(registry: ConnectorRegistry): Hono` in `src/index.ts`. Mounted at `/agent` in `apps/api/src/main.ts` *(EP-14.3)*.
 
+### 13.1 Run endpoints
+
 ```
-POST   /agent/run                      Planner agent stream (default) — streamKernelSSE
+POST   /agent/run                      Planner agent stream (slug='planner') — streamKernelSSE
 POST   /agent/planner/run              Explicit Planner agent stream
 POST   /agent/analytics/run            Analytics agent stream
 POST   /agent/faq/run                  FAQ agent stream
+POST   /agent/:agentId/run             Custom agent by UUID — resolves profile from DB
+```
 
+Run body: `{ message: string; threadId?: string }`
+
+### 13.2 Thread management
+
+```
 GET    /agent/threads                  List threads for current user
 GET    /agent/threads/:threadId        Thread turn history
 DELETE /agent/threads/:threadId        Delete thread
+```
 
+### 13.3 Workflow management
+
+```
 POST   /agent/workflows/:runId/resume  Resume suspended workflow
 GET    /agent/workflows/:runId/status  Workflow run status
 ```
 
-Run body: `{ message: string; threadId?: string }`
 Resume body: `{ action: 'confirm' | 'cancel'; payload?: Record<string, unknown> }`
 
-`tenantId` and `userId` always from `tenantContext` / auth middleware — never from the request body.
+### 13.4 Agent profile CRUD
+
+```
+GET    /agent/agents                           List published profiles (tenant + global defaults)
+POST   /agent/agents                           Create tenant-scoped profile
+GET    /agent/agents/:agentId                  Get profile
+PATCH  /agent/agents/:agentId                  Update profile (tenant-owned only)
+DELETE /agent/agents/:agentId                  Delete profile (tenant-owned only)
+```
+
+`tenantId` and `userId` always from `tenantContext` / auth middleware — never from the request body. `PATCH` and `DELETE` reject requests targeting global profiles (`tenant_id IS NULL`) with `403 Forbidden`. The LRU cache entry for the profile is invalidated on successful `PATCH`.
+
+List response includes both the tenant's own profiles and global defaults, with a `isGlobal: boolean` flag on each item. Tenant-created profiles that shadow a global slug (same `slug` value) appear once — the tenant row wins.
+
+### 13.5 Agent action CRUD
+
+```
+GET    /agent/agents/:agentId/actions            List actions for agent
+POST   /agent/agents/:agentId/actions            Create action (tenant-owned agents only)
+PATCH  /agent/agents/:agentId/actions/:actionId  Update action
+DELETE /agent/agents/:agentId/actions/:actionId  Delete action
+```
+
+Action `spec` field must be a valid single-operation OpenAPI fragment. The route validates the spec shape before persisting and rejects malformed specs with `400`.
 
 ---
 
-## 13. Test Strategy
+## 14. Test Strategy
 
-### 13.1 Unit tests (`src/**/*.test.ts`)
+### 14.1 Unit tests (`src/**/*.test.ts`)
 
 - **Permission view SQL:** two-tenant fixture. Assert cross-tenant isolation. Assert plan-member rule. Assert manager rule (manager sees reports' tasks in plans the manager is not a member of). Assert `soft_deleted_at IS NOT NULL` tasks are excluded.
 - **`assignee_ids` GIN query:** `= ANY(text[])` syntax round-trips correctly.
 - **Status predicate mapping:** `percent_complete` 0/50/100 maps to correct `not_started`/`in_progress`/`completed` filter.
 - **Tool schema validation:** `inputSchema` rejects invalid input; `outputSchema` catches malformed returns.
-- **Agent routing:** 20 sample queries (EN, VN, mix, analytics/faq prefix triggers) → correct agent selected.
+- **Agent routing:** 20 sample queries (EN, VN, mix, analytics/faq prefix triggers) → correct slug selected.
 - **Card builders:** snapshot tests for `task-list`, `task-detail`, `write-preview`, `workload`, `chart-ybar` against canonical input shapes.
 - **Chart card:** `chartYBarCard` with 0-length series renders without error; correct `Chart.VerticalBar` type field.
 - **Continuation HMAC:** replay blocked by `consumed_at`; expired continuation rejected.
 - **Capacity warning:** tool returns `capacityWarning` when assignee `open_tasks / (open_tasks + completed_this_week) > 0.9`.
 - **DSL compiler:** each `metric` + `scope` combination produces parameterized SQL with no raw user input in the SQL string.
+- **Profile resolver:** tenant row takes precedence over global default when both exist for same slug; `DomainError('agent_profile_not_found')` thrown when no row exists.
+- **`interpolateInstructions`:** all placeholder strings replaced; unknown placeholders left as-is (no throw).
+- **Tool registry:** `resolvePlatformTools` throws `DomainError('unknown_tool_id')` for unregistered IDs.
+- **Action builder:** `buildActionTool` produces a `Tool` with correct name/description/schema from a valid OpenAPI operation spec.
 
-### 13.2 Integration tests (`tests/integration/**`, requires `DATABASE_URL`)
+### 14.2 Integration tests (`tests/integration/**`, requires `DATABASE_URL`)
 
 - **Sync worker:** msw Graph fixtures → `syncTenant()` → assert `planner_tasks_cache`, `planner_plans_cache`, `plan_members` populated → assert `v_visible_tasks` returns correct rows for a plan-member actor.
 - **Manager visibility:** seed `directory_users` with `manager_id` relationship → assert manager actor sees assignee's tasks in plans the manager is not a member of.
@@ -1019,8 +1282,14 @@ Resume body: `{ action: 'confirm' | 'cancel'; payload?: Record<string, unknown> 
 - **`generateReportWorkflow`:** run → suspend at draft → resume with edits → final card body contains edit text.
 - **Cross-tenant isolation:** actor from Tenant A cannot see Tenant B tasks through any tool.
 - **`write_continuations` RLS:** continuation created under Tenant A cannot be committed by Tenant B actor.
+- **Agent profiles seeder:** `seedSystemAgentProfiles()` on empty DB → 3 rows in `agent_profiles` with `tenant_id IS NULL`; re-run is idempotent.
+- **Profile resolution:** global profile returned when no tenant override exists; tenant override returned when it exists for same slug; `status = 'archived'` profiles not returned.
+- **Profile RLS:** Tenant A cannot read or write Tenant B's tenant-scoped profiles; both tenants can read global profiles.
+- **Agent CRUD API:** `POST /agent/agents` creates profile → `GET` returns it → `PATCH` updates instructions → `DELETE` removes it; `PATCH` on global profile returns 403.
+- **Action CRUD API:** create → list → update → delete cycle; `spec` validation rejects malformed OpenAPI fragments.
+- **Custom agent run:** create tenant profile via API → `POST /agent/:agentId/run` → kernel executes with correct instructions and tools.
 
-### 13.3 LLM tests (via `@seta/agent-core/testkit`)
+### 14.3 LLM tests (via `@seta/agent-core/testkit`)
 
 `RECORD=1 pnpm vitest run -t <name>`. Recordings under `modules/products/agent/__recordings__/planner/` and `__recordings__/analytics/`.
 
@@ -1039,17 +1308,18 @@ Resume body: `{ action: 'confirm' | 'cancel'; payload?: Record<string, unknown> 
 | `analytics/tasks-by-status` | "breakdown by status on Atlas" → `tasks_by_status` → chart |
 | `analytics/tasks-by-plan` | "which plan has most overdue?" → `tasks_by_plan` → chart |
 
-### 13.4 E2E (`tests/e2e/**`)
+### 14.4 E2E (`tests/e2e/**`)
 
-- Teams personal activity → `teamsHandler` → plannerAgent → `list_my_tasks` → task-list card *(EP-13.6)*
+- Teams personal activity → `teamsHandler` → plannerAgent (loaded from DB) → `list_my_tasks` → task-list card *(EP-13.6)*
 - Teams personal activity → `create_tasks_preview` → Adaptive Card confirm → `create_tasks_commit` → Graph write confirmed *(EP-13.6)*
 - Teams personal activity → "who is overloaded?" → analyticsAgent → `workload_by_assignee` → chart-ybar card *(EP-11.4)*
 - Teams group chat activity without @mention → agent does NOT respond
 - Teams channel activity with @mention → agent responds
+- Custom agent profile created via API → run via `POST /agent/:agentId/run` → correct system prompt observed in LLM recording
 
 ---
 
-## 14. Package Dependency Changes
+## 15. Package Dependency Changes
 
 All via `pnpm --filter @seta/<pkg> add`. Resolves SCOPE.md open questions on missing deps.
 
@@ -1060,7 +1330,7 @@ All via `pnpm --filter @seta/<pkg> add`. Resolves SCOPE.md open questions on mis
 
 ---
 
-## 15. WBS Mapping to Project Plan
+## 16. WBS Mapping to Project Plan
 
 Maps every WBS task from `docs/plans/Project Plan.md` to the spec section that covers it. "New" items are design additions not originally in the WBS — they represent scope that the DB-first architecture requires.
 
@@ -1070,10 +1340,10 @@ Maps every WBS task from `docs/plans/Project Plan.md` to the spec section that c
 |---|---|---|---|
 | 9.1 | Graph HTTP client, OBO token cache | Existing `platform/ms-graph` | No change in this spec |
 | 9.2 | `connector_ms365_planner_*` schema + migration + `ConnectorDefinition` | §3.2 | Extends with `plan_members` table + `delta_token` column on `sync_watermarks` |
-| 9.3 | READ endpoints (`listPlans`, `listTasks`, `getTask`, `searchTasks`) | §7.1 | **Changed:** tools now query `v_visible_tasks` / `v_visible_plans` directly; connector exposes tables via Drizzle schema, not Graph-calling methods |
-| 9.4 | WRITE endpoints (`createTask`, `updateTask`, `closeTask`) with etag | §7.3 | Unchanged — commit path still calls Graph |
-| 9.5 | Etag cache (per-tenant LRU, Redis-ready shape) | §7.3 | Unchanged — used by write preview to snapshot etag |
-| 9.6 | msw fixtures + recorded scenarios | §13.2, §13.3 | Integration test fixtures for sync worker + LLM recordings |
+| 9.3 | READ endpoints (`listPlans`, `listTasks`, `getTask`, `searchTasks`) | §8.1 | **Changed:** tools now query `v_visible_tasks` / `v_visible_plans` directly; connector exposes tables via Drizzle schema, not Graph-calling methods |
+| 9.4 | WRITE endpoints (`createTask`, `updateTask`, `closeTask`) with etag | §8.3 | Unchanged — commit path still calls Graph |
+| 9.5 | Etag cache (per-tenant LRU, Redis-ready shape) | §8.3 | Unchanged — used by write preview to snapshot etag |
+| 9.6 | msw fixtures + recorded scenarios | §14.2, §14.3 | Integration test fixtures for sync worker + LLM recordings |
 
 **New items under EP-09 scope (design additions):**
 | Item | Spec section |
@@ -1086,65 +1356,74 @@ Maps every WBS task from `docs/plans/Project Plan.md` to the spec section that c
 
 | WBS | Task | Spec section |
 |---|---|---|
-| 10.1 | Agent definition + Planner system prompt + tool registry | §5 |
-| 10.2 | READ tools: `list_tasks`, `get_task` | §7.1 |
-| 10.3 | WRITE tools: `preview_create_task` + `commit_create_task` with HMAC | §7.3 |
-| 10.4 | Safety review of WRITE path: prompt-injection, scope check, RLS, idempotency | §13 (test strategy covers all four axes) |
-| 10.5 | Adaptive Card — task-list card for READ | §11 `task-list.ts` |
-| 10.6 | Adaptive Card — preview card with Confirm/Cancel for WRITE | §11 `write-preview.ts` |
+| 10.1 | Agent definition + Planner system prompt + tool registry | §5, §6 |
+| 10.2 | READ tools: `list_tasks`, `get_task` | §8.1 |
+| 10.3 | WRITE tools: `preview_create_task` + `commit_create_task` with HMAC | §8.3 |
+| 10.4 | Safety review of WRITE path: prompt-injection, scope check, RLS, idempotency | §14 (test strategy covers all four axes) |
+| 10.5 | Adaptive Card — task-list card for READ | §12 `task-list.ts` |
+| 10.6 | Adaptive Card — preview card with Confirm/Cancel for WRITE | §12 `write-preview.ts` |
 
 **New items under EP-10 scope (design additions):**
 | Item | Spec section |
 |---|---|
+| `agent.agent_profiles` table + RLS | §5.1 |
+| `agent.agent_actions` table + RLS | §5.2 |
+| Profile resolver + agent hydrator | §5.3, §5.4 |
+| Tool registry (`tool_id` → implementation) | §5.5 |
+| OpenAPI Action builder | §5.6 |
+| Boot seeder (`seedSystemAgentProfiles`) | §5.7 |
+| Agent profile + action CRUD API | §13.4, §13.5 |
 | `v_visible_tasks` + `v_visible_plans` permission views | §4.3 |
-| `search_tasks_semantic` tool (semantic search) | §7.1 |
-| `query_analytics` DSL tool | §7.2 |
-| `get_project_status` tool | §7.2 |
-| `get_one_on_one_prep` tool | §7.2 |
-| `TaskIndexer` (embedding pipeline) | §7.4 |
-| `mv_assignee_workload` materialized view | §8 |
-| `mv_plan_weekly_velocity` materialized view | §8 |
-| `bulkUpdateWorkflow` | §9.1 |
-| `generateReportWorkflow` | §9.2 |
-| `task-detail.ts` card | §11 |
-| `workload.ts` card | §11 |
-| `scope-decline.ts` card | §11 |
-| Capacity warning inside `create_tasks_preview` | §7.3 |
+| `search_tasks_semantic` tool (semantic search) | §8.1 |
+| `query_analytics` DSL tool | §8.2 |
+| `get_project_status` tool | §8.2 |
+| `get_one_on_one_prep` tool | §8.2 |
+| `TaskIndexer` (embedding pipeline) | §8.4 |
+| `mv_assignee_workload` materialized view | §9 |
+| `mv_plan_weekly_velocity` materialized view | §9 |
+| `bulkUpdateWorkflow` | §10.1 |
+| `generateReportWorkflow` | §10.2 |
+| `task-detail.ts` card | §12 |
+| `workload.ts` card | §12 |
+| `scope-decline.ts` card | §12 |
+| Capacity warning inside `create_tasks_preview` | §8.3 |
 
 ### EP-11 · Analytics Agent
 
 | WBS | Task | Spec section |
 |---|---|---|
-| 11.1 | Agent definition + system prompt + tool registry | §6 |
-| 11.2 | Aggregation tools: `workload_by_assignee`, `tasks_by_status`, `tasks_by_plan` | §7.2 |
-| 11.3 | Chart-card Adaptive Card (Vega-Lite / `Chart.VerticalBar`, bar only) | §11 `chart-ybar.ts` |
-| 11.4 | AG-S review + integration smoke (Teams query → chart card) | §13.4 E2E |
+| 11.1 | Agent definition + system prompt + tool registry | §5, §7 |
+| 11.2 | Aggregation tools: `workload_by_assignee`, `tasks_by_status`, `tasks_by_plan` | §8.2 |
+| 11.3 | Chart-card Adaptive Card (Vega-Lite / `Chart.VerticalBar`, bar only) | §12 `chart-ybar.ts` |
+| 11.4 | AG-S review + integration smoke (Teams query → chart card) | §14.4 E2E |
 
 ### EP-13 · Teams channel (referenced items)
 
 | WBS | Task | Spec section |
 |---|---|---|
-| 13.5 | `bindPlanner(planner)` mounts Planner product behind the channel | §10 Teams handler |
-| 13.6 | Live smoke: round-trip in dev tunnel (SSE → card render) | §13.4 E2E |
+| 13.5 | `bindPlanner(planner)` mounts Planner product behind the channel | §11 Teams handler |
+| 13.6 | Live smoke: round-trip in dev tunnel (SSE → card render) | §14.4 E2E |
 
 ### EP-14 · `apps/api` composition (referenced items)
 
 | WBS | Task | Spec section |
 |---|---|---|
-| 14.3 | `main.ts` mounts kernel + memory + workflows + Teams channel + Planner product | §12 HTTP routes + §3.3 sync worker registration |
+| 14.3 | `main.ts` mounts kernel + memory + workflows + Teams channel + Planner product + seeder | §13 HTTP routes + §3.3 sync worker + §5.7 seeder |
 
 ---
 
-## 16. Open Questions
+## 17. Open Questions
 
 | # | Question | Default if unresolved |
 |---|---|---|
 | OQ-1 | ~~`assignee_ids` shape~~ **Resolved:** `text[]` native Postgres array with GIN index. Permission view uses `= ANY(t.assignee_ids)`. | — |
 | OQ-2 | `app.user_id` session variable — confirm it is not already set by existing middleware (only `app.tenant_id` is currently set). | Treat as new — set in Teams handler and REST run endpoints alongside `app.tenant_id`. |
-| OQ-3 | `REFRESH MATERIALIZED VIEW CONCURRENTLY` requires a unique index. | Unique indexes included in §8 DDL — follow as written. |
+| OQ-3 | `REFRESH MATERIALIZED VIEW CONCURRENTLY` requires a unique index. | Unique indexes included in §9 DDL — follow as written. |
 | OQ-4 | Proactive Teams notification (notifying an assignee after task creation) — confirm `@seta/teams` exposes `sendProactive(userId, card)` or equivalent. | If not available in P1, log the intent and skip the notification step. |
 | OQ-5 | `generateReportWorkflow` client-safe filter uses `metadata.labels` to detect internal tasks. Confirm `planner_tasks_cache.raw` contains Planner task categories/labels from Graph. | If not present in `raw`, use bucket name as proxy: bucket named 'Internal' → exclude from report. |
 | OQ-6 | `Chart.VerticalBar` element — confirm Teams desktop renders this element in Adaptive Card v1.5. If not supported in dev tunnel during E2E, fall back to `ColumnSet` table rendering and file a Teams compatibility note. | Fall back to `workload.ts` text card if chart element is unsupported in dev environment. |
+| OQ-7 | Agent profile LRU cache invalidation — confirm a single-instance cache is acceptable for P1 (multi-instance would need Redis pub/sub for invalidation). | Single-instance LRU acceptable for P1 (`profile:{tenantId}:{slugOrId}`, 5 min TTL). Redis invalidation deferred. |
+| OQ-8 | OpenAPI Action auth — `oauth2` flow requires storing client credentials per action. Confirm whether `agent.agent_actions.auth` should store encrypted secrets directly or reference the existing `oauth.oauth_tokens` table. | Store reference to `oauth.oauth_tokens` by `tenant_id` + provider key. Do not store raw secrets in `agent_actions`. |
 
 ---
 
