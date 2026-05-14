@@ -13,7 +13,7 @@ describe('routes', () => {
   })
 
   test('POST /messages with valid body returns 200', async () => {
-    const app = routes(stubHandler, { botId: 'test-bot', botSecret: 'secret' })
+    const app = routes(stubHandler, { botId: 'test-bot', botSecret: 'secret', skipJwtVerify: true })
     const body = {
       type: 'message',
       serviceUrl: 'https://smba.trafficmanager.net/apis',
