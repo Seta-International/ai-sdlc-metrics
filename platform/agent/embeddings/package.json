@@ -15,5 +15,10 @@
   },
   "license": "Apache-2.0",
   "type": "module",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@seta/agent-core": "workspace:*",
+    "openai": "6.37.0",
+    "zod": "4.4.3"
+  }
 }
