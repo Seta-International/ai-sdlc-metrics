@@ -303,6 +303,9 @@ importers:
       '@seta/middleware':
         specifier: workspace:*
         version: link:../../../platform/middleware
+      '@seta/observability':
+        specifier: workspace:*
+        version: link:../../../platform/observability
       '@seta/tenant':
         specifier: workspace:*
         version: link:../../../platform/tenant
@@ -352,6 +355,9 @@ importers:
       '@seta/middleware':
         specifier: workspace:*
         version: link:../../../platform/middleware
+      '@seta/observability':
+        specifier: workspace:*
+        version: link:../../../platform/observability
       '@seta/tenant':
         specifier: workspace:*
         version: link:../../../platform/tenant

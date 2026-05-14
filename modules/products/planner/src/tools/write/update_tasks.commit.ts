@@ -1,12 +1,15 @@
 import type { Tool } from '@seta/agent-core'
 import type { BatchRequest, GraphFetch } from '@seta/connector-ms365-planner'
 import { Unauthorized } from '@seta/middleware'
+import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
 import PQueue from 'p-queue'
 import { z } from 'zod'
 import type { OpResult } from './_classify'
 import { classifyBatchItem } from './_classify'
 import { ContinuationConsumed } from './_errors'
+
+const log = logger.child({ component: 'planner.update_tasks.commit' })
 
 export interface CommitDeps {
   registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }
@@ -99,6 +102,11 @@ export function updateTasksCommitTool(
     annotations: { destructiveHint: true, idempotentHint: true },
     async execute(input, _ctx) {
       try {
+        log.debug(
+          { tenantId: tenantContext.getTenantIdOrUndefined() },
+          'planner.update_tasks.commit.start',
+        )
+
         const tenantId = tenantContext.getTenantId()
         const userId = tenantContext.getUserId()
         if (!userId) throw new Unauthorized('no user context')
@@ -197,6 +205,7 @@ export function updateTasksCommitTool(
           },
         }
       } catch (e) {
+        log.error({ err: e }, 'planner.update_tasks.commit.failed')
         return { ok: false, error: { name: (e as Error).name, message: (e as Error).message } }
       }
     },

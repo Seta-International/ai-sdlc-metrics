@@ -1,8 +1,11 @@
 import type { Tool } from '@seta/agent-core'
 import { queryDisplayNames } from '@seta/connector-ms365-directory'
 import { queryPlanTitle, queryVisiblePlanIds } from '@seta/connector-ms365-planner'
+import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
+
+const log = logger.child({ component: 'analytics.workload_by_assignee' })
 
 type DbSql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>
 
@@ -52,6 +55,11 @@ export function workloadByAssigneeTool(
     annotations: { readOnlyHint: true, idempotentHint: true },
     async execute(input, _ctx) {
       try {
+        log.debug(
+          { tenantId: tenantContext.getTenantIdOrUndefined() },
+          'analytics.workload_by_assignee.start',
+        )
+
         const tenantId = tenantContext.getTenantId()
         const userId = tenantContext.getUserId()
 
@@ -95,6 +103,7 @@ export function workloadByAssigneeTool(
 
         return { ok: true, value: { rows, planName } }
       } catch (e) {
+        log.error({ err: e }, 'analytics.workload_by_assignee.failed')
         return { ok: false, error: { name: (e as Error).name, message: (e as Error).message } }
       }
     },

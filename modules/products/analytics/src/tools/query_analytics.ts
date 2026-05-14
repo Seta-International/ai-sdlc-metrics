@@ -7,10 +7,13 @@ import {
   queryUnassignedTasks,
   queryVisiblePlanIds,
 } from '@seta/connector-ms365-planner'
+import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
 import { LRUCache } from 'lru-cache'
 import { z } from 'zod'
 import type { AnalyticsToolDeps } from './workload_by_assignee'
+
+const log = logger.child({ component: 'analytics.query_analytics' })
 
 const Input = z.object({
   metric: z.enum([
@@ -52,6 +55,11 @@ export function queryAnalyticsTool(
     annotations: { readOnlyHint: true, idempotentHint: true },
     async execute(input, _ctx) {
       try {
+        log.debug(
+          { tenantId: tenantContext.getTenantIdOrUndefined() },
+          'analytics.query_analytics.start',
+        )
+
         const tenantId = tenantContext.getTenantId()
         const userId = tenantContext.getUserId()
         const cacheKey = `analytics:${tenantId}:${userId}:${JSON.stringify(input)}`
@@ -150,6 +158,7 @@ export function queryAnalyticsTool(
         cache.set(cacheKey, value)
         return { ok: true, value }
       } catch (e) {
+        log.error({ err: e }, 'analytics.query_analytics.failed')
         return { ok: false, error: { name: (e as Error).name, message: (e as Error).message } }
       }
     },

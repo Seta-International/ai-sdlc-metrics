@@ -1,9 +1,12 @@
 import type { Tool } from '@seta/agent-core'
 import type { EmbeddingProvider } from '@seta/agent-embeddings'
 import type { VectorChunk, VectorStore, VectorUpsertInput } from '@seta/agent-vector'
+import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
 import type { ReadToolDeps } from './list_my_tasks'
+
+const log = logger.child({ component: 'planner.search_tasks_semantic' })
 
 export type { EmbeddingProvider, VectorChunk, VectorStore, VectorUpsertInput }
 
@@ -42,6 +45,11 @@ export function searchTasksSemanticTool(
     annotations: { readOnlyHint: true, idempotentHint: true },
     async execute(input, _ctx) {
       try {
+        log.debug(
+          { tenantId: tenantContext.getTenantIdOrUndefined() },
+          'planner.search_tasks_semantic.start',
+        )
+
         const tenantId = tenantContext.getTenantId()
         const vec = await deps.embeddings.embed(input.query)
 
@@ -80,6 +88,7 @@ export function searchTasksSemanticTool(
 
         return { ok: true, value: { results } }
       } catch (e) {
+        log.error({ err: e }, 'planner.search_tasks_semantic.failed')
         return { ok: false, error: { name: (e as Error).name, message: (e as Error).message } }
       }
     },

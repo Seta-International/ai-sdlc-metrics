@@ -4,9 +4,12 @@ import {
   queryTaskCountByStatus,
   queryVisiblePlanIds,
 } from '@seta/connector-ms365-planner'
+import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
 import type { AnalyticsToolDeps } from './workload_by_assignee'
+
+const log = logger.child({ component: 'analytics.tasks_by_status' })
 
 const Input = z.object({ planId: z.string().optional() })
 const Output = z.object({
@@ -30,6 +33,11 @@ export function tasksByStatusTool(
     annotations: { readOnlyHint: true, idempotentHint: true },
     async execute(input, _ctx) {
       try {
+        log.debug(
+          { tenantId: tenantContext.getTenantIdOrUndefined() },
+          'analytics.tasks_by_status.start',
+        )
+
         const tenantId = tenantContext.getTenantId()
         const userId = tenantContext.getUserId()
 
@@ -71,6 +79,7 @@ export function tasksByStatusTool(
 
         return { ok: true, value: { rows, planName } }
       } catch (e) {
+        log.error({ err: e }, 'analytics.tasks_by_status.failed')
         return { ok: false, error: { name: (e as Error).name, message: (e as Error).message } }
       }
     },

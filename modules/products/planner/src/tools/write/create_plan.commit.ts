@@ -1,9 +1,12 @@
 import type { Tool } from '@seta/agent-core'
 import type { GraphFetch } from '@seta/connector-ms365-planner'
 import { Unauthorized } from '@seta/middleware'
+import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
 import { ContinuationConsumed } from './_errors'
+
+const log = logger.child({ component: 'planner.create_plan.commit' })
 
 export interface CreatePlanCommitDeps {
   registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }
@@ -51,6 +54,11 @@ export function createPlanCommitTool(
     annotations: { destructiveHint: true, idempotentHint: true },
     async execute(input, _ctx) {
       try {
+        log.debug(
+          { tenantId: tenantContext.getTenantIdOrUndefined() },
+          'planner.create_plan.commit.start',
+        )
+
         const tenantId = tenantContext.getTenantId()
         const userId = tenantContext.getUserId()
         if (!userId) throw new Unauthorized('no user context')
@@ -132,6 +140,7 @@ export function createPlanCommitTool(
           },
         }
       } catch (e) {
+        log.error({ err: e }, 'planner.create_plan.commit.failed')
         return { ok: false, error: { name: (e as Error).name, message: (e as Error).message } }
       }
     },

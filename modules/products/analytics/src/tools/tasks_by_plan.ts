@@ -1,8 +1,11 @@
 import type { Tool } from '@seta/agent-core'
 import { queryPlanTitles, queryVisiblePlanIds } from '@seta/connector-ms365-planner'
+import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
 import type { AnalyticsToolDeps } from './workload_by_assignee'
+
+const log = logger.child({ component: 'analytics.tasks_by_plan' })
 
 const Input = z.object({
   metric: z.enum(['open', 'overdue', 'completed_this_week']).default('open'),
@@ -31,6 +34,11 @@ export function tasksByPlanTool(
     annotations: { readOnlyHint: true, idempotentHint: true },
     async execute(input, _ctx) {
       try {
+        log.debug(
+          { tenantId: tenantContext.getTenantIdOrUndefined() },
+          'analytics.tasks_by_plan.start',
+        )
+
         const tenantId = tenantContext.getTenantId()
         const userId = tenantContext.getUserId()
 
@@ -76,6 +84,7 @@ export function tasksByPlanTool(
 
         return { ok: true, value: { rows } }
       } catch (e) {
+        log.error({ err: e }, 'analytics.tasks_by_plan.failed')
         return { ok: false, error: { name: (e as Error).name, message: (e as Error).message } }
       }
     },
