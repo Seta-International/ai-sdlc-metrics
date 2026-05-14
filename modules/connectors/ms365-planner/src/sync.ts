@@ -4,25 +4,26 @@ import { createPlannerClient } from './client.js'
 type DbSql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>
 type SqlWithArray = DbSql & { array(arr: unknown[]): unknown[] }
 
+interface PlanRow {
+  id: string
+  ownerGroupId: string | null
+  raw: unknown
+}
+
 export interface PlannerSyncWorkerDeps {
   sql: SqlWithArray
   graph: GraphFetch
   getAppToken: (tenantId: string) => Promise<string>
   intervalMs?: number
   afterSync?: (tenantId: string, changedTaskIds: string[]) => Promise<void>
+  onSyncError?: (tenantId: string, err: unknown) => void
 }
 
 const SYNC_ACTOR = { type: 'system' as const, label: 'planner-sync' }
 
 export function createPlannerSyncWorker(deps: PlannerSyncWorkerDeps) {
-  const { sql, graph, getAppToken, intervalMs = 3 * 60 * 1000, afterSync } = deps
+  const { sql, graph, getAppToken, intervalMs = 3 * 60 * 1000, afterSync, onSyncError } = deps
   let timer: ReturnType<typeof setInterval> | null = null
-
-  interface PlanRow {
-    id: string
-    ownerGroupId: string | null
-    raw: unknown
-  }
 
   async function upsertPlansBatch(tenantId: string, plans: PlanRow[]): Promise<void> {
     for (const plan of plans) {
@@ -235,7 +236,7 @@ export function createPlannerSyncWorker(deps: PlannerSyncWorkerDeps) {
       timer = setInterval(() => {
         for (const tenantId of tenantIds) {
           syncTenant(tenantId).catch((err) => {
-            void err
+            onSyncError?.(tenantId, err)
           })
         }
       }, intervalMs)
