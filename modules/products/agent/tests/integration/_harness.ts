@@ -2,7 +2,7 @@ import type { ToolExecutionContext } from '@seta/agent-core'
 import type { createPool } from '@seta/db'
 import type { createGraphFetch } from '@seta/ms-graph'
 import { tenantContext } from '@seta/tenant'
-import { createPlannerTools } from '../../src/index.js'
+import { createPlannerTools } from '../../src/index'
 
 export const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://seta:dev@localhost:5432/seta'
 export const TEST_TENANT_ID = '99999999-0000-0000-0000-000000000001'

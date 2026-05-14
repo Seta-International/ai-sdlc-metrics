@@ -1,7 +1,7 @@
 import { type DbSql, withTenant } from '@seta/db'
 import type { GraphFetch } from '@seta/ms-graph'
 import { logger } from '@seta/observability'
-import { createPlannerClient } from './client.js'
+import { createPlannerClient } from './client'
 
 interface PlanRow {
   id: string
