@@ -10,7 +10,7 @@
 
 ## 1. Goals & Scope
 
-The Planner Agent and Analytics Agent are the first two agents in the SETA ERP system. Each lives in its own product module (`@seta/planner`, `@seta/analytics`). The shared agent platform infrastructure lives in `platform/agent/server` (`@seta/agent-server`). Teams is the first user-facing channel (`@seta/teams`). The FAQ Agent is covered in a separate spec.
+The Planner Agent and Analytics Agent are the first two agents in the SETA ERP system. Each lives in its own product module (`@seta/planner`, `@seta/analytics`). The shared agent platform infrastructure lives in `platform/agent/server` (`@seta/agent-server`). Teams is the first user-facing channel (`@seta/ms-teams`). The FAQ Agent is covered in a separate spec.
 
 **In scope:**
 - DB-first task reads — delta-poll sync, no per-request Graph calls on reads
@@ -55,7 +55,7 @@ platform/agent/
 
 modules/
   channels/
-    teams/  @seta/teams              Channel #1 — first user interface
+    teams/  @seta/ms-teams              Channel #1 — first user interface
               TeamsHandler: trigger routing, OBO token, Adaptive Card reply
               Calls @seta/agent-server run pipeline; no business logic here
 
@@ -83,7 +83,7 @@ modules/
 apps/api  (composition root — no business logic)
   Registers @seta/planner tools + @seta/analytics tools into the tool registry
   Mounts @seta/agent-server routes at /agent
-  Mounts @seta/teams routes
+  Mounts @seta/ms-teams routes
   Starts planner sync worker + task indexer afterSync hook
   Calls seedSystemAgentProfiles() on boot
 ```
@@ -94,7 +94,7 @@ apps/api  (composition root — no business logic)
 Teams activity
      │
      ▼
-modules/channels/teams  (@seta/teams)
+modules/channels/teams  (@seta/ms-teams)
   JWT verify, OBO refresh
   TeamsHandler: strip @mention → selectSlug → resolve thread ID
      │ calls agent-server run pipeline
@@ -1386,7 +1386,7 @@ All via `pnpm --filter @seta/<pkg> add`. New packages created via `pnpm new:pack
 | `@seta/planner` | `@seta/agent-core@workspace:*` `@seta/agent-embeddings@workspace:*` `@seta/agent-vector@workspace:*` `@seta/agent-workflows@workspace:*` `@seta/agent-memory@workspace:*` `@seta/connector-ms365-planner@workspace:*` `@seta/connector-ms365-directory@workspace:*` `@seta/connector-registry@workspace:*` `@seta/audit@workspace:*` |
 | `@seta/analytics` | `@seta/agent-core@workspace:*` `@seta/connector-ms365-planner@workspace:*` `@seta/connector-ms365-directory@workspace:*` `adaptivecards-templating@2.3.1` |
 | `@seta/connector-ms365-planner` | No new external deps — schema additions only (`plan_members`, `sync_watermarks.delta_token`) |
-| `@seta/teams` | `@seta/agent-server@workspace:*` (to call run pipeline) |
+| `@seta/ms-teams` | `@seta/agent-server@workspace:*` (to call run pipeline) |
 
 ### Deleted package
 
@@ -1394,7 +1394,7 @@ All via `pnpm --filter @seta/<pkg> add`. New packages created via `pnpm new:pack
 - Planner tools + write_continuations schema + permission views → `@seta/planner`
 - Analytics tools + materialized views → `@seta/analytics`
 - Profile management + HTTP routes + seeder → `@seta/agent-server`
-- TeamsHandler → `@seta/teams` (already the right package)
+- TeamsHandler → `@seta/ms-teams` (already the right package)
 
 ---
 
@@ -1462,7 +1462,7 @@ Maps every WBS task from `docs/plans/Project Plan.md` to the spec section that c
 | 11.3 | Chart-card Adaptive Card (`Chart.VerticalBar`) | `@seta/analytics` | §12 `chart-ybar.ts` |
 | 11.4 | AG-S review + integration smoke (Teams query → chart card) | — | §14.4 E2E |
 
-### EP-13 · Teams channel (`@seta/teams`)
+### EP-13 · Teams channel (`@seta/ms-teams`)
 
 | WBS | Task | Spec section |
 |---|---|---|
@@ -1473,7 +1473,7 @@ Maps every WBS task from `docs/plans/Project Plan.md` to the spec section that c
 
 | WBS | Task | Spec section |
 |---|---|---|
-| 14.3 | `main.ts` creates tool registry, registers planner + analytics tools, mounts `@seta/agent-server` + `@seta/teams` routes, starts sync worker, calls seeder | §13 HTTP routes + §3.3 sync worker + §5.7 seeder |
+| 14.3 | `main.ts` creates tool registry, registers planner + analytics tools, mounts `@seta/agent-server` + `@seta/ms-teams` routes, starts sync worker, calls seeder | §13 HTTP routes + §3.3 sync worker + §5.7 seeder |
 
 ---
 
@@ -1484,7 +1484,7 @@ Maps every WBS task from `docs/plans/Project Plan.md` to the spec section that c
 | OQ-1 | ~~`assignee_ids` shape~~ **Resolved:** `text[]` native Postgres array with GIN index. Permission view uses `= ANY(t.assignee_ids)`. | — |
 | OQ-2 | `app.user_id` session variable — confirm it is not already set by existing middleware (only `app.tenant_id` is currently set). | Treat as new — set in Teams handler and REST run endpoints alongside `app.tenant_id`. |
 | OQ-3 | `REFRESH MATERIALIZED VIEW CONCURRENTLY` requires a unique index. | Unique indexes included in §9 DDL — follow as written. |
-| OQ-4 | Proactive Teams notification (notifying an assignee after task creation) — confirm `@seta/teams` exposes `sendProactive(userId, card)` or equivalent. | If not available in P1, log the intent and skip the notification step. |
+| OQ-4 | Proactive Teams notification (notifying an assignee after task creation) — confirm `@seta/ms-teams` exposes `sendProactive(userId, card)` or equivalent. | If not available in P1, log the intent and skip the notification step. |
 | OQ-5 | `generateReportWorkflow` client-safe filter uses `metadata.labels` to detect internal tasks. Confirm `planner_tasks_cache.raw` contains Planner task categories/labels from Graph. | If not present in `raw`, use bucket name as proxy: bucket named 'Internal' → exclude from report. |
 | OQ-6 | `Chart.VerticalBar` element — confirm Teams desktop renders this element in Adaptive Card v1.5. If not supported in dev tunnel during E2E, fall back to `ColumnSet` table rendering and file a Teams compatibility note. | Fall back to `workload.ts` text card if chart element is unsupported in dev environment. |
 | OQ-7 | Agent profile LRU cache invalidation — confirm a single-instance cache is acceptable for P1 (multi-instance would need Redis pub/sub for invalidation). | Single-instance LRU acceptable for P1 (`profile:{tenantId}:{slugOrId}`, 5 min TTL). Redis invalidation deferred. |
