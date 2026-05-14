@@ -7,7 +7,9 @@ import { WorkingMemoryTooLargeError } from '../../src/errors'
 import { ensureThread } from '../../src/save-turn'
 import {
   readWorkingMemory,
+  readWorkingMemoryByResource,
   upsertWorkingMemory,
+  upsertWorkingMemoryByResource,
   WORKING_MEMORY_BYTE_CAP,
 } from '../../src/working-memory'
 import { ensureMigrations, TEST_DATABASE_URL, testSql, truncateMemoryTables } from './_helpers'
@@ -82,6 +84,54 @@ describe('working memory', () => {
         await expect(
           upsertWorkingMemory(tx, TENANT, threadId, 'a'.repeat(WORKING_MEMORY_BYTE_CAP + 1)),
         ).rejects.toBeInstanceOf(WorkingMemoryTooLargeError)
+      })
+    })
+  })
+
+  describe('resource-scoped (scope: resource)', () => {
+    it('read on missing resource returns null', async () => {
+      await tenantContext.run({ tenantId: TENANT, userId: 'bob' }, async () => {
+        await withTenant(testSql(), TENANT, async (tx) => {
+          const wm = await readWorkingMemoryByResource(tx, TENANT, 'bob')
+          expect(wm).toBeNull()
+        })
+      })
+    })
+
+    it('write then read round-trips without a thread', async () => {
+      await tenantContext.run({ tenantId: TENANT, userId: 'alice' }, async () => {
+        await withTenant(testSql(), TENANT, async (tx) => {
+          await upsertWorkingMemoryByResource(tx, TENANT, 'alice', 'remember: pasta')
+          const wm = await readWorkingMemoryByResource(tx, TENANT, 'alice')
+          expect(wm).toBe('remember: pasta')
+        })
+      })
+    })
+
+    it('resource memory survives across threads for the same user', async () => {
+      const thread1 = randomUUID()
+      const thread2 = randomUUID()
+
+      await tenantContext.run({ tenantId: TENANT, userId: 'alice' }, async () => {
+        await withTenant(testSql(), TENANT, async (tx) => {
+          await ensureThread(tx, TENANT, thread1)
+          await upsertWorkingMemoryByResource(tx, TENANT, 'alice', 'cross-thread note')
+        })
+        await withTenant(testSql(), TENANT, async (tx) => {
+          await ensureThread(tx, TENANT, thread2)
+          const wm = await readWorkingMemoryByResource(tx, TENANT, 'alice')
+          expect(wm).toBe('cross-thread note')
+        })
+      })
+    })
+
+    it('rejects 8193 bytes with WorkingMemoryTooLargeError', async () => {
+      await tenantContext.run({ tenantId: TENANT, userId: 'alice' }, async () => {
+        await withTenant(testSql(), TENANT, async (tx) => {
+          await expect(
+            upsertWorkingMemoryByResource(tx, TENANT, 'alice', 'a'.repeat(WORKING_MEMORY_BYTE_CAP + 1)),
+          ).rejects.toBeInstanceOf(WorkingMemoryTooLargeError)
+        })
       })
     })
   })

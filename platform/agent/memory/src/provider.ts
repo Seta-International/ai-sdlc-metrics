@@ -8,7 +8,32 @@ import { actorFromContext } from './audit'
 import { MemoryPersistFailedError, WorkingMemoryTooLargeError } from './errors'
 import { fetchRecallPage, trimToTokenBudget } from './recall'
 import { ensureThread, saveMessages } from './save-turn'
-import { readWorkingMemory, upsertWorkingMemory } from './working-memory'
+import type { Thread } from './schema'
+import {
+  createThread,
+  deleteThread,
+  getThreadById,
+  listThreads,
+  saveThread,
+  updateThread,
+} from './thread-crud'
+import type {
+  CreateThreadInput,
+  DeleteThreadInput,
+  GetThreadInput,
+  ListThreadsOptions,
+  ListThreadsResult,
+  SaveThreadArgs,
+  SaveThreadInput,
+  ThreadPatch,
+  UpdateThreadInput,
+} from './thread-crud'
+import {
+  readWorkingMemory,
+  readWorkingMemoryByResource,
+  upsertWorkingMemory,
+  upsertWorkingMemoryByResource,
+} from './working-memory'
 
 export interface AgentMemoryProviderOptions {
   sql: DbSql
@@ -109,17 +134,30 @@ export class AgentMemoryProvider implements MemoryProvider {
     const tenantId = tenantContext.getTenantId()
     try {
       return await withTenant(this.opts.sql, tenantId, async (tx) => {
-        const { resourceId, workingMemory } = await readWorkingMemory(tx, tenantId, ctx.threadId)
+        if (ctx.scope === 'resource') {
+          const userId = tenantContext.getUserId() ?? null
+          if (!userId) return null
+          const workingMemory = await readWorkingMemoryByResource(tx, tenantId, userId)
+          await recordAudit(tx as unknown as Sql, {
+            tenantId,
+            actor: actorFromContext(),
+            operation: 'memory.get_working_memory',
+            resource: { type: 'resource', ids: [userId] },
+            result: 'ok',
+            metadata: { scope: 'resource', hit: workingMemory != null },
+          })
+          return workingMemory
+        }
 
+        const { resourceId, workingMemory } = await readWorkingMemory(tx, tenantId, ctx.threadId)
         await recordAudit(tx as unknown as Sql, {
           tenantId,
           actor: actorFromContext(),
           operation: 'memory.get_working_memory',
           ...(resourceId ? { resource: { type: 'resource', ids: [resourceId] } } : {}),
           result: 'ok',
-          metadata: { threadId: ctx.threadId, hit: workingMemory != null },
+          metadata: { scope: 'thread', threadId: ctx.threadId, hit: workingMemory != null },
         })
-
         return workingMemory
       })
     } catch (err) {
@@ -131,8 +169,33 @@ export class AgentMemoryProvider implements MemoryProvider {
     const tenantId = tenantContext.getTenantId()
     try {
       await withTenant(this.opts.sql, tenantId, async (tx) => {
-        const r = await upsertWorkingMemory(tx, tenantId, ctx.threadId, text)
+        if (ctx.scope === 'resource') {
+          const userId = tenantContext.getUserId() ?? null
+          if (!userId) {
+            await recordAudit(tx as unknown as Sql, {
+              tenantId,
+              actor: actorFromContext(),
+              operation: 'memory.update_working_memory',
+              result: 'failure',
+              metadata: { scope: 'resource', reason: 'no_user_id' },
+            })
+            logger.warn({ threadId: ctx.threadId }, 'memory.update_working_memory.skipped: no_user_id')
+            return
+          }
+          await upsertWorkingMemoryByResource(tx, tenantId, userId, text)
+          await recordAudit(tx as unknown as Sql, {
+            tenantId,
+            actor: actorFromContext(),
+            operation: 'memory.update_working_memory',
+            resource: { type: 'resource', ids: [userId] },
+            result: 'ok',
+            metadata: { scope: 'resource', bytes: Buffer.byteLength(text, 'utf8') },
+          })
+          logger.debug({ resourceId: userId, bytes: Buffer.byteLength(text, 'utf8') }, 'memory.update_working_memory')
+          return
+        }
 
+        const r = await upsertWorkingMemory(tx, tenantId, ctx.threadId, text)
         if (r.skipped) {
           await recordAudit(tx as unknown as Sql, {
             tenantId,
@@ -140,12 +203,9 @@ export class AgentMemoryProvider implements MemoryProvider {
             operation: 'memory.update_working_memory',
             resource: { type: 'thread', ids: [ctx.threadId] },
             result: 'failure',
-            metadata: { reason: r.reason },
+            metadata: { scope: 'thread', reason: r.reason },
           })
-          logger.warn(
-            { threadId: ctx.threadId, reason: r.reason },
-            'memory.update_working_memory.skipped',
-          )
+          logger.warn({ threadId: ctx.threadId, reason: r.reason }, 'memory.update_working_memory.skipped')
           return
         }
 
@@ -155,17 +215,84 @@ export class AgentMemoryProvider implements MemoryProvider {
           operation: 'memory.update_working_memory',
           resource: { type: 'resource', ids: [r.resourceId] },
           result: 'ok',
-          metadata: { bytes: Buffer.byteLength(text, 'utf8') },
+          metadata: { scope: 'thread', bytes: Buffer.byteLength(text, 'utf8') },
         })
-
-        logger.debug(
-          { resourceId: r.resourceId, bytes: Buffer.byteLength(text, 'utf8') },
-          'memory.update_working_memory',
-        )
+        logger.debug({ resourceId: r.resourceId, bytes: Buffer.byteLength(text, 'utf8') }, 'memory.update_working_memory')
       })
     } catch (err) {
       // USER-class errors (cap exceeded) must reach the caller; only wrap SYSTEM failures.
       if (err instanceof WorkingMemoryTooLargeError) throw err
+      throw new MemoryPersistFailedError(err)
+    }
+  }
+
+  async getThread(threadId: string): Promise<Thread | null> {
+    return this.getThreadById({ threadId })
+  }
+
+  async getThreadById(input: GetThreadInput): Promise<Thread | null> {
+    const tenantId = tenantContext.getTenantId()
+    try {
+      return await withTenant(this.opts.sql, tenantId, (tx) => getThreadById(tx, tenantId, input))
+    } catch (err) {
+      throw new MemoryPersistFailedError(err)
+    }
+  }
+
+  async listThreads(opts?: ListThreadsOptions): Promise<ListThreadsResult> {
+    const tenantId = tenantContext.getTenantId()
+    try {
+      return await withTenant(this.opts.sql, tenantId, (tx) => listThreads(tx, tenantId, opts))
+    } catch (err) {
+      throw new MemoryPersistFailedError(err)
+    }
+  }
+
+  async createThread(input: CreateThreadInput): Promise<Thread> {
+    const tenantId = tenantContext.getTenantId()
+    try {
+      return await withTenant(this.opts.sql, tenantId, (tx) => createThread(tx, tenantId, input))
+    } catch (err) {
+      throw new MemoryPersistFailedError(err)
+    }
+  }
+
+  async saveThread(input: SaveThreadInput | SaveThreadArgs): Promise<Thread> {
+    const tenantId = tenantContext.getTenantId()
+    try {
+      return await withTenant(this.opts.sql, tenantId, (tx) => saveThread(tx, tenantId, input))
+    } catch (err) {
+      throw new MemoryPersistFailedError(err)
+    }
+  }
+
+  async updateThread(input: UpdateThreadInput): Promise<Thread | null>
+  async updateThread(threadId: string, patch: ThreadPatch): Promise<Thread | null>
+  async updateThread(inputOrThreadId: UpdateThreadInput | string, patch?: ThreadPatch): Promise<Thread | null> {
+    let input: UpdateThreadInput
+    if (typeof inputOrThreadId === 'string') {
+      if (!patch) {
+        throw new MemoryPersistFailedError(new Error('updateThread patch is required'))
+      }
+      input = { id: inputOrThreadId, title: patch.title, metadata: patch.metadata }
+    } else {
+      input = inputOrThreadId
+    }
+    const tenantId = tenantContext.getTenantId()
+    try {
+      return await withTenant(this.opts.sql, tenantId, (tx) => updateThread(tx, tenantId, input))
+    } catch (err) {
+      throw new MemoryPersistFailedError(err)
+    }
+  }
+
+  async deleteThread(input: DeleteThreadInput): Promise<void>
+  async deleteThread(threadId: string): Promise<void>
+  async deleteThread(input: DeleteThreadInput | string): Promise<void> {
+    const tenantId = tenantContext.getTenantId()
+    try {
+      await withTenant(this.opts.sql, tenantId, (tx) => deleteThread(tx, tenantId, input))
+    } catch (err) {
       throw new MemoryPersistFailedError(err)
     }
   }

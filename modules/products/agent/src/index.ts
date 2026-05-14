@@ -1,3 +1,5 @@
+import type { AgentConfig } from '@seta/agent-core'
+export { createThreadRoutes } from './routes'
 import type { PlannerClient } from '@seta/connector-ms365-planner'
 import {
   createEtagStore,
@@ -28,6 +30,14 @@ import {
   updateTasksPreviewTool,
   workloadAnalysisTool,
 } from './tools/planner/index.js'
+
+export const PLANNER_AGENT_CONFIG: AgentConfig = {
+  model: 'anthropic/claude-haiku-4-5',
+  systemPrompt:
+    'You are the Seta Planner agent. Help users manage their Microsoft Planner tasks. ' +
+    'Use available tools to read and write tasks. Always confirm destructive actions before executing.',
+  cacheTtl: '5m',
+}
 
 type DbSql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>
 

@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server'
-import { createPlannerTools } from '@seta/agent'
-import type { Tool, ToolExecutionContext } from '@seta/agent-core'
+import { createPlannerTools, createThreadRoutes, PLANNER_AGENT_CONFIG } from '@seta/agent'
+import { run as runKernel, streamKernelSSE } from '@seta/agent-core'
+import type { RunInput, Tool, ToolExecutionContext } from '@seta/agent-core'
 import { createAuditWriter } from '@seta/audit'
 import { directoryConnector } from '@seta/connector-ms365-directory'
 import { plannerConnector } from '@seta/connector-ms365-planner'
@@ -16,8 +17,8 @@ import {
 } from '@seta/oauth'
 import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
-import { Hono } from 'hono'
-import './agent'
+import { Hono, type Context } from 'hono'
+import { agentMemory, agentRegistry } from './agent'
 import { sql } from './db'
 import { env } from './env'
 
@@ -106,6 +107,29 @@ app.route(
     },
   }),
 )
+
+app.route('/v1/threads', createThreadRoutes(agentMemory))
+
+app.post('/agent/run', async (c: Context) => {
+  const tenantId = c.req.header('x-tenant-id')
+  const userId = c.req.header('x-user-id')
+  if (!tenantId) return c.json({ error: 'X-Tenant-Id header required' }, 400)
+
+  const body = await c.req.json<RunInput>()
+
+  return tenantContext.run(
+    { tenantId, ...(userId ? { userId } : {}) },
+    () =>
+      streamKernelSSE(
+        c,
+        runKernel(
+          { ...PLANNER_AGENT_CONFIG, tools: plannerTools },
+          body,
+          { adapters: agentRegistry, memory: agentMemory, signal: c.req.raw.signal },
+        ),
+      ),
+  )
+})
 
 if (env.NODE_ENV !== 'production') {
   app.post('/v1/tools/invoke', async (c) => {
