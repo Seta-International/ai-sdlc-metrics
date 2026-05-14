@@ -1,6 +1,9 @@
 import { GraphNotFound, GraphUnavailable } from '@seta/ms-graph'
+import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
 import type { PlannerClient } from './client'
+
+const log = logger.child({ component: 'planner-cache' })
 
 export type ReadSource = 'cache:fresh' | 'cache:stale-fallback' | 'live'
 
@@ -93,10 +96,12 @@ function buildEntityCache(opts: EntityCacheOpts) {
         const ageMs = currentMs - row.syncedAt.getTime()
         const ageSeconds = ageMs / 1000
         if (ageSeconds < ttlSec) {
+          log.debug({ id, ageSeconds }, 'cache.hit')
           return { source: 'cache:fresh', data: row.raw, ageSeconds }
         }
       }
 
+      log.debug({ id }, 'cache.miss')
       try {
         const result = await fetchLive(id)
         await ops.upsertLive(sql, tenantId, id, result.etag, result.data)
@@ -114,6 +119,7 @@ function buildEntityCache(opts: EntityCacheOpts) {
             const ageMs = currentMs - row.syncedAt.getTime()
             const ageSeconds = ageMs / 1000
             if (ageSeconds < staleFallbackMaxSec) {
+              log.warn({ id, ageSeconds }, 'cache.stale-fallback')
               return { source: 'cache:stale-fallback', data: row.raw, ageSeconds }
             }
           }
