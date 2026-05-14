@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import type { TeamsHandler } from './index.js'
-import { routes } from './index.js'
+import type { TeamsHandler } from './index'
+import { routes } from './index'
 
 const stubHandler: TeamsHandler = async () => null
 
