@@ -26,7 +26,6 @@
     "@seta/connector-ms365-planner": "workspace:*",
     "@seta/db": "workspace:*",
     "@seta/middleware": "workspace:*",
-    "@seta/ms-graph": "workspace:*",
     "@seta/tenant": "workspace:*",
     "drizzle-orm": "0.45.2",
     "p-queue": "8.1.0",

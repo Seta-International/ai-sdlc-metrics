@@ -1,3 +1,4 @@
+export type { BatchRequest, BatchResponseItem, GraphFetch } from '@seta/ms-graph'
 export type { PlannerCache, PlannerCacheDeps, ReadResult, ReadSource } from './cache'
 export { createPlannerCache } from './cache'
 export type { CreateTaskInput, PlannerClient, TaskUpdate } from './client'

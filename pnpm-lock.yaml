@@ -349,9 +349,6 @@ importers:
       '@seta/middleware':
         specifier: workspace:*
         version: link:../../../platform/middleware
-      '@seta/ms-graph':
-        specifier: workspace:*
-        version: link:../../../platform/ms-graph
       '@seta/tenant':
         specifier: workspace:*
         version: link:../../../platform/tenant

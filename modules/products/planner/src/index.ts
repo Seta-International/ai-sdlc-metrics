@@ -1,6 +1,5 @@
 import type { Tool } from '@seta/agent-core'
-import type { PlannerCache, PlannerClient } from '@seta/connector-ms365-planner'
-import type { GraphFetch } from '@seta/ms-graph'
+import type { GraphFetch, PlannerCache, PlannerClient } from '@seta/connector-ms365-planner'
 import { getOneOnOnePrepTool } from './tools/read/get_one_on_one_prep'
 import { getProjectStatusTool } from './tools/read/get_project_status'
 import { getTaskTool } from './tools/read/get_task'

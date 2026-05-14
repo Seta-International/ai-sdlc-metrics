@@ -1,4 +1,4 @@
-import type { BatchResponseItem } from '@seta/ms-graph'
+import type { BatchResponseItem } from '@seta/connector-ms365-planner'
 
 export type OpStatus = 'ok' | 'conflict' | 'forbidden' | 'missing' | 'rate_limited' | 'failed'
 export interface OpResult {

@@ -1,6 +1,6 @@
 import type { Tool } from '@seta/agent-core'
+import type { BatchRequest, GraphFetch } from '@seta/connector-ms365-planner'
 import { Unauthorized } from '@seta/middleware'
-import type { BatchRequest, GraphFetch } from '@seta/ms-graph'
 import { tenantContext } from '@seta/tenant'
 import PQueue from 'p-queue'
 import { z } from 'zod'
