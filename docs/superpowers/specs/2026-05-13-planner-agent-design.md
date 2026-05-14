@@ -123,6 +123,8 @@ platform/agent/core  (@seta/agent-core)
 
 **Key principle — ERP module pattern:** Each ERP module (`@seta/planner`, `@seta/analytics`, future `@seta/timesheet`, `@seta/finance`) owns its own tools, schema, cards, and agent seed profile. Modules never import from each other. They are registered into the shared tool registry by `apps/api` at startup. Teams is the first channel; future channels (web chat, Slack, mobile) follow the same pattern — they call into `@seta/agent-server` without knowing which ERP module's tools are registered.
 
+**Note — future ERP modules:** Timesheet and Finance are SETA's own product modules with data stored natively in Postgres — not MS365 integrations and not connector-synced. P1 analytics is scoped to Planner data only (`connector_ms365_planner.*` via sync). Cross-product analytics (aggregating planner + timesheet + finance) is a P2+ concern requiring a separate design: products cannot import each other per CLAUDE.md, so cross-product aggregation will need a platform-level analytics schema that products publish into, or a dedicated analytics agent profile composed of tools from multiple products via the tool registry.
+
 ---
 
 ## 3. Data Sync Layer
@@ -1487,6 +1489,7 @@ Maps every WBS task from `docs/plans/Project Plan.md` to the spec section that c
 | OQ-6 | `Chart.VerticalBar` element — confirm Teams desktop renders this element in Adaptive Card v1.5. If not supported in dev tunnel during E2E, fall back to `ColumnSet` table rendering and file a Teams compatibility note. | Fall back to `workload.ts` text card if chart element is unsupported in dev environment. |
 | OQ-7 | Agent profile LRU cache invalidation — confirm a single-instance cache is acceptable for P1 (multi-instance would need Redis pub/sub for invalidation). | Single-instance LRU acceptable for P1 (`profile:{tenantId}:{slugOrId}`, 5 min TTL). Redis invalidation deferred. |
 | OQ-8 | OpenAPI Action auth — `oauth2` flow requires storing client credentials per action. Confirm whether `agent.agent_actions.auth` should store encrypted secrets directly or reference the existing `oauth.oauth_tokens` table. | Store reference to `oauth.oauth_tokens` by `tenant_id` + provider key. Do not store raw secrets in `agent_actions`. |
+| OQ-9 | Cross-product analytics (P2+) — when Timesheet and Finance product modules exist (native Postgres, not MS365-synced), analytics aggregation across modules violates the no-cross-product-import rule. Design options: (a) products publish summary rows into a shared `analytics.*` schema; (b) analytics agent profile is composed of tools from multiple products via the tool registry at `apps/api` composition time. | Defer to P2+ design. P1 analytics is Planner-data-only. |
 
 ---
 
