@@ -15,7 +15,7 @@ describe('public constants', () => {
     expect(EMBEDDING_DIMENSIONS).toBe(1536)
   })
 
-  test('EMBEDDING_BATCH_SIZE is 100 (P1 conservative pin)', () => {
+  test('EMBEDDING_BATCH_SIZE is 100 (conservative batch pin)', () => {
     expect(EMBEDDING_BATCH_SIZE).toBe(100)
   })
 
