@@ -329,6 +329,58 @@ importers:
         specifier: 4.1.6
         version: 4.1.6(@opentelemetry/api@1.9.1)(@types/node@25.7.0)(@vitest/coverage-v8@4.1.6)(msw@2.7.0(@types/node@25.7.0)(typescript@6.0.3))(vite@8.0.11(@types/node@25.7.0)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.4))
 
+  modules/products/planner:
+    dependencies:
+      '@seta/agent-core':
+        specifier: workspace:*
+        version: link:../../../platform/agent/core
+      '@seta/agent-embeddings':
+        specifier: workspace:*
+        version: link:../../../platform/agent/embeddings
+      '@seta/agent-server':
+        specifier: workspace:*
+        version: link:../../../platform/agent/server
+      '@seta/agent-vector':
+        specifier: workspace:*
+        version: link:../../../platform/agent/vector
+      '@seta/agent-workflows':
+        specifier: workspace:*
+        version: link:../../../platform/agent/workflows
+      '@seta/connector-ms365-directory':
+        specifier: workspace:*
+        version: link:../../connectors/ms365-directory
+      '@seta/connector-ms365-planner':
+        specifier: workspace:*
+        version: link:../../connectors/ms365-planner
+      '@seta/db':
+        specifier: workspace:*
+        version: link:../../../platform/db
+      '@seta/middleware':
+        specifier: workspace:*
+        version: link:../../../platform/middleware
+      '@seta/ms-graph':
+        specifier: workspace:*
+        version: link:../../../platform/ms-graph
+      '@seta/tenant':
+        specifier: workspace:*
+        version: link:../../../platform/tenant
+      drizzle-orm:
+        specifier: 0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(postgres@3.4.9)
+      p-queue:
+        specifier: 8.1.0
+        version: 8.1.0
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      drizzle-kit:
+        specifier: 0.31.10
+        version: 0.31.10
+      tsup:
+        specifier: 8.5.1
+        version: 8.5.1(postcss@8.5.14)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.4)
+
   platform/agent/chunking:
     dependencies:
       '@seta/agent-core':
@@ -414,6 +466,18 @@ importers:
       vitest:
         specifier: 4.1.6
         version: 4.1.6(@opentelemetry/api@1.9.1)(@types/node@25.7.0)(@vitest/coverage-v8@4.1.6)(msw@2.14.6(@types/node@25.7.0)(typescript@6.0.3))(vite@8.0.11(@types/node@25.7.0)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.4))
+
+  platform/agent/embeddings:
+    devDependencies:
+      '@seta/tsconfig':
+        specifier: workspace:*
+        version: link:../../tsconfig
+      '@types/node':
+        specifier: ^25.7.0
+        version: 25.7.0
+      tsup:
+        specifier: 8.5.1
+        version: 8.5.1(postcss@8.5.14)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.4)
 
   platform/agent/memory:
     dependencies:
@@ -531,6 +595,18 @@ importers:
       drizzle-kit:
         specifier: 0.31.10
         version: 0.31.10
+      tsup:
+        specifier: 8.5.1
+        version: 8.5.1(postcss@8.5.14)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.4)
+
+  platform/agent/vector:
+    devDependencies:
+      '@seta/tsconfig':
+        specifier: workspace:*
+        version: link:../../tsconfig
+      '@types/node':
+        specifier: ^25.7.0
+        version: 25.7.0
       tsup:
         specifier: 8.5.1
         version: 8.5.1(postcss@8.5.14)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.4)
@@ -6582,7 +6658,7 @@ snapshots:
 
   '@types/bunyan@1.8.11':
     dependencies:
-      '@types/node': 24.12.3
+      '@types/node': 25.7.0
 
   '@types/chai@5.2.3':
     dependencies:
@@ -6591,7 +6667,7 @@ snapshots:
 
   '@types/connect@3.4.38':
     dependencies:
-      '@types/node': 24.12.3
+      '@types/node': 25.7.0
 
   '@types/cookie@0.6.0': {}
 
@@ -6605,11 +6681,11 @@ snapshots:
 
   '@types/memcached@2.2.10':
     dependencies:
-      '@types/node': 24.12.3
+      '@types/node': 25.7.0
 
   '@types/mysql@2.15.27':
     dependencies:
-      '@types/node': 24.12.3
+      '@types/node': 25.7.0
 
   '@types/node@12.20.55': {}
 
@@ -6623,7 +6699,7 @@ snapshots:
 
   '@types/oracledb@6.5.2':
     dependencies:
-      '@types/node': 24.12.3
+      '@types/node': 25.7.0
 
   '@types/pg-pool@2.0.7':
     dependencies:
@@ -6631,19 +6707,19 @@ snapshots:
 
   '@types/pg@8.15.6':
     dependencies:
-      '@types/node': 24.12.3
+      '@types/node': 25.7.0
       pg-protocol: 1.13.0
       pg-types: 2.2.0
 
   '@types/set-cookie-parser@2.4.10':
     dependencies:
-      '@types/node': 24.12.3
+      '@types/node': 25.7.0
 
   '@types/statuses@2.0.6': {}
 
   '@types/tedious@4.0.14':
     dependencies:
-      '@types/node': 24.12.3
+      '@types/node': 25.7.0
 
   '@types/tough-cookie@4.0.5': {}
 
@@ -7692,12 +7768,12 @@ snapshots:
       '@protobufjs/path': 1.1.2
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.1
-      '@types/node': 24.12.3
+      '@types/node': 25.7.0
       long: 5.3.2
 
   protobufjs@8.2.0:
     dependencies:
-      '@types/node': 24.12.3
+      '@types/node': 25.7.0
       long: 5.3.2
 
   psl@1.15.0:
