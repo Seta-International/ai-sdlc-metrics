@@ -10,12 +10,18 @@
     "privacyUrl": "https://seta-international.com/privacy",
     "termsOfUseUrl": "https://seta-international.com/terms"
   },
-  "name": { "short": "Seta Agent", "full": "Seta Planner Agent" },
+  "name": {
+    "short": "Seta Agent",
+    "full": "Seta Planner Agent"
+  },
   "description": {
     "short": "Task management assistant",
     "full": "SETA agent for querying and managing Microsoft Planner tasks inside Teams."
   },
-  "icons": { "color": "color.png", "outline": "outline.png" },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
   "accentColor": "#0078D4",
   "bots": [
     {
@@ -26,5 +32,9 @@
     }
   ],
   "permissions": ["identity", "messageTeamMembers"],
-  "validDomains": ["{{VALID_DOMAINS}}"]
+  "validDomains": ["{{VALID_DOMAINS}}"],
+  "webApplicationInfo": {
+    "id": "66c0893c-f2c9-4559-8204-84c069ce154e"
+  },
+  "supportsChannelFeatures": "tier1"
 }
