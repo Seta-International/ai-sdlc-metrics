@@ -150,6 +150,9 @@ importers:
       '@seta/oauth':
         specifier: workspace:*
         version: link:../../../platform/oauth
+      '@seta/observability':
+        specifier: workspace:*
+        version: link:../../../platform/observability
       adm-zip:
         specifier: 0.5.17
         version: 0.5.17
