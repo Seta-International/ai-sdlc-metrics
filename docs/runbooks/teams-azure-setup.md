@@ -19,7 +19,9 @@
    - **Subscription / Resource group:** use your dev resource group
    - **Pricing tier:** F0 (free, 10 k messages/month — sufficient for dev)
    - **Microsoft App ID:** select **Create new Microsoft App ID**
-   - **Type of app:** Multi-tenant
+   - **Type of app:** Multi-tenant (**must be Multi-tenant** — Single Tenant breaks Bot Framework token auth; the token issuer won't match and every reply returns 401)
+     - In the App Registration this maps to **"Accounts in any organizational directory (Any Azure AD directory — Multi-tenant)"** — do NOT select "+ Personal Microsoft accounts"; consumer accounts are not used in enterprise Teams
+     - In the Bot resource **Tenant access** setting, select **Allow all tenants** (required so the bot accepts messages from any customer's Microsoft 365 tenant)
 3. **Review + create** → **Create**.
 4. Once deployed, open the resource → **Configuration** → note the **Microsoft App ID** → this is `MS_BOT_ID`.
 
@@ -48,13 +50,13 @@ ngrok http 8080
 
 > **Note:** The ngrok URL changes on every restart (free tier). Re-paste it into the Azure Bot after each restart.
 
-## 5. Build and sideload the Teams app manifest
+## 5. Build and install the Teams app manifest
 
 ```bash
 # Set MS_BOT_ID in your shell so the build script can substitute it
 export MS_BOT_ID=<Application ID from step 1>
 
-pnpm --filter @seta/teams build:manifest
+pnpm --filter @seta/ms-teams build:manifest
 # Produces: modules/channels/teams/dist/seta-agent.zip
 ```
 
@@ -98,6 +100,19 @@ curl http://localhost:8080/teams/health
 ```
 
 Then open the 1:1 chat with SetaAgent in Teams and send `show my tasks` — you should see a task-list Adaptive Card (requires 13.2 to be shipped).
+
+---
+
+## Troubleshooting: bot replies return 401
+
+Every bot reply fails with `401 {"message":"Authorization has been denied for this request."}` when the Azure Bot resource was created as **Single Tenant**. The Bot Framework rejects the token because its issuer does not match.
+
+The Bot Type cannot be changed on an existing resource. Fix:
+
+1. **App Registration** (`66c0893c-...`) → **Authentication** → Supported account types → **"Accounts in any organizational directory (Multi-tenant)"** → **Save**. (The secret and App ID are unaffected.)
+2. **Delete** the existing Azure Bot resource.
+3. **Recreate** the Azure Bot resource using the same App ID, this time selecting **Multi-tenant**.
+4. Re-enable the Teams channel and re-set the messaging endpoint (steps 3–4 above).
 
 ---
 
