@@ -74,28 +74,28 @@ describe('PlannerSyncWorker integration', () => {
       WHERE tenant_id = ${TENANT}::uuid
     `
     expect(plans).toHaveLength(1)
-    expect(plans[0]!.graph_plan_id).toBe('P-INTEG-1')
+    expect(plans[0]?.graph_plan_id).toBe('P-INTEG-1')
 
     const tasks = await raw`
       SELECT graph_task_id, title, assignee_ids FROM connector_ms365_planner.planner_tasks_cache
       WHERE tenant_id = ${TENANT}::uuid
     `
     expect(tasks).toHaveLength(1)
-    expect(tasks[0]!.graph_task_id).toBe('T-INTEG-1')
-    expect(tasks[0]!.assignee_ids).toContain('U1')
+    expect(tasks[0]?.graph_task_id).toBe('T-INTEG-1')
+    expect(tasks[0]?.assignee_ids).toContain('U1')
 
     const members = await raw`
       SELECT user_id FROM connector_ms365_planner.plan_members
       WHERE tenant_id = ${TENANT}::uuid AND plan_id = 'P-INTEG-1'
     `
     expect(members).toHaveLength(1)
-    expect(members[0]!.user_id).toBe('U1')
+    expect(members[0]?.user_id).toBe('U1')
 
     const watermarks = await raw`
       SELECT delta_token FROM connector_ms365_planner.sync_watermarks
       WHERE tenant_id = ${TENANT}::uuid AND scope_kind = 'tasks' AND scope_id = 'P-INTEG-1'
     `
-    expect(watermarks[0]!.delta_token).toBe('integ-tok')
+    expect(watermarks[0]?.delta_token).toBe('integ-tok')
   })
 
   it('syncTenant: uses stored delta token on second run', async () => {
