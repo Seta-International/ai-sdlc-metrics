@@ -1,8 +1,8 @@
 # Planner Agent + Analytics Agent — Design Spec
 
 **Date:** 2026-05-13  
-**Revised:** 2026-05-14 — DB-driven agent profiles + Agent CRUD API  
-**Scope:** `modules/products/agent` (Planner + Analytics Agent slices) + `modules/connectors/ms365-planner` sync extension  
+**Revised:** 2026-05-14 — DB-driven agent profiles + Agent CRUD API + ERP-module architecture  
+**Scope:** `platform/agent/server` (new) · `modules/products/planner` (ERP Module #1) · `modules/products/analytics` (ERP Module #2) · `modules/channels/teams` (Channel #1) · `modules/connectors/ms365-planner` (sync extension)  
 **Status:** Approved for implementation  
 **WBS coverage:** EP-09 (partial), EP-10, EP-11, EP-13.5, EP-13.6, EP-14.3
 
@@ -10,7 +10,7 @@
 
 ## 1. Goals & Scope
 
-The Planner Agent and Analytics Agent are two of three specialist agents in `modules/products/agent`. This spec covers both. The FAQ Agent is covered in a separate spec.
+The Planner Agent and Analytics Agent are the first two agents in the SETA ERP system. Each lives in its own product module (`@seta/planner`, `@seta/analytics`). The shared agent platform infrastructure lives in `platform/agent/server` (`@seta/agent-server`). Teams is the first user-facing channel (`@seta/teams`). The FAQ Agent is covered in a separate spec.
 
 **In scope:**
 - DB-first task reads — delta-poll sync, no per-request Graph calls on reads
@@ -40,43 +40,88 @@ The Planner Agent and Analytics Agent are two of three specialist agents in `mod
 
 ## 2. Architecture Overview
 
+### 2.1 Package layout
+
+```
+platform/agent/
+  core/     @seta/agent-core         run loop, kernel, streamKernelSSE, testkit
+  memory/   @seta/agent-memory       thread + working memory persistence
+  server/   @seta/agent-server       ← NEW  (mirrors @mastra/server)
+              DB schema: agent.agent_profiles, agent.agent_actions
+              Profile resolver + LRU cache + agent hydrator
+              Tool registry interface (injectable by apps/api)
+              Boot seeder runner
+              Hono route factory: agent CRUD, run (SSE), threads, workflows
+
+modules/
+  channels/
+    teams/  @seta/teams              Channel #1 — first user interface
+              TeamsHandler: trigger routing, OBO token, Adaptive Card reply
+              Calls @seta/agent-server run pipeline; no business logic here
+
+  connectors/
+    ms365-planner/   @seta/connector-ms365-planner   synced task/plan/member data
+    ms365-directory/ @seta/connector-ms365-directory  manager hierarchy
+
+  products/
+    planner/   @seta/planner          ERP Module #1
+                 src/tools/           T1 read tools, write preview/commit, semantic search
+                                      T2 tools: project status, 1:1 prep
+                 src/schema/          planner.write_continuations, planner.v_visible_tasks/plans
+                 src/cards/           task-list, task-detail, write-preview, workload, scope-decline
+                 src/workflows/       bulkUpdateWorkflow, generateReportWorkflow
+                 src/indexer.ts       TaskIndexer (embedding pipeline)
+                 src/seeds/planner.ts PLANNER_PROFILE_SEED
+
+    analytics/ @seta/analytics        ERP Module #2
+                 src/tools/           workload_by_assignee, tasks_by_status, tasks_by_plan,
+                                      query_analytics DSL
+                 src/schema/          analytics.mv_assignee_workload, analytics.mv_plan_weekly_velocity
+                 src/cards/           chart-ybar
+                 src/seeds/analytics.ts ANALYTICS_PROFILE_SEED
+
+apps/api  (composition root — no business logic)
+  Registers @seta/planner tools + @seta/analytics tools into the tool registry
+  Mounts @seta/agent-server routes at /agent
+  Mounts @seta/teams routes
+  Starts planner sync worker + task indexer afterSync hook
+  Calls seedSystemAgentProfiles() on boot
+```
+
+### 2.2 Request flow
+
 ```
 Teams activity
      │
      ▼
-@seta/teams  (JWT verify, OBO refresh)
-     │ TeamsActivity
+modules/channels/teams  (@seta/teams)
+  JWT verify, OBO refresh
+  TeamsHandler: strip @mention → selectSlug → resolve thread ID
+     │ calls agent-server run pipeline
      ▼
-modules/products/agent
-  ├── src/agent-seeder.ts          Boot-time global profile seeder
-  ├── src/profile-registry.ts      Profile resolver + agent hydrator
-  ├── src/agents/planner-seed.ts   Planner seed constants (instructions, tool IDs)
-  ├── src/agents/analytics-seed.ts Analytics seed constants
-  ├── src/tools/registry.ts        tool_id → Tool implementation map
-  ├── src/tools/planner/           T1 + T2 Planner tools
-  ├── src/tools/analytics/         aggregation tools + query_analytics DSL
-  ├── src/actions/                 OpenAPI action builder (spec → Tool at runtime)
-  ├── src/teams-handler.ts         trigger-phrase router
-  ├── src/workflows/               bulk-update, report-with-review
-  ├── src/cards/                   Adaptive Card builders
-  ├── src/indexer.ts               task embedding pipeline
-  └── src/routes.ts                Hono routes at /agent
+platform/agent/server  (@seta/agent-server)
+  resolveAgentProfile(tenantId, slug)   ← agent.agent_profiles (LRU 5 min)
+  loadActions(tenantId, agentId)        ← agent.agent_actions
+  resolvePlatformTools(toolIds)         ← tool registry (injected at startup)
+  hydrateAgent(profile, actions, ctx)   → AgentConfig
      │
-     ├── @seta/agent-core           kernel, streamKernelSSE, testkit
-     ├── @seta/agent-memory         thread + working memory persistence
-     ├── @seta/agent-workflows      suspend/resume engine
-     ├── @seta/agent-embeddings     text-embedding-3-small
-     ├── @seta/agent-vector         pgvector HNSW store (agent_vector.chunks)
-     ├── @seta/connector-ms365-planner   synced task/plan/member data
-     └── @seta/connector-ms365-directory  manager hierarchy
+     ▼
+platform/agent/core  (@seta/agent-core)
+  runKernel → streamKernelSSE
+     │ tools execute against
+     ├── planner.v_visible_tasks / planner.v_visible_plans (permission-filtered views)
+     ├── analytics.mv_assignee_workload / analytics.mv_plan_weekly_velocity
+     └── connector_ms365_planner.* (writes only, via Graph OBO)
           │
           ▼
-     Postgres (RLS + permission views + materialized views)
+     Postgres (RLS + planner permission views + analytics materialized views)
 ```
 
 **Key principle — DB-first reads:** The agent reads all task/plan/member data from local Postgres. Graph is only called during write commits and the delta-sync background worker. This eliminates per-user Graph rate-limit risk at inference time.
 
-**Key principle — DB-driven profiles:** Agent configuration (instructions, model, tool IDs) lives in `agent.agent_profiles`. The TypeScript files in `src/agents/` are seed-data exporters, not runtime `AgentDefinition` objects. The profile resolver hydrates an `AgentConfig` from a DB row at request time, with a 5-minute LRU cache keyed `profile:{tenantId}:{slugOrId}`.
+**Key principle — DB-driven profiles:** Agent configuration (instructions, model, tool IDs) lives in `agent.agent_profiles` owned by `@seta/agent-server`. The TypeScript seed files are data exporters only — no runtime `AgentDefinition` objects. The profile resolver hydrates an `AgentConfig` from a DB row at request time, with a 5-minute LRU cache keyed `profile:{tenantId}:{slugOrId}`.
+
+**Key principle — ERP module pattern:** Each ERP module (`@seta/planner`, `@seta/analytics`, future `@seta/timesheet`, `@seta/finance`) owns its own tools, schema, cards, and agent seed profile. Modules never import from each other. They are registered into the shared tool registry by `apps/api` at startup. Teams is the first channel; future channels (web chat, Slack, mobile) follow the same pattern — they call into `@seta/agent-server` without knowing which ERP module's tools are registered.
 
 ---
 
@@ -158,8 +203,8 @@ const worker = createPlannerSyncWorker({
   sql, graph, getAppToken,
   afterSync: async (tenantId, taskIds) => {
     await taskIndexer.indexTasks(tenantId, taskIds)           // embed changed tasks
-    await sql`REFRESH MATERIALIZED VIEW CONCURRENTLY agent.mv_assignee_workload`
-    await sql`REFRESH MATERIALIZED VIEW CONCURRENTLY agent.mv_plan_weekly_velocity`
+    await sql`REFRESH MATERIALIZED VIEW CONCURRENTLY analytics.mv_assignee_workload`
+    await sql`REFRESH MATERIALIZED VIEW CONCURRENTLY analytics.mv_plan_weekly_velocity`
   },
 })
 worker.start(await getActiveTenantIds(sql))  // from oauth.tenants
@@ -185,13 +230,13 @@ await sql`SET LOCAL app.user_id   = ${userId}`  // entra_object_id from Teams JW
 
 `userId` is the bare `entra_object_id` (not the MSAL composite `<objectId>.<tenantId>` stored in `write_continuations.user_id` — those are different identifiers for different purposes).
 
-### 4.3 Permission views — `agent` schema
+### 4.3 Permission views — `planner` schema
 
-Views are product-owned (live in `modules/products/agent/src/schema.ts`). They reference connector tables by ID only — no foreign-key constraints across schemas.
+Views are owned by `@seta/planner` (live in `modules/products/planner/src/schema.ts`). They reference connector tables by ID only — no foreign-key constraints across schemas.
 
 ```sql
 -- Visible tasks: actor is a plan member OR actor manages any assignee
-CREATE VIEW agent.v_visible_tasks AS
+CREATE VIEW planner.v_visible_tasks AS
 SELECT t.*
 FROM connector_ms365_planner.planner_tasks_cache t
 WHERE t.tenant_id       = current_setting('app.tenant_id')::uuid
@@ -217,7 +262,7 @@ WHERE t.tenant_id       = current_setting('app.tenant_id')::uuid
   );
 
 -- Visible plans: actor is a plan member
-CREATE VIEW agent.v_visible_plans AS
+CREATE VIEW planner.v_visible_plans AS
 SELECT p.*
 FROM connector_ms365_planner.planner_plans_cache p
 WHERE p.tenant_id       = current_setting('app.tenant_id')::uuid
@@ -231,9 +276,9 @@ WHERE p.tenant_id       = current_setting('app.tenant_id')::uuid
   );
 ```
 
-Views are raw SQL — registered via a custom migration:
+Views are raw SQL — registered via a custom migration in `@seta/planner`:
 ```
-drizzle-kit generate --custom --name add-agent-permission-views
+drizzle-kit generate --custom --name add-planner-permission-views
 ```
 
 ### 4.4 Denial behaviour
@@ -298,7 +343,7 @@ CREATE POLICY agent_profiles_delete ON agent.agent_profiles FOR DELETE
   USING (tenant_id = current_setting('app.tenant_id', true)::uuid);
 ```
 
-Generated via `drizzle-kit generate` after adding the Drizzle table definition to `src/schema.ts`.
+Generated via `drizzle-kit generate` after adding the Drizzle table definition in `platform/agent/server/src/schema.ts`.
 
 ### 5.2 `agent.agent_actions` table
 
@@ -326,7 +371,7 @@ CREATE POLICY agent_actions_rls ON agent.agent_actions
 ### 5.3 Profile resolution
 
 ```typescript
-// src/profile-registry.ts
+// platform/agent/server/src/profile-registry.ts
 export async function resolveAgentProfile(
   sql: DbSql,
   tenantId: string,
@@ -353,7 +398,7 @@ Results cached in a per-process LRU with a 5-minute TTL, key `profile:{tenantId}
 ### 5.4 Agent hydration
 
 ```typescript
-// src/profile-registry.ts
+// platform/agent/server/src/profile-registry.ts
 export function hydrateAgent(
   profile: AgentProfileRow,
   actions: AgentActionRow[],
@@ -383,7 +428,7 @@ function interpolateInstructions(template: string, ctx: RunContext): string {
 ### 5.5 Tool registry
 
 ```typescript
-// src/tools/registry.ts
+// platform/agent/server/src/tool-registry.ts
 const TOOL_REGISTRY: Record<string, Tool> = {
   list_my_tasks:          listMyTasksTool,
   list_plan_tasks:        listPlanTasksTool,
@@ -421,7 +466,7 @@ export function resolvePlatformTools(toolIds: string[]): Tool[] {
 ### 5.6 OpenAPI Action builder
 
 ```typescript
-// src/actions/build-action-tool.ts
+// platform/agent/server/src/actions/build-action-tool.ts
 export function buildActionTool(action: AgentActionRow): Tool {
   return {
     name:        action.name,
@@ -437,7 +482,7 @@ export function buildActionTool(action: AgentActionRow): Tool {
 ### 5.7 Boot seeder
 
 ```typescript
-// src/agent-seeder.ts
+// platform/agent/server/src/agent-seeder.ts
 export async function seedSystemAgentProfiles(sql: DbSql): Promise<void> {
   const profiles = [PLANNER_PROFILE_SEED, ANALYTICS_PROFILE_SEED, FAQ_PROFILE_SEED]
   for (const p of profiles) {
@@ -460,9 +505,9 @@ export async function seedSystemAgentProfiles(sql: DbSql): Promise<void> {
 
 ## 6. Planner Agent Definition
 
-### 6.1 `src/agents/planner-seed.ts`
+### 6.1 `modules/products/planner/src/seeds/planner.ts`
 
-This file exports seed constants used only by `src/agent-seeder.ts`. There is no static `AgentDefinition` object — the runtime profile is loaded from `agent.agent_profiles` via `resolveAgentProfile`.
+This file exports seed constants used only by `platform/agent/server/src/agent-seeder.ts`. There is no static `AgentDefinition` object — the runtime profile is loaded from `agent.agent_profiles` via `resolveAgentProfile`.
 
 ```typescript
 export const PLANNER_SLUG = 'planner'
@@ -561,7 +606,7 @@ export const PLANNER_PROFILE_SEED = {
 
 ## 7. Analytics Agent Definition
 
-### 7.1 `src/agents/analytics-seed.ts`
+### 7.1 `modules/products/analytics/src/seeds/analytics.ts`
 
 Same pattern as Planner — seed constants only, no static `AgentDefinition`.
 
@@ -618,7 +663,7 @@ export const ANALYTICS_PROFILE_SEED = {
 
 ### 8.1 T1 Read tools — Planner Agent (DB-first)
 
-All read tools query `agent.v_visible_tasks` or `agent.v_visible_plans` via the `sql` dep. `app.tenant_id` and `app.user_id` session variables are set before tool execution by the handler.
+All read tools query `planner.v_visible_tasks` or `planner.v_visible_plans` via the `sql` dep. `app.tenant_id` and `app.user_id` session variables are set before tool execution by the handler.
 
 Status is derived from `percent_complete`: `0` = not started, `50` = in progress, `100` = complete. "Overdue" = `due_date < now() AND percent_complete < 100`.
 
@@ -639,7 +684,7 @@ annotations: { readOnlyHint: true }
 ```
 
 ```sql
-SELECT * FROM agent.v_visible_tasks
+SELECT * FROM planner.v_visible_tasks
 WHERE  $userId = ANY(assignee_ids)
   AND  <time_predicate>
   AND  ($planId IS NULL OR plan_id = $planId)
@@ -662,7 +707,7 @@ inputSchema: z.object({
 ```
 
 ```sql
-SELECT * FROM agent.v_visible_tasks
+SELECT * FROM planner.v_visible_tasks
 WHERE  plan_id = $planId
   AND  ($bucketId   IS NULL OR bucket_id = $bucketId)
   AND  ($assigneeId IS NULL OR $assigneeId = ANY(assignee_ids))
@@ -681,7 +726,7 @@ annotations:  { readOnlyHint: true }
 
 ```sql
 SELECT t.*, d.description, d.checklist
-FROM   agent.v_visible_tasks t
+FROM   planner.v_visible_tasks t
 LEFT JOIN connector_ms365_planner.planner_task_details_cache d
        ON d.graph_task_id = t.graph_task_id AND d.tenant_id = t.tenant_id
 WHERE  t.graph_task_id = $taskId
@@ -697,7 +742,7 @@ annotations:  { readOnlyHint: true }
 ```
 
 ```sql
-SELECT * FROM agent.v_visible_plans ORDER BY title LIMIT $limit
+SELECT * FROM planner.v_visible_plans ORDER BY title LIMIT $limit
 ```
 
 #### `list_buckets`
@@ -749,7 +794,7 @@ WHERE  c.tenant_id          = current_setting('app.tenant_id')::uuid
 ORDER  BY c.embedding <=> $vec
 LIMIT  $topK
 ```
-3. Filter `source_id` values through `agent.v_visible_tasks` — discard any chunk whose `graph_task_id` is not visible to the actor.
+3. Filter `source_id` values through `planner.v_visible_tasks` — discard any chunk whose `graph_task_id` is not visible to the actor.
 4. Return ranked list; `snippet = content[:200]`.
 
 ### 8.2 T2 Analytics tools — shared by Planner + Analytics Agents
@@ -778,7 +823,7 @@ outputSchema: z.object({
 annotations: { readOnlyHint: true }
 ```
 
-Query: join `agent.mv_assignee_workload` filtered by `$visiblePlanIds` + left-join `connector_ms365_directory.directory_users` for `display_name`. Display name falls back to `user_id` if not in directory.
+Query: join `analytics.mv_assignee_workload` filtered by `$visiblePlanIds` + left-join `connector_ms365_directory.directory_users` for `display_name`. Display name falls back to `user_id` if not in directory.
 
 #### `tasks_by_status`  *(EP-11.2)*
 
@@ -804,7 +849,7 @@ SELECT
     ELSE          'in_progress'
   END                      AS status,
   COUNT(*)                 AS count
-FROM agent.v_visible_tasks
+FROM planner.v_visible_tasks
 WHERE ($planId IS NULL OR plan_id = $planId)
 GROUP BY 1
 ORDER BY 1
@@ -827,7 +872,7 @@ outputSchema: z.object({
 annotations: { readOnlyHint: true }
 ```
 
-Queries `agent.mv_assignee_workload` grouped by `plan_id`, joined to `planner_plans_cache` for title. Applies `$visiblePlanIds` filter before aggregating.
+Queries `analytics.mv_assignee_workload` grouped by `plan_id`, joined to `planner_plans_cache` for title. Applies `$visiblePlanIds` filter before aggregating.
 
 #### `query_analytics` *(T2 DSL — Planner Agent)*
 
@@ -880,7 +925,7 @@ outputSchema: z.object({
 annotations: { readOnlyHint: true }
 ```
 
-Runs 5 queries in parallel via `p-queue(concurrency=5)` against `agent.v_visible_tasks`. Agent synthesises into prose or passes to a status card.
+Runs 5 queries in parallel via `p-queue(concurrency=5)` against `planner.v_visible_tasks`. Agent synthesises into prose or passes to a status card.
 
 #### `get_one_on_one_prep`
 
@@ -910,7 +955,7 @@ Architecture unchanged from current implementation. Each write pair:
 1. Validate `plan_members` membership for actor and any named assignees (DB check, no Graph call).
 2. For create/assign tools: query `mv_assignee_workload` for each assignee. If `open_tasks / (open_tasks + completed_this_week) > 0.9`, attach `capacityWarning` to the preview response. The `write-preview.ts` card renders this as a yellow notice above the Confirm button.
 3. Fetch current `@odata.etag` from Graph via OBO token.
-4. Store HMAC-signed continuation in `agent.write_continuations`.
+4. Store HMAC-signed continuation in `planner.write_continuations`.
 5. Return `{ continuation_id, summary, etag_snapshot, expiresAt, capacityWarning? }`.
 
 **Commit tool:**
@@ -926,7 +971,7 @@ Annotations: preview → `{ readOnlyHint: true, idempotentHint: true }`, commit 
 
 ### 8.4 Embedding pipeline — `TaskIndexer`
 
-Exported from `modules/products/agent/src/indexer.ts` (product concern — the product decides Planner tasks are embedded).
+Exported from `modules/products/planner/src/indexer.ts` (product concern — `@seta/planner` decides Planner tasks are embedded).
 
 ```typescript
 export interface TaskIndexerDeps {
@@ -957,12 +1002,12 @@ For each task ID (bounded by `p-queue`):
 
 ## 9. Materialized Views
 
-Owned by `agent` schema. Refreshed by `apps/api`'s `afterSync` hook via `REFRESH MATERIALIZED VIEW CONCURRENTLY` (reads are never blocked during refresh — requires unique index, defined below).
+Owned by `@seta/analytics` (`analytics` schema). Defined in `modules/products/analytics/src/schema.ts`. Refreshed by `apps/api`'s `afterSync` hook via `REFRESH MATERIALIZED VIEW CONCURRENTLY` (reads are never blocked during refresh — requires unique index, defined below). The views query `connector_ms365_planner` tables directly — no cross-product import from `@seta/planner`.
 
-### `agent.mv_assignee_workload`
+### `analytics.mv_assignee_workload`
 
 ```sql
-CREATE MATERIALIZED VIEW agent.mv_assignee_workload AS
+CREATE MATERIALIZED VIEW analytics.mv_assignee_workload AS
 SELECT
   t.tenant_id,
   user_id.value                                                                  AS user_id,
@@ -979,13 +1024,13 @@ CROSS JOIN LATERAL UNNEST(t.assignee_ids) AS user_id(value)
 WHERE t.soft_deleted_at IS NULL
 GROUP BY t.tenant_id, user_id.value, t.plan_id;
 
-CREATE UNIQUE INDEX ON agent.mv_assignee_workload (tenant_id, user_id, plan_id);
+CREATE UNIQUE INDEX ON analytics.mv_assignee_workload (tenant_id, user_id, plan_id);
 ```
 
-### `agent.mv_plan_weekly_velocity`
+### `analytics.mv_plan_weekly_velocity`
 
 ```sql
-CREATE MATERIALIZED VIEW agent.mv_plan_weekly_velocity AS
+CREATE MATERIALIZED VIEW analytics.mv_plan_weekly_velocity AS
 SELECT
   tenant_id,
   plan_id,
@@ -997,10 +1042,10 @@ WHERE percent_complete   = 100
   AND soft_deleted_at    IS NULL
 GROUP BY tenant_id, plan_id, date_trunc('week', last_modified_at_graph);
 
-CREATE UNIQUE INDEX ON agent.mv_plan_weekly_velocity (tenant_id, plan_id, week);
+CREATE UNIQUE INDEX ON analytics.mv_plan_weekly_velocity (tenant_id, plan_id, week);
 ```
 
-**Permission enforcement:** `query_analytics`, `workload_by_assignee`, `tasks_by_plan` apply `AND plan_id = ANY($visiblePlanIds)` (fetched from `v_visible_plans`) before querying materialized views. Materialized views cannot use session-level RLS.
+**Permission enforcement:** `query_analytics`, `workload_by_assignee`, `tasks_by_plan` apply `AND plan_id = ANY($visiblePlanIds)` before querying materialized views. `$visiblePlanIds` is fetched by querying `connector_ms365_planner.plan_members` directly (not via `planner.v_visible_plans` — no cross-product import). Materialized views cannot use session-level RLS.
 
 **Health thresholds** (in system prompt, not in code — so the LLM can explain them):
 - 🟢 Green: 0 overdue tasks
@@ -1052,7 +1097,7 @@ generateReportWorkflow
 
 ## 11. Teams Handler + Routing
 
-### 11.1 `src/teams-handler.ts`
+### 11.1 `modules/channels/teams/src/teams-handler.ts`
 
 ```typescript
 export function createTeamsHandler(deps: TeamsHandlerDeps): TeamsHandler {
@@ -1193,7 +1238,7 @@ Analytics Agent system prompt instructs it to always call `chartYBarCard` with t
 
 ## 13. HTTP Routes
 
-Exported from `routes(registry: ConnectorRegistry): Hono` in `src/index.ts`. Mounted at `/agent` in `apps/api/src/main.ts` *(EP-14.3)*.
+Exported from `createAgentRouter(deps): Hono` in `platform/agent/server/src/routes.ts`. Mounted at `/agent` in `apps/api/src/main.ts` *(EP-14.3)*. `apps/api` injects the tool registry (with registered planner + analytics tools), connector registry, memory provider, and workflow engine into `createAgentRouter`.
 
 ### 13.1 Run endpoints
 
@@ -1291,7 +1336,7 @@ Action `spec` field must be a valid single-operation OpenAPI fragment. The route
 
 ### 14.3 LLM tests (via `@seta/agent-core/testkit`)
 
-`RECORD=1 pnpm vitest run -t <name>`. Recordings under `modules/products/agent/__recordings__/planner/` and `__recordings__/analytics/`.
+`RECORD=1 pnpm vitest run -t <name>`. Recordings under `modules/products/planner/__recordings__/` and `modules/products/analytics/__recordings__/`.
 
 | Recording | Scenario |
 |---|---|
@@ -1321,12 +1366,33 @@ Action `spec` field must be a valid single-operation OpenAPI fragment. The route
 
 ## 15. Package Dependency Changes
 
-All via `pnpm --filter @seta/<pkg> add`. Resolves SCOPE.md open questions on missing deps.
+All via `pnpm --filter @seta/<pkg> add`. New packages created via `pnpm new:package`.
 
-| Package | Additions |
+### New packages
+
+| Package | Location | Description |
+|---|---|---|
+| `@seta/agent-server` | `platform/agent/server/` | HTTP route factory, profile DB, resolver, hydrator, seeder, tool registry, action builder |
+| `@seta/planner` | `modules/products/planner/` | ERP Module #1: all planner tools, schema, cards, workflows, indexer, seed |
+| `@seta/analytics` | `modules/products/analytics/` | ERP Module #2: analytics tools, materialized views, chart cards, seed |
+
+### Package dependencies (via `pnpm --filter @seta/<pkg> add`)
+
+| Package | Dependencies |
 |---|---|
+| `@seta/agent-server` | `@seta/agent-core@workspace:*` `@seta/agent-memory@workspace:*` `@seta/agent-workflows@workspace:*` `@seta/connector-registry@workspace:*` `@hono/zod-openapi@workspace:*` |
+| `@seta/planner` | `@seta/agent-core@workspace:*` `@seta/agent-embeddings@workspace:*` `@seta/agent-vector@workspace:*` `@seta/agent-workflows@workspace:*` `@seta/agent-memory@workspace:*` `@seta/connector-ms365-planner@workspace:*` `@seta/connector-ms365-directory@workspace:*` `@seta/connector-registry@workspace:*` `@seta/audit@workspace:*` |
+| `@seta/analytics` | `@seta/agent-core@workspace:*` `@seta/connector-ms365-planner@workspace:*` `@seta/connector-ms365-directory@workspace:*` `adaptivecards-templating@2.3.1` |
 | `@seta/connector-ms365-planner` | No new external deps — schema additions only (`plan_members`, `sync_watermarks.delta_token`) |
-| `@seta/agent` | `@seta/agent-embeddings@workspace:*` `@seta/agent-vector@workspace:*` `@seta/agent-rag@workspace:*` `@seta/agent-workflows@workspace:*` `@seta/agent-memory@workspace:*` `@seta/connector-ms365-directory@workspace:*` `@seta/connector-registry@workspace:*` `@seta/audit@workspace:*` |
+| `@seta/teams` | `@seta/agent-server@workspace:*` (to call run pipeline) |
+
+### Deleted package
+
+`modules/products/agent` (`@seta/agent`) is dissolved. Its contents are redistributed:
+- Planner tools + write_continuations schema + permission views → `@seta/planner`
+- Analytics tools + materialized views → `@seta/analytics`
+- Profile management + HTTP routes + seeder → `@seta/agent-server`
+- TeamsHandler → `@seta/teams` (already the right package)
 
 ---
 
@@ -1352,63 +1418,60 @@ Maps every WBS task from `docs/plans/Project Plan.md` to the spec section that c
 | `plan_members` table | §3.2 |
 | `delta_token` column on `sync_watermarks` | §3.2 |
 
-### EP-10 · Planner Agent product
+### EP-10 · Planner ERP Module (`@seta/planner`)
 
 | WBS | Task | Spec section |
 |---|---|---|
-| 10.1 | Agent definition + Planner system prompt + tool registry | §5, §6 |
-| 10.2 | READ tools: `list_tasks`, `get_task` | §8.1 |
+| 10.1 | Planner seed profile + planner schema (write_continuations, permission views) | §6, §4.3 |
+| 10.2 | READ tools: `list_tasks`, `get_task`, `list_plans`, `list_buckets` | §8.1 |
 | 10.3 | WRITE tools: `preview_create_task` + `commit_create_task` with HMAC | §8.3 |
 | 10.4 | Safety review of WRITE path: prompt-injection, scope check, RLS, idempotency | §14 (test strategy covers all four axes) |
 | 10.5 | Adaptive Card — task-list card for READ | §12 `task-list.ts` |
 | 10.6 | Adaptive Card — preview card with Confirm/Cancel for WRITE | §12 `write-preview.ts` |
 
-**New items under EP-10 scope (design additions):**
-| Item | Spec section |
-|---|---|
-| `agent.agent_profiles` table + RLS | §5.1 |
-| `agent.agent_actions` table + RLS | §5.2 |
-| Profile resolver + agent hydrator | §5.3, §5.4 |
-| Tool registry (`tool_id` → implementation) | §5.5 |
-| OpenAPI Action builder | §5.6 |
-| Boot seeder (`seedSystemAgentProfiles`) | §5.7 |
-| Agent profile + action CRUD API | §13.4, §13.5 |
-| `v_visible_tasks` + `v_visible_plans` permission views | §4.3 |
-| `search_tasks_semantic` tool (semantic search) | §8.1 |
-| `query_analytics` DSL tool | §8.2 |
-| `get_project_status` tool | §8.2 |
-| `get_one_on_one_prep` tool | §8.2 |
-| `TaskIndexer` (embedding pipeline) | §8.4 |
-| `mv_assignee_workload` materialized view | §9 |
-| `mv_plan_weekly_velocity` materialized view | §9 |
-| `bulkUpdateWorkflow` | §10.1 |
-| `generateReportWorkflow` | §10.2 |
-| `task-detail.ts` card | §12 |
-| `workload.ts` card | §12 |
-| `scope-decline.ts` card | §12 |
-| Capacity warning inside `create_tasks_preview` | §8.3 |
+**New items under EP-10 scope:**
+| Item | Package | Spec section |
+|---|---|---|
+| `agent.agent_profiles` table + RLS | `@seta/agent-server` | §5.1 |
+| `agent.agent_actions` table + RLS | `@seta/agent-server` | §5.2 |
+| Profile resolver + agent hydrator | `@seta/agent-server` | §5.3, §5.4 |
+| Tool registry (`tool_id` → implementation) | `@seta/agent-server` | §5.5 |
+| OpenAPI Action builder | `@seta/agent-server` | §5.6 |
+| Boot seeder (`seedSystemAgentProfiles`) | `@seta/agent-server` | §5.7 |
+| Agent profile + action CRUD API | `@seta/agent-server` | §13.4, §13.5 |
+| `planner.v_visible_tasks` + `planner.v_visible_plans` permission views | `@seta/planner` | §4.3 |
+| `planner.write_continuations` schema | `@seta/planner` | §8.3 |
+| `search_tasks_semantic` tool | `@seta/planner` | §8.1 |
+| `query_analytics` DSL tool | `@seta/planner` | §8.2 |
+| `get_project_status` tool | `@seta/planner` | §8.2 |
+| `get_one_on_one_prep` tool | `@seta/planner` | §8.2 |
+| `TaskIndexer` (embedding pipeline) | `@seta/planner` | §8.4 |
+| `bulkUpdateWorkflow` | `@seta/planner` | §10.1 |
+| `generateReportWorkflow` | `@seta/planner` | §10.2 |
+| `task-detail.ts`, `workload.ts`, `scope-decline.ts` cards | `@seta/planner` | §12 |
+| Capacity warning inside `create_tasks_preview` | `@seta/planner` | §8.3 |
 
-### EP-11 · Analytics Agent
+### EP-11 · Analytics ERP Module (`@seta/analytics`)
+
+| WBS | Task | Package | Spec section |
+|---|---|---|---|
+| 11.1 | Analytics seed profile + analytics schema (materialized views) | `@seta/analytics` | §5, §7 |
+| 11.2 | Aggregation tools: `workload_by_assignee`, `tasks_by_status`, `tasks_by_plan` | `@seta/analytics` | §8.2 |
+| 11.3 | Chart-card Adaptive Card (`Chart.VerticalBar`) | `@seta/analytics` | §12 `chart-ybar.ts` |
+| 11.4 | AG-S review + integration smoke (Teams query → chart card) | — | §14.4 E2E |
+
+### EP-13 · Teams channel (`@seta/teams`)
 
 | WBS | Task | Spec section |
 |---|---|---|
-| 11.1 | Agent definition + system prompt + tool registry | §5, §7 |
-| 11.2 | Aggregation tools: `workload_by_assignee`, `tasks_by_status`, `tasks_by_plan` | §8.2 |
-| 11.3 | Chart-card Adaptive Card (Vega-Lite / `Chart.VerticalBar`, bar only) | §12 `chart-ybar.ts` |
-| 11.4 | AG-S review + integration smoke (Teams query → chart card) | §14.4 E2E |
-
-### EP-13 · Teams channel (referenced items)
-
-| WBS | Task | Spec section |
-|---|---|---|
-| 13.5 | `bindPlanner(planner)` mounts Planner product behind the channel | §11 Teams handler |
+| 13.5 | TeamsHandler calls `@seta/agent-server` run pipeline; trigger-phrase routing | §11 |
 | 13.6 | Live smoke: round-trip in dev tunnel (SSE → card render) | §14.4 E2E |
 
 ### EP-14 · `apps/api` composition (referenced items)
 
 | WBS | Task | Spec section |
 |---|---|---|
-| 14.3 | `main.ts` mounts kernel + memory + workflows + Teams channel + Planner product + seeder | §13 HTTP routes + §3.3 sync worker + §5.7 seeder |
+| 14.3 | `main.ts` creates tool registry, registers planner + analytics tools, mounts `@seta/agent-server` + `@seta/teams` routes, starts sync worker, calls seeder | §13 HTTP routes + §3.3 sync worker + §5.7 seeder |
 
 ---
 
