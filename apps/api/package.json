@@ -32,7 +32,7 @@
     "@seta/ms-graph": "workspace:*",
     "@seta/oauth": "workspace:*",
     "@seta/observability": "workspace:*",
-    "@seta/teams": "workspace:*",
+    "@seta/ms-teams": "workspace:*",
     "@seta/tenant": "workspace:*",
     "dotenv": "17.4.2",
     "hono": "4.12.18",

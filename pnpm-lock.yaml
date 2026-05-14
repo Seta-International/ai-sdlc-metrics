@@ -83,15 +83,15 @@ importers:
       '@seta/ms-graph':
         specifier: workspace:*
         version: link:../../platform/ms-graph
+      '@seta/ms-teams':
+        specifier: workspace:*
+        version: link:../../modules/channels/teams
       '@seta/oauth':
         specifier: workspace:*
         version: link:../../platform/oauth
       '@seta/observability':
         specifier: workspace:*
         version: link:../../platform/observability
-      '@seta/teams':
-        specifier: workspace:*
-        version: link:../../modules/channels/teams
       '@seta/tenant':
         specifier: workspace:*
         version: link:../../platform/tenant
@@ -294,9 +294,6 @@ importers:
       '@seta/oauth':
         specifier: workspace:*
         version: link:../../../platform/oauth
-      '@seta/teams':
-        specifier: workspace:*
-        version: link:../../channels/teams
       '@seta/tenant':
         specifier: workspace:*
         version: link:../../../platform/tenant

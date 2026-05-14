@@ -7,6 +7,7 @@ import { plannerConnector } from '@seta/connector-ms365-planner'
 import { createConnectorRegistry } from '@seta/connector-registry'
 import { onError } from '@seta/middleware'
 import { createGraphFetch } from '@seta/ms-graph'
+import { type TeamsHandler, routes as teamsRoutes } from '@seta/ms-teams'
 import {
   createKmsClient,
   createOAuthRoutes,
@@ -15,7 +16,6 @@ import {
   EntraProvider,
 } from '@seta/oauth'
 import { logger } from '@seta/observability'
-import { type TeamsHandler, routes as teamsRoutes } from '@seta/teams'
 import { tenantContext } from '@seta/tenant'
 import { Hono } from 'hono'
 import './agent'

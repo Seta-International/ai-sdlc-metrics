@@ -135,3 +135,5 @@ export type {
   VectorStore,
   VectorUpsertInput,
 } from './tools/read/search_tasks_semantic'
+export type { ContinuationStoreDeps, MintInput, VerifyInput } from './tools/write/_continuation'
+export { createContinuationStore } from './tools/write/_continuation'

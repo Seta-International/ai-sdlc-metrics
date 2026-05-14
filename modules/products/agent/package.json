@@ -27,7 +27,6 @@
     "@seta/middleware": "workspace:*",
     "@seta/ms-graph": "workspace:*",
     "@seta/oauth": "workspace:*",
-    "@seta/teams": "workspace:*",
     "@seta/tenant": "workspace:*",
     "adaptivecards-templating": "2.3.1",
     "drizzle-orm": "0.45.2",

@@ -1,5 +1,5 @@
 {
-  "name": "@seta/teams",
+  "name": "@seta/ms-teams",
   "version": "0.1.0",
   "description": "Microsoft Teams / Bot Framework channel adapter (hand-rolled)",
   "main": "./dist/index.js",
