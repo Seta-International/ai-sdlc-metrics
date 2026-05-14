@@ -15,6 +15,27 @@
       "when": 1778578826719,
       "tag": "0001_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778741047162,
+      "tag": "0002_gray_ozymandias",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1778741138563,
+      "tag": "0003_bouncy_jocasta",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1778741141838,
+      "tag": "0004_rls-plan-members",
+      "breakpoints": true
     }
   ]
 }

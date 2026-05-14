@@ -98,9 +98,24 @@ export const syncWatermarks = connectorMs365PlannerSchema.table(
     scopeId: text('scope_id').notNull(),
     lastSyncAt: timestamp('last_sync_at', { withTimezone: true }),
     status: text('status'),
+    deltaToken: text('delta_token'),
   },
   (t) => [primaryKey({ columns: [t.tenantId, t.scopeKind, t.scopeId] })],
 )
+
+export const planMembers = connectorMs365PlannerSchema.table(
+  'plan_members',
+  {
+    tenantId: uuid('tenant_id').notNull(),
+    planId: text('plan_id').notNull(),
+    userId: text('user_id').notNull(),
+    syncedAt: timestamp('synced_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.tenantId, t.planId, t.userId] })],
+)
+
+export type PlanMemberRow = typeof planMembers.$inferSelect
+export type NewPlanMember = typeof planMembers.$inferInsert
 
 export type PlannerTaskRow = typeof plannerTasksCache.$inferSelect
 export type NewPlannerTask = typeof plannerTasksCache.$inferInsert
@@ -111,3 +126,4 @@ export type NewPlannerPlan = typeof plannerPlansCache.$inferInsert
 export type PlannerBucketRow = typeof plannerBucketsCache.$inferSelect
 export type NewPlannerBucket = typeof plannerBucketsCache.$inferInsert
 export type SyncWatermarkRow = typeof syncWatermarks.$inferSelect
+export type NewSyncWatermark = typeof syncWatermarks.$inferInsert

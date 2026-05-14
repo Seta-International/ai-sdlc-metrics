@@ -224,6 +224,9 @@ importers:
       '@seta/oauth':
         specifier: workspace:*
         version: link:../../../platform/oauth
+      '@seta/observability':
+        specifier: workspace:*
+        version: link:../../../platform/observability
       '@seta/tenant':
         specifier: workspace:*
         version: link:../../../platform/tenant
