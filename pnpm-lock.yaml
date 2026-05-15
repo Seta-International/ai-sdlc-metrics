@@ -867,12 +867,18 @@ importers:
 
   platform/connector-registry:
     dependencies:
+      '@hono/zod-openapi':
+        specifier: 1.4.0
+        version: 1.4.0(hono@4.12.18)(zod@4.4.3)
       '@seta/middleware':
         specifier: workspace:*
         version: link:../middleware
       '@seta/tenant':
         specifier: workspace:*
         version: link:../tenant
+      hono:
+        specifier: 4.12.18
+        version: 4.12.18
       zod:
         specifier: 4.4.3
         version: 4.4.3
