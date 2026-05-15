@@ -23,7 +23,6 @@
     "@seta/agent-server": "workspace:*",
     "@seta/analytics": "workspace:*",
     "@seta/audit": "workspace:*",
-    "@seta/auth": "workspace:*",
     "@seta/connector-ms365-directory": "workspace:*",
     "@seta/connector-ms365-planner": "workspace:*",
     "@seta/connector-registry": "workspace:*",

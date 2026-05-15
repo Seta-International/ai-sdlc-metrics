@@ -1,8 +1,7 @@
-import { pgSchema, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { authSchema } from './users'
 
-export const auth = pgSchema('auth')
-
-export const apiKeys = auth.table('api_keys', {
+export const apiKeys = authSchema.table('api_keys', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull(),
   hashedKey: text('hashed_key').notNull(),
@@ -10,3 +9,6 @@ export const apiKeys = auth.table('api_keys', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   revokedAt: timestamp('revoked_at', { withTimezone: true }),
 })
+
+export type ApiKey = typeof apiKeys.$inferSelect
+export type NewApiKey = typeof apiKeys.$inferInsert
