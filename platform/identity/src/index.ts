@@ -25,4 +25,5 @@ export {
 } from './schemas'
 export type { PostgresSessionStore } from './session-store'
 export { createSessionStore } from './session-store'
+export { isSuperadmin } from './superadmin-repo'
 export { upsertUserByIdentity } from './users-repo'
