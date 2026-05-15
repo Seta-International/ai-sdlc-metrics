@@ -1,4 +1,4 @@
-import { BadRequest, Unauthorized } from '@seta/middleware'
+import { BadRequest, NotFound, Unauthorized } from '@seta/middleware'
 import { logger } from '@seta/observability'
 import type { AttachStatus, MeContextProvider } from '@seta/tenancy'
 import { Hono } from 'hono'
@@ -16,6 +16,7 @@ import { upsertUserByIdentity } from './users-repo'
 
 export type SsoRoutesDeps = {
   providers: { entra: SsoProvider; google: SsoProvider }
+  enabledProviders: Array<'entra' | 'google'>
   sql: Sql
   sessionCookie: { name: string; hmacKey: string; ttlSec: number; secure: boolean }
   redirectBase: string
@@ -37,8 +38,11 @@ export function createSsoRoutes(deps: SsoRoutesDeps): Hono<{ Variables: SsoVaria
   const store = createSessionStore(deps.sql)
   const app = new Hono<{ Variables: SsoVariables }>()
 
+  app.get('/sso/providers', (c) => c.json({ providers: deps.enabledProviders }))
+
   app.post('/sso/login/:provider', async (c) => {
     const providerId = ProviderParam.parse(c.req.param('provider'))
+    if (!deps.enabledProviders.includes(providerId)) throw new NotFound('provider disabled')
     const provider = deps.providers[providerId]
     if (!provider) throw new BadRequest(`unknown provider '${providerId}'`)
     const body = LoginBody.parse(await c.req.json().catch(() => ({})))

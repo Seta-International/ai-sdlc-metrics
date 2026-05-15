@@ -58,7 +58,7 @@ import {
 import { Hono } from 'hono'
 import { agentMemory, agentRegistry } from './agent'
 import { sql } from './db'
-import { deployedApps, env, superadminEmails } from './env'
+import { deployedApps, enabledSsoProviders, env, superadminEmails } from './env'
 import { runSeed } from './seed'
 
 // ── Infrastructure ────────────────────────────────────────────────────────────
@@ -104,6 +104,7 @@ const meContext = createMeContextProvider({
 
 const sso = createSsoRoutes({
   providers: { entra: entraSso, google: googleSso },
+  enabledProviders: enabledSsoProviders(),
   sql,
   sessionCookie: {
     name: 'seta_sess',

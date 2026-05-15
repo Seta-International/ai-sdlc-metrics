@@ -28,6 +28,7 @@ function buildApp(sql: postgres.Sql) {
         iss: 'https://accounts.google.com',
       }),
     },
+    enabledProviders: ['entra', 'google'],
     sql,
     sessionCookie: { name: 'seta_sess', hmacKey: HMAC_KEY, ttlSec: 3600, secure: false },
     redirectBase: 'http://localhost:8080',

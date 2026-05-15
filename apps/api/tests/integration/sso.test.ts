@@ -40,6 +40,31 @@ function buildSsoApp(sql: postgres.Sql) {
   const app = new Hono().onError(onError)
   const sso = createSsoRoutes({
     providers: { entra: mockProvider('entra'), google: mockProvider('google') },
+    enabledProviders: ['entra', 'google'],
+    sql,
+    sessionCookie: {
+      name: 'seta_sess',
+      hmacKey: HMAC_KEY,
+      ttlSec: 86400,
+      secure: false,
+    },
+    redirectBase: 'http://localhost:8080',
+    meContext: {
+      resolve: async () => ({ tenant: null, isSuperadmin: false, apps: [] }),
+    },
+    tenancy: {
+      findOrAttachUser: async () => 'attached',
+    },
+  })
+  app.route('/', sso)
+  return app
+}
+
+function buildSsoAppWithProviders(sql: postgres.Sql, enabledProviders: Array<'entra' | 'google'>) {
+  const app = new Hono().onError(onError)
+  const sso = createSsoRoutes({
+    providers: { entra: mockProvider('entra'), google: mockProvider('google') },
+    enabledProviders,
     sql,
     sessionCookie: {
       name: 'seta_sess',
@@ -121,5 +146,41 @@ describe('SSO round-trip with mock provider', () => {
     expect(me.apps).toEqual([])
     expect(typeof me.csrfToken).toBe('string')
     expect(me.csrfToken.length).toBeGreaterThan(0)
+  })
+})
+
+describe('SSO provider gating', () => {
+  const sql = postgres(DATABASE_URL, { max: 1, prepare: false })
+
+  afterAll(async () => {
+    await sql.end()
+  })
+
+  it('GET /sso/providers returns the enabled list', async () => {
+    const app = buildSsoAppWithProviders(sql, ['entra'])
+    const res = await app.request('/sso/providers')
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { providers: string[] }
+    expect(body.providers).toEqual(['entra'])
+  })
+
+  it('POST /sso/login/<disabled> returns 404', async () => {
+    const app = buildSsoAppWithProviders(sql, ['entra'])
+    const res = await app.request('/sso/login/google', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+    expect(res.status).toBe(404)
+  })
+
+  it('POST /sso/login/<enabled> still succeeds', async () => {
+    const app = buildSsoAppWithProviders(sql, ['entra'])
+    const res = await app.request('/sso/login/entra', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+    expect(res.status).toBe(200)
   })
 })
