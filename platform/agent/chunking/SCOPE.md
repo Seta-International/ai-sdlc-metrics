@@ -1,6 +1,6 @@
 # SCOPE — platform/agent/chunking  (@seta/agent-chunking — P1)
 
-> **Status:** **P1 — own package `@seta/agent-chunking` lands under `platform/agent/chunking/`.** The package.json + `src/` are NOT created in this PR; this SCOPE.md is the P1 contract and the directory placeholder. The package is created in a follow-up PR via `pnpm new:package` — see CLAUDE.md "CLI-only — packages and dependencies".
+> **Status:** **P1 — `@seta/agent-chunking` is implemented at `platform/agent/chunking/`.** Public surface frozen per [`docs/superpowers/specs/2026-05-13-agent-chunking-design.md`](../../../docs/superpowers/specs/2026-05-13-agent-chunking-design.md). Consumed by `@seta/agent-rag.ingest` (Plan E, separate spec).
 >
 > **P1 scope override (2026-05-12):** setup.md §6 originally listed `@seta/agent-chunking` as a P2 RAG primitive (see setup.md §6 table at `docs/setup.md:428-438` and §11's `platform/agent/` layout which groups `chunking/`, `embeddings/`, `vector/`, `rag/` under "P2"). The spike report `09-memory.md:30, :68` mirrored that — RAG track is P2 per §6. User-directed scope change: the **Seta FAQ Agent** is required in P1 and depends on RAG. The full RAG track (`@seta/agent-chunking`, `@seta/agent-embeddings`, `@seta/agent-vector`, `@seta/agent-rag`) moves to P1 alongside the new agent-memory and agent-workflows overrides. setup.md §6's P2-defer language remains as-written; this SCOPE.md is the override citation point.
 
@@ -25,8 +25,10 @@ A chunk preserves token-budget invariants (≤ `maxTokens`, with a configurable 
 
 ## Current state (P1)
 
-- **Directory placeholder only.** This SCOPE.md exists; no `package.json`, no `src/` lands in this PR. The package is created in the next PR via `pnpm new:package` (CLAUDE.md CLI-only).
-- The `js-tiktoken` pin moves to `@seta/agent-core` per spike `10-llm-model-router.md` punch list SA-10 (kernel needs it for pre/post-request token estimation). This package re-uses the same pin via the workspace; setup.md §13's `@seta/agent-chunking` entry should still declare `js-tiktoken@1.0.21` as a direct dep (chunking is the heaviest tokenizer consumer).
+- **Package implemented.** `package.json`, `src/`, `dist/`, and tests all exist at `platform/agent/chunking/`.
+- Public surface: `Chunk`, `ChunkOptions`, `SupportedModel`, `ChunkingError`, `chunkText`, `parseChunkOptions`, `ChunkOptionsSchema`, `DEFAULT_MAX_TOKENS`, `DEFAULT_OVERLAP_TOKENS`, `SUPPORTED_MODELS`.
+- 67 unit + property tests pass (including 200-run `fast-check` invariants for token-budget, content/offset roundtrip, coverage, stride correctness, and determinism).
+- The `js-tiktoken` pin moves to `@seta/agent-core` per spike `10-llm-model-router.md` punch list SA-10 (kernel needs it for pre/post-request token estimation). This package re-uses the same pin via the workspace; setup.md §13's `@seta/agent-chunking` entry declares `js-tiktoken@1.0.21` as a direct dep (chunking is the heaviest tokenizer consumer).
 
 ## Public interface (when implementation lands)
 

@@ -1,0 +1,24 @@
+{
+  "name": "@seta/agent-vector",
+  "version": "0.1.0",
+  "description": "Pgvector-backed vector store: schema, HNSW search, tenant-scoped upsert",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --sourcemap",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "license": "Apache-2.0",
+  "type": "module",
+  "private": true,
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "devDependencies": {
+    "@seta/tsconfig": "workspace:*",
+    "@types/node": "^25.7.0",
+    "tsup": "8.5.1"
+  }
+}

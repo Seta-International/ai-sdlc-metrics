@@ -1,0 +1,1 @@
+ALTER TABLE "connector_ms365_planner"."sync_watermarks" ADD COLUMN "delta_token" text;

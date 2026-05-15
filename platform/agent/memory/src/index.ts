@@ -12,3 +12,14 @@ export {
   type Thread,
   threads,
 } from './schema'
+export type {
+  CreateThreadInput,
+  DeleteThreadInput,
+  GetThreadInput,
+  ListThreadsOptions,
+  ListThreadsResult,
+  SaveThreadArgs,
+  SaveThreadInput,
+  ThreadPatch,
+  UpdateThreadInput,
+} from './thread-crud'

@@ -21,6 +21,11 @@ export const tenantContext = {
     return store.tenantId
   },
 
+  /** Read the current tenant id without throwing — returns undefined if no active context. */
+  getTenantIdOrUndefined(): string | undefined {
+    return als.getStore()?.tenantId
+  },
+
   /** Read the current user id, if any. */
   getUserId(): string | undefined {
     return als.getStore()?.userId

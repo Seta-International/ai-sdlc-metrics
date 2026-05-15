@@ -18,14 +18,20 @@
   ],
   "dependencies": {
     "@microsoft/microsoft-graph-types": "2.43.1",
+    "@opentelemetry/api": "1.9.1",
+    "@seta/audit": "workspace:*",
+    "@seta/middleware": "workspace:*",
     "@seta/oauth": "workspace:*",
+    "@seta/observability": "workspace:*",
+    "@seta/tenant": "workspace:*",
     "zod": "4.4.3"
   },
   "devDependencies": {
     "@seta/tsconfig": "workspace:*",
-    "@types/node": "^24.12.3",
+    "@types/node": "^25.7.0",
+    "msw": "2.7.0",
     "tsup": "8.5.1",
     "typescript": "6.0.3",
-    "vitest": "4.1.5"
+    "vitest": "4.1.6"
   }
 }

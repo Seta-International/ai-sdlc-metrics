@@ -1,0 +1,40 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "{{APP_VERSION}}",
+  "id": "{{MS_BOT_ID}}",
+  "packageName": "com.seta.agent",
+  "developer": {
+    "name": "SETA International",
+    "websiteUrl": "https://seta-international.com",
+    "privacyUrl": "https://seta-international.com/privacy",
+    "termsOfUseUrl": "https://seta-international.com/terms"
+  },
+  "name": {
+    "short": "Seta Agent",
+    "full": "Seta Planner Agent"
+  },
+  "description": {
+    "short": "Task management assistant",
+    "full": "SETA agent for querying and managing Microsoft Planner tasks inside Teams."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#0078D4",
+  "bots": [
+    {
+      "botId": "{{MS_BOT_ID}}",
+      "scopes": ["personal", "team", "groupchat"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": ["{{VALID_DOMAINS}}"],
+  "webApplicationInfo": {
+    "id": "66c0893c-f2c9-4559-8204-84c069ce154e"
+  },
+  "supportsChannelFeatures": "tier1"
+}

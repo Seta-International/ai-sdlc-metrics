@@ -1,6 +1,7 @@
 import type { AuditWriter } from '@seta/audit'
 import type { ConnectorRegistry } from '@seta/connector-registry'
 import { BadRequest, ServiceUnavailable } from '@seta/middleware'
+import { tenantContext } from '@seta/tenant'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { OAuthProvider } from './provider'
@@ -92,26 +93,28 @@ export function createOAuthRoutes(deps: OAuthRoutesDeps) {
       throw new BadRequest('tenant tid mismatch')
     }
 
-    if (deps.onConsented) {
-      await deps.onConsented({
+    await tenantContext.run({ tenantId }, async () => {
+      if (deps.onConsented) {
+        await deps.onConsented({
+          tenantId,
+          connectorIds: stateRow.connectorIds,
+          scopesGranted: deps.registry.scopeUnion(stateRow.connectorIds),
+        })
+      }
+
+      const clientId = (provider as unknown as { cfg: { clientId: string } }).cfg.clientId
+      if (deps.vault) {
+        await deps.vault.put(tenantId, providerId, `app:${clientId}`, appOnlyBundle)
+      }
+
+      await deps.audit?.recordAudit({
         tenantId,
-        connectorIds: stateRow.connectorIds,
-        scopesGranted: deps.registry.scopeUnion(stateRow.connectorIds),
+        actor: { type: 'system', label: 'oauth-callback' },
+        providerId,
+        operation: 'oauth.admin_consent',
+        result: 'ok',
+        metadata: { connector_ids: stateRow.connectorIds },
       })
-    }
-
-    const clientId = (provider as unknown as { cfg: { clientId: string } }).cfg.clientId
-    if (deps.vault) {
-      await deps.vault.put(tenantId, providerId, `app:${clientId}`, appOnlyBundle)
-    }
-
-    await deps.audit?.recordAudit({
-      tenantId,
-      actor: { type: 'system', label: 'oauth-callback' },
-      providerId,
-      operation: 'oauth.admin_consent',
-      result: 'ok',
-      metadata: { connector_ids: stateRow.connectorIds },
     })
 
     return c.html(`<!doctype html><html><body>

@@ -83,7 +83,7 @@ export function fuseByRRF(
 ## Imports (when implementation lands — P1)
 
 - **Allowed internal:** `@seta/agent-chunking` (upstream — `chunkText`), `@seta/agent-embeddings` (upstream — `embed`, `EMBEDDING_DIMENSIONS`), `@seta/agent-vector` (downstream — `searchChunks`, `insertChunks`, `Chunk` types), `@seta/db` (pool + `withTenant` for the FTS-leg query), `@seta/tenant` (context reads), `@seta/observability` (logger + OTel span for the fusion step).
-- **Forbidden:** any `modules/*` package, `apps/*`, `@seta/middleware` (this is a library, not a route module). No model SDKs (`openai`, `@anthropic-ai/sdk`) — embedding goes through `@seta/agent-embeddings`.
+- **Forbidden:** any `modules/*` package, `apps/*`. `@seta/middleware` route helpers (Hono / OpenAPI) are forbidden — this is a library, not a route module. The `@seta/middleware/errors` subpath (`DomainError` base) is allowed and is the canonical project contract per CLAUDE.md. No model SDKs (`openai`, `@anthropic-ai/sdk`) — embedding goes through `@seta/agent-embeddings`.
 - **External (pinned per setup.md §13):** `drizzle-orm@0.45.2`, `postgres@3.4.9` (transitively via `@seta/db`), `zod@4.4.3` (for option validation at the public surface).
 
 Setup.md §11 dep direction confirms: `platform/agent/rag → platform/agent/{chunking, embeddings, vector} + platform/db`.

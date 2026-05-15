@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
-  test: { name: '@seta/teams' },
+  test: { name: '@seta/ms-teams' },
 })

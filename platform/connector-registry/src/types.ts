@@ -16,7 +16,7 @@ export interface ConnectorRegistry {
   scopeUnion(connectorIds: string[]): { delegated: string[]; application: string[] }
   /**
    * Throw `ConnectorNotConsented` if this tenant hasn't enabled the connector.
-   * Implementation queries tenant.tenant_connectors; injected at composition root.
+   * Reads tenantId from tenantContext — must be called within a request context.
    */
-  requireConsent(tenantId: string, connectorId: string): Promise<void>
+  requireConsent(connectorId: string): Promise<void>
 }

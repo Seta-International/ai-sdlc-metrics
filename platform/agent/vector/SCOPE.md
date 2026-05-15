@@ -66,7 +66,7 @@ export { chunks, agentVectorSchema } from './schema/chunks.js'
 ## Imports (when implementation lands — P1)
 
 - **Allowed internal:** `@seta/db` (pool + `withTenant` + role exports + migration runner integration), `@seta/tenant` (context reads), `@seta/agent-embeddings` (the `EMBEDDING_DIMENSIONS = 1536` constant only — keeps the dimension contract one-sided).
-- **Forbidden:** `@seta/middleware` (this is a library, not a route module), any `modules/channels/*`, any `modules/products/*`, `apps/*`. No model SDKs. No HTTP server framework.
+- **Forbidden:** any `modules/channels/*`, any `modules/products/*`, `apps/*`. `@seta/middleware` route helpers (Hono / OpenAPI) are forbidden — this is a library, not a route module. The `@seta/middleware/errors` subpath (`DomainError` base) is allowed and is the canonical project contract per CLAUDE.md. No model SDKs. No HTTP server framework.
 - **External (pinned per setup.md §13):** `drizzle-orm@0.45.2`, `postgres@3.4.9` (transitively via `@seta/db`), `zod@4.4.3` (for `NewChunk` runtime refinement at the public surface).
 
 Setup.md §11 dep direction confirms: `platform/agent/vector → platform/db`.

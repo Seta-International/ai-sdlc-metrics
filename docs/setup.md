@@ -115,8 +115,12 @@ export const threads = pgTable("threads", {
 | `connector_ms365_directory` | `@seta/connector-ms365-directory` | `directory_users`, `directory_groups`, `directory_group_members`, `sync_state` — MS Graph directory mirror |
 | `connector_ms365_planner` | `@seta/connector-ms365-planner` | `planner_tasks_cache`, `planner_task_details_cache`, `planner_plans_cache`, `planner_buckets_cache`, `sync_watermarks` — MS Graph Planner mirror |
 | `agent` | `@seta/agent` (product) | `write_continuations` — HMAC-signed preview→commit tokens; future: conversations, runs, working memory |
+| `agent_memory` | `@seta/agent-memory` | `threads`, `messages`, `resources` — durable conversation memory (Mastra-aligned) |
+| `agent_workflows` | `@seta/agent-workflows` | `workflow_snapshots`, `workflow_steps` — durable workflow execution state, suspend/resume |
 
 Future connectors (`@seta/connector-trello`, `@seta/connector-google-directory`, `@seta/connector-jira`) land as new `connector_<vendor>_<surface>` schemas alongside.
+
+> Snapshot retention for `agent_workflows` is forward-only in P1. The package exports `pruneCompletedSnapshots()` as an ops surface; wire from cron when storage growth is documented.
 
 **DDD rules — enforced by review, not by tooling (yet):**
 
@@ -1813,6 +1817,7 @@ pnpm --filter @seta/connector-ms365-directory add zod@4.4.3 drizzle-orm@0.45.2 \
 
 ```bash
 pnpm --filter @seta/agent-chunking   add js-tiktoken@1.0.21 zod@4.4.3
+pnpm --filter @seta/agent-chunking   add -D fast-check@4.8.0
 pnpm --filter @seta/agent-embeddings add openai@6.37.0 zod@4.4.3
 pnpm --filter @seta/agent-vector     add zod@4.4.3 @seta/db@workspace:*
 pnpm --filter @seta/agent-rag    add zod@4.4.3 \

@@ -1,4 +1,5 @@
 import { DomainError } from '@seta/middleware'
+import { tenantContext } from '@seta/tenant'
 import type { ConnectorDefinition, ConnectorRegistry } from './types'
 
 export class ConnectorNotConsented extends DomainError {
@@ -50,8 +51,9 @@ export function createConnectorRegistry(consentCheck?: RequireConsentFn): Connec
       }
       return { delegated: [...delegated], application: [...application] }
     },
-    async requireConsent(tenantId, connectorId) {
+    async requireConsent(connectorId) {
       if (!consentCheck) throw new Error('consentCheck not configured')
+      const tenantId = tenantContext.getTenantId()
       const ok = await consentCheck(tenantId, connectorId)
       if (!ok) throw new ConnectorNotConsented(tenantId, connectorId)
     },

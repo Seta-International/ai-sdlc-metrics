@@ -18,9 +18,10 @@
   ],
   "dependencies": {
     "@hono/node-server": "2.0.2",
-    "@seta/agent": "workspace:*",
     "@seta/agent-core": "workspace:*",
     "@seta/agent-memory": "workspace:*",
+    "@seta/agent-server": "workspace:*",
+    "@seta/analytics": "workspace:*",
     "@seta/audit": "workspace:*",
     "@seta/auth": "workspace:*",
     "@seta/connector-ms365-directory": "workspace:*",
@@ -30,9 +31,10 @@
     "@seta/directory": "workspace:*",
     "@seta/middleware": "workspace:*",
     "@seta/ms-graph": "workspace:*",
+    "@seta/ms-teams": "workspace:*",
     "@seta/oauth": "workspace:*",
     "@seta/observability": "workspace:*",
-    "@seta/teams": "workspace:*",
+    "@seta/planner": "workspace:*",
     "@seta/tenant": "workspace:*",
     "dotenv": "17.4.2",
     "hono": "4.12.18",
@@ -40,10 +42,10 @@
   },
   "devDependencies": {
     "@seta/tsconfig": "workspace:*",
-    "@types/node": "^24.12.3",
+    "@types/node": "^25.7.0",
     "tsup": "8.5.1",
     "tsx": "4.21.0",
     "typescript": "6.0.3",
-    "vitest": "4.1.5"
+    "vitest": "4.1.6"
   }
 }

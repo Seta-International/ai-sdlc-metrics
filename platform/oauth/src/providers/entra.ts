@@ -55,6 +55,18 @@ export class EntraProvider implements OAuthProvider {
 
   private toBundle(res: AuthenticationResult | null, scopes: string[]): TokenBundle {
     if (!res) throw new EntraNoResultError()
+    // MSAL sets res.tenantId to "" for client-credentials flow and res.account is null.
+    // Decode tid from the JWT payload directly — it's always present in real tokens.
+    let jwtTid: string | undefined
+    try {
+      const part = res.accessToken.split('.')[1]
+      if (part) {
+        const payload = JSON.parse(Buffer.from(part, 'base64url').toString())
+        if (typeof payload.tid === 'string' && payload.tid) jwtTid = payload.tid
+      }
+    } catch {
+      // fake token in tests — fall through to MSAL fields
+    }
     return {
       accessToken: res.accessToken,
       refreshToken: null,
@@ -62,7 +74,7 @@ export class EntraProvider implements OAuthProvider {
       expiresAt: res.expiresOn ?? new Date(Date.now() + 3300_000),
       meta: {
         homeAccountId: res.account?.homeAccountId,
-        tid: res.account?.tenantId ?? res.tenantId,
+        tid: jwtTid ?? res.account?.tenantId ?? res.tenantId,
         idToken: res.idToken,
       },
     }
@@ -91,7 +103,7 @@ export class EntraProvider implements OAuthProvider {
     const appOnlyBundle = await this.acquireAppOnly(input.tenantQueryParam, [
       'https://graph.microsoft.com/.default',
     ])
-    const tid = (appOnlyBundle.meta.tid as string | undefined) ?? input.tenantQueryParam
+    const tid = (appOnlyBundle.meta.tid as string | undefined) || input.tenantQueryParam
     return { tenantId: tid, appOnlyBundle }
   }
 
