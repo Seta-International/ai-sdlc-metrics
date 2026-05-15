@@ -18,6 +18,7 @@
     "src/tokens/tokens.css"
   ],
   "dependencies": {
+    "@ai-sdk/react": "^3.0.184",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-popover": "^1.1.15",
     "@radix-ui/react-select": "^2.2.6",
