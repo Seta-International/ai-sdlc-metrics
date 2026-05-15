@@ -5,6 +5,7 @@ describe('migration runner', () => {
   it('applies owners in dependency order', () => {
     expect([...OWNER_ORDER]).toEqual([
       'auth',
+      'sso',
       'tenant',
       'directory',
       'oauth',
@@ -15,6 +16,13 @@ describe('migration runner', () => {
       'agent_memory',
       'agent_workflows',
     ])
+  })
+
+  it('places sso after auth', () => {
+    const authIdx = OWNER_ORDER.indexOf('auth')
+    const ssoIdx = OWNER_ORDER.indexOf('sso')
+    expect(authIdx).toBeGreaterThanOrEqual(0)
+    expect(ssoIdx).toBe(authIdx + 1)
   })
 
   it('places agent_memory after agent', () => {

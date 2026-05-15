@@ -6,6 +6,7 @@ import postgres from 'postgres'
 
 export const OWNER_ORDER = [
   'auth',
+  'sso',
   'tenant',
   'directory',
   'oauth',
@@ -21,6 +22,7 @@ export type Owner = (typeof OWNER_ORDER)[number]
 
 const OWNER_PACKAGE_PATH: Record<Owner, string> = {
   auth: 'platform/auth/migrations',
+  sso: 'platform/sso/migrations',
   tenant: 'platform/tenant/migrations',
   directory: 'platform/directory/migrations',
   oauth: 'platform/oauth/migrations',
