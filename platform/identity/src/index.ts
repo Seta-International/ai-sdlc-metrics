@@ -1,6 +1,8 @@
 export type { MeContext, MeContextProvider } from '@seta/tenancy'
 export { signCookie, verifyCookie } from './cookie'
 export { deriveCsrfToken } from './csrf'
+export type { ResolveNextUrlInput } from './me/resolve-next-url'
+export { resolveNextUrl } from './me/resolve-next-url'
 export type { CsrfOpts, RequireSessionOpts, SessionStore, SsoVariables } from './middleware'
 export { csrfMiddleware, requireSession } from './middleware'
 export type { RequireSuperadminOpts } from './middleware/require-superadmin'

@@ -31,6 +31,12 @@ function buildApp(sql: postgres.Sql) {
     sql,
     sessionCookie: { name: 'seta_sess', hmacKey: HMAC_KEY, ttlSec: 3600, secure: false },
     redirectBase: 'http://localhost:8080',
+    meContext: {
+      resolve: async () => ({ tenant: null, isSuperadmin: false, apps: [] }),
+    },
+    tenancy: {
+      findOrAttachUser: async () => 'attached',
+    },
   })
   app.route('/', sso)
   return app
@@ -103,7 +109,7 @@ describe('createSsoRoutes (integration)', () => {
     expect(res.status).toBe(401)
   })
 
-  it('GET /me with valid cookie returns user + empty tenants + csrfToken', async () => {
+  it('GET /me with valid cookie returns user + tenant context + csrfToken', async () => {
     const app = buildApp(sql)
     const start = await app.request('/sso/login/entra', {
       method: 'POST',
@@ -123,12 +129,16 @@ describe('createSsoRoutes (integration)', () => {
     expect(meRes.status).toBe(200)
     const me = (await meRes.json()) as {
       user: { email: string; name: string }
-      tenants: unknown[]
+      tenant: null | { id: string; slug: string; name: string; isAdmin: boolean }
+      isSuperadmin: boolean
+      apps: string[]
       csrfToken: string
     }
     expect(me.user.email).toBe(entraFixture.email)
     expect(me.user.name).toBe(entraFixture.name)
-    expect(me.tenants).toEqual([])
+    expect(me.tenant).toBeNull()
+    expect(me.isSuperadmin).toBe(false)
+    expect(me.apps).toEqual([])
     expect(typeof me.csrfToken).toBe('string')
     expect(me.csrfToken.length).toBeGreaterThan(0)
   })

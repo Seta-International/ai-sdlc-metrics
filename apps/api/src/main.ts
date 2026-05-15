@@ -39,7 +39,9 @@ import {
   PLANNER_PROFILE_SEED,
 } from '@seta/planner'
 import {
+  createMeContextProvider,
   createTenantRoutes,
+  findOrAttachUser,
   getActiveTenantIds,
   isConnectorConsented,
   listTenantsForUser,
@@ -87,6 +89,11 @@ const googleSso = new GoogleSsoProvider({
   clientSecret: env.GOOGLE_CLIENT_SECRET,
 })
 
+const meContext = createMeContextProvider({
+  sql: sql as never,
+  deployedApps: ['studio'],
+})
+
 const sso = createSsoRoutes({
   providers: { entra: entraSso, google: googleSso },
   sql,
@@ -97,6 +104,8 @@ const sso = createSsoRoutes({
     secure: env.NODE_ENV === 'production',
   },
   redirectBase: env.PUBLIC_BASE_URL,
+  meContext,
+  tenancy: { findOrAttachUser: (uid) => findOrAttachUser(sql as never, uid) },
 })
 
 // ── Tool registry ─────────────────────────────────────────────────────────────

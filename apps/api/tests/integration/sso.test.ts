@@ -48,6 +48,12 @@ function buildSsoApp(sql: postgres.Sql) {
       secure: false,
     },
     redirectBase: 'http://localhost:8080',
+    meContext: {
+      resolve: async () => ({ tenant: null, isSuperadmin: false, apps: [] }),
+    },
+    tenancy: {
+      findOrAttachUser: async () => 'attached',
+    },
   })
   app.route('/', sso)
   return app
@@ -104,11 +110,15 @@ describe('SSO round-trip with mock provider', () => {
     expect(meRes.status).toBe(200)
     const me = (await meRes.json()) as {
       user: { email: string; name: string }
-      tenants: unknown[]
+      tenant: null | { id: string; slug: string; name: string; isAdmin: boolean }
+      isSuperadmin: boolean
+      apps: string[]
       csrfToken: string
     }
     expect(me.user.email).toBe('user@example.com')
-    expect(me.tenants).toEqual([])
+    expect(me.tenant).toBeNull()
+    expect(me.isSuperadmin).toBe(false)
+    expect(me.apps).toEqual([])
     expect(typeof me.csrfToken).toBe('string')
     expect(me.csrfToken.length).toBeGreaterThan(0)
   })

@@ -7,7 +7,7 @@ export const TenantSummary = z
     name: z.string(),
     isAdmin: z.boolean(),
   })
-  .openapi('MeTenantSummary')
+  .openapi('TenantSummary')
 
 export type TenantSummary = z.infer<typeof TenantSummary>
 

@@ -3,17 +3,17 @@ import { Unauthorized } from '@seta/middleware'
 import type { Context } from 'hono'
 import type { TenantMembershipRow } from './service'
 
-export const TenantSummary = z
+const TenantListItem = z
   .object({
     id: z.string(),
     name: z.string(),
     role: z.enum(['owner', 'admin', 'member']),
   })
-  .openapi('TenantSummary')
+  .openapi('TenantListItem')
 
-export type TenantSummary = z.infer<typeof TenantSummary>
+type TenantListItem = z.infer<typeof TenantListItem>
 
-const TenantSummaryList = z.array(TenantSummary)
+const TenantSummaryList = z.array(TenantListItem)
 
 export type CreateTenantRoutesOpts = {
   listTenants: (args: { userId: string }) => Promise<TenantMembershipRow[]>
@@ -42,7 +42,7 @@ export function createTenantRoutes(opts: CreateTenantRoutesOpts) {
     const userId = getUser(c)
     if (!userId) throw new Unauthorized('no session user')
     const rows = await opts.listTenants({ userId })
-    return c.json(rows satisfies TenantSummary[], 200)
+    return c.json(rows satisfies TenantListItem[], 200)
   })
 
   return app

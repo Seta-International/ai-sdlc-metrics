@@ -1,21 +1,16 @@
 import { BadRequest, Unauthorized } from '@seta/middleware'
 import { logger } from '@seta/observability'
+import type { AttachStatus, MeContextProvider } from '@seta/tenancy'
 import { Hono } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import type { Sql } from 'postgres'
 import { signCookie, verifyCookie } from './cookie'
 import { deriveCsrfToken } from './csrf'
+import { resolveNextUrl } from './me/resolve-next-url'
 import { csrfMiddleware, requireSession, type SsoVariables } from './middleware'
 import { generatePkce } from './pkce'
 import type { SsoProvider } from './provider'
-import {
-  LoginBody,
-  LoginResponse,
-  MeResponse,
-  ProviderParam,
-  type SessionUser,
-  type TenantSummary,
-} from './schemas'
+import { LoginBody, LoginResponse, MeResponse, ProviderParam, type SessionUser } from './schemas'
 import { createSessionStore } from './session-store'
 import { upsertUserByIdentity } from './users-repo'
 
@@ -24,6 +19,8 @@ export type SsoRoutesDeps = {
   sql: Sql
   sessionCookie: { name: string; hmacKey: string; ttlSec: number; secure: boolean }
   redirectBase: string
+  meContext: MeContextProvider
+  tenancy: { findOrAttachUser: (userId: string) => Promise<AttachStatus> }
 }
 
 const STATE_COOKIE_TTL_SEC = 600
@@ -120,7 +117,17 @@ export function createSsoRoutes(deps: SsoRoutesDeps): Hono<{ Variables: SsoVaria
       { event: 'sso.login_complete', userId: user.id, provider: providerId },
       '[sso] login complete',
     )
-    return c.redirect(parsed.returnTo)
+
+    const status = await deps.tenancy.findOrAttachUser(user.id)
+    const lastApp = getCookie(c, 'seta_last_app') ?? null
+    const next =
+      status === 'superadmin'
+        ? '/console/admin/tenants'
+        : status === 'no-membership'
+          ? '/console/no-workspace'
+          : resolveNextUrl({ returnTo: parsed.returnTo, lastApp })
+
+    return c.redirect(next)
   })
 
   app.post(
@@ -160,9 +167,17 @@ export function createSsoRoutes(deps: SsoRoutesDeps): Hono<{ Variables: SsoVaria
         name: u.name,
         pictureUrl: u.picture_url,
       }
-      const tenants: TenantSummary[] = []
+      const ctx = await deps.meContext.resolve(userId)
       const csrfToken = deriveCsrfToken(sessionId, deps.sessionCookie.hmacKey)
-      return c.json(MeResponse.parse({ user, tenants, csrfToken }))
+      return c.json(
+        MeResponse.parse({
+          user,
+          tenant: ctx.tenant,
+          isSuperadmin: ctx.isSuperadmin,
+          apps: ctx.apps,
+          csrfToken,
+        }),
+      )
     },
   )
 
