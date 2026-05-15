@@ -28,7 +28,7 @@ import {
   isSuperadmin,
   requireSession,
 } from '@seta/identity'
-import { onError, Unauthorized } from '@seta/middleware'
+import { onError, rateLimit, Unauthorized } from '@seta/middleware'
 import { createGraphFetch } from '@seta/ms-graph'
 import { mockTeamsHandler, routes as teamsRoutes } from '@seta/ms-teams'
 import {
@@ -55,6 +55,7 @@ import {
   type TenantMembershipRole,
   tenantContext,
 } from '@seta/tenancy'
+import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { agentMemory, agentRegistry } from './agent'
 import { sql } from './db'
@@ -244,6 +245,14 @@ const agentRouter = createAgentRouter({
 const app = new Hono().onError(onError)
 
 app.get('/healthz', (c) => c.json({ ok: true }))
+
+const ipKey = (c: Context) => c.req.header('x-forwarded-for') ?? 'anon'
+const userKey = (c: Context) => (c.get('userId') as string | undefined) ?? 'anon'
+
+app.use('/sso/login/*', rateLimit({ rps: 5, burst: 20, key: ipKey }))
+app.use('/sso/callback/*', rateLimit({ rps: 5, burst: 30, key: ipKey }))
+app.use('/members*', rateLimit({ rps: 10, burst: 30, key: userKey }))
+app.use('/admin/*', rateLimit({ rps: 10, burst: 30, key: userKey }))
 
 app.route('/', sso)
 
