@@ -98,6 +98,9 @@ importers:
       '@seta/planner':
         specifier: workspace:*
         version: link:../../modules/products/planner
+      '@seta/sso':
+        specifier: workspace:*
+        version: link:../../platform/sso
       '@seta/tenant':
         specifier: workspace:*
         version: link:../../platform/tenant
