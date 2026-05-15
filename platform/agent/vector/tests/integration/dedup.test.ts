@@ -1,5 +1,5 @@
 import { createPool, withTenant } from '@seta/db'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { findExistingHashes, insertChunks } from '../../src/ingest'
 import {

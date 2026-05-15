@@ -510,15 +510,9 @@ importers:
       '@seta/agent-core':
         specifier: workspace:*
         version: link:../../../platform/agent/core
-      '@seta/agent-embeddings':
-        specifier: workspace:*
-        version: link:../../../platform/agent/embeddings
       '@seta/agent-server':
         specifier: workspace:*
         version: link:../../../platform/agent/server
-      '@seta/agent-vector':
-        specifier: workspace:*
-        version: link:../../../platform/agent/vector
       '@seta/agent-workflows':
         specifier: workspace:*
         version: link:../../../platform/agent/workflows

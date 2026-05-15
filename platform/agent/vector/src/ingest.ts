@@ -1,6 +1,6 @@
 import { type DbSql, withTenant } from '@seta/db'
 import { logger } from '@seta/observability'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import { VectorInsertFailedError, VectorQueryFailedError } from './errors.js'
 import type { NewChunk } from './schema.js'
 

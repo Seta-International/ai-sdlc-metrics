@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { createOpenAIEmbeddings, type EmbedResult } from '@seta/agent-embeddings'
 import { createPool, withTenant } from '@seta/db'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import postgres from 'postgres'
 import {
   findExistingHashes,
