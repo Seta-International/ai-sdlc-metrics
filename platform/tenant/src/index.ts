@@ -2,4 +2,10 @@ export type { TenantContextStore } from './context'
 export { tenantContext } from './context'
 export { tenantMiddleware } from './middleware'
 export * from './schema'
-export { getActiveTenantIds, isConnectorConsented, recordConsent } from './service'
+export type { TenantMembershipRole, TenantMembershipRow } from './service'
+export {
+  getActiveTenantIds,
+  isConnectorConsented,
+  listTenantsForUser,
+  recordConsent,
+} from './service'
