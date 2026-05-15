@@ -18,9 +18,9 @@
   ],
   "dependencies": {
     "@seta/agent-sdk": "workspace:*",
-    "@seta/identity": "workspace:*",
     "@seta/ui": "workspace:*",
-    "lucide-react": "1.16.0"
+    "lucide-react": "1.16.0",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@seta/tsconfig": "workspace:*",
