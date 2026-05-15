@@ -27,8 +27,11 @@ A separate package — not folded into `@seta/agent-vector` or `@seta/agent-rag`
 
 ## Current state (P1)
 
-- **Directory placeholder only.** This SCOPE.md exists; no `package.json`, no `src/` lands in this PR. The package is created in the next PR via `pnpm new:package` (CLAUDE.md CLI-only).
-- **HTTP-callable** — every integration test in this package must run through the `@seta/agent-core/testkit` `setupLLMRecording({ name })` helper (msw-backed, md5 fixture map per spike `06-llm-recording-replay.md`). Live OpenAI calls in CI are forbidden by CLAUDE.md "LLM in tests: only via `@seta/agent-core/testkit` recordings. Never live model APIs in CI."
+- **Package implemented.** `package.json`, `src/`, `tests/integration/`, and recordings all exist at `platform/agent/embeddings/`.
+- Public surface: `createOpenAIEmbeddings`, `EmbeddingsClient`, `EmbeddingsConfig`, `EmbedOptions`, `EmbedResult`, `EmbedUsage`, `EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS`, `EMBEDDING_BATCH_SIZE`, `EMBEDDING_MAX_INPUT_TOKENS`.
+- 43 unit tests pass (constants, parseInput Zod boundary, chunkBy batch helper, client factory, embed orchestration with fake-client, public-surface guard).
+- Integration tests cover happy path (single batch, multi-batch 250 inputs), 401 terminal error, and empty-input short-circuit. Fixtures replay deterministically from `tests/integration/__recordings__/`.
+- `@seta/agent-core` `mapOpenAIError` is the source of OpenAI SDK → `LlmError` mapping.
 
 ## Public interface (when implementation lands)
 

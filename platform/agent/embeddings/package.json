@@ -1,24 +1,31 @@
 {
   "name": "@seta/agent-embeddings",
   "version": "0.1.0",
-  "description": "Embedding provider interface and OpenAI text-embedding-3-small implementation",
+  "description": "OpenAI embeddings client with batching, retry, and abort wiring",
   "main": "./dist/index.js",
-  "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --sourcemap",
-    "dev": "tsup src/index.ts --format esm --dts --watch",
-    "test:unit": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
-  },
-  "license": "Apache-2.0",
-  "type": "module",
-  "private": true,
   "types": "./dist/index.d.ts",
   "files": [
     "dist"
   ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --sourcemap",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "test:unit": "vitest run src/",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:integration": "vitest run tests/"
+  },
+  "license": "Apache-2.0",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@seta/agent-core": "workspace:*",
+    "openai": "6.37.0",
+    "zod": "4.4.3"
+  },
   "devDependencies": {
     "@seta/tsconfig": "workspace:*",
-    "@types/node": "^25.7.0",
-    "tsup": "8.5.1"
+    "@types/node": "^24.12.3",
+    "tsup": "8.5.1",
+    "typescript": "6.0.3"
   }
 }
