@@ -1,1 +1,60 @@
-export {}
+// Provider
+
+// Data
+export { Card } from './components/data/Card'
+export { Code } from './components/data/Code'
+export type { Column } from './components/data/DataTable'
+export { DataTable } from './components/data/DataTable'
+export { EmptyState } from './components/data/EmptyState'
+export { StatusBadge } from './components/data/StatusBadge'
+export { Timeline } from './components/data/Timeline'
+export { TimelineEvent } from './components/data/TimelineEvent'
+export { TokenUsageBar } from './components/data/TokenUsageBar'
+export { Dialog } from './components/feedback/Dialog'
+export { Toast } from './components/feedback/Toast'
+export { Toaster, useToast } from './components/feedback/Toaster'
+// Feedback
+export { Tooltip, TooltipProvider } from './components/feedback/Tooltip'
+export type { ButtonProps } from './components/forms/Button'
+// Forms
+export { Button } from './components/forms/Button'
+export type { DateRange } from './components/forms/DateRangePicker'
+export { DateRangePicker } from './components/forms/DateRangePicker'
+export { FileUpload } from './components/forms/FileUpload'
+export type { InputProps } from './components/forms/Input'
+export { Input } from './components/forms/Input'
+export { Select } from './components/forms/Select'
+export { AgentInput } from './components/shell/AgentInput'
+export { AgentMessageList } from './components/shell/AgentMessageList'
+export { AgentPanel } from './components/shell/AgentPanel'
+export { AgentPanelHeader } from './components/shell/AgentPanelHeader'
+// Shell
+export { AppShell } from './components/shell/AppShell'
+export type { AppTile } from './components/shell/AppSwitcher'
+export { AppSwitcher } from './components/shell/AppSwitcher'
+export type { Crumb } from './components/shell/Breadcrumb'
+export { Breadcrumb } from './components/shell/Breadcrumb'
+export { CollapseToggle } from './components/shell/CollapseToggle'
+export { NotificationBell } from './components/shell/NotificationBell'
+export { Sidebar } from './components/shell/Sidebar'
+export { SidebarNav } from './components/shell/SidebarNav'
+export { SidebarNavItem } from './components/shell/SidebarNavItem'
+export { TenantSwitcher } from './components/shell/TenantSwitcher'
+export { TopBar } from './components/shell/TopBar'
+export { useAgentPanel } from './hooks/useAgentPanel'
+export type { UseAgentRunResult } from './hooks/useAgentRun'
+export { useAgentRun } from './hooks/useAgentRun'
+export type { UseChatResult } from './hooks/useChat'
+export { useChat } from './hooks/useChat'
+export { useMediaQuery } from './hooks/useMediaQuery'
+export { useSession } from './hooks/useSession'
+// Hooks
+export { useSidebar } from './hooks/useSidebar'
+export type { SetaUIMessage, SetaUIMessageMetadata } from './lib/chunksToUIMessages'
+// Chunk reducer + UIMessage types
+export { appendChunk } from './lib/chunksToUIMessages'
+export { SetaProvider } from './provider/SetaProvider'
+export { useAgentClient } from './provider/useAgentClient'
+
+// Types
+export type { AgentContext, NavItem, Tenant, Variant } from './types'
