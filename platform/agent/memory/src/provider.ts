@@ -7,7 +7,7 @@ import type { Sql } from 'postgres'
 import { actorFromContext } from './audit'
 import { MemoryPersistFailedError, WorkingMemoryTooLargeError } from './errors'
 import { fetchRecallPage, trimToTokenBudget } from './recall'
-import { ensureThread, saveMessages } from './save-turn'
+import { ensureThread, extractAutoTitle, saveMessages } from './save-turn'
 import type { Thread } from './schema'
 import type {
   CreateThreadInput,
@@ -100,7 +100,7 @@ export class AgentMemoryProvider implements MemoryProvider {
     const incoming = msgs.filter((m) => m.role !== 'system').length
     try {
       await withTenant(this.opts.sql, tenantId, async (tx) => {
-        await ensureThread(tx, tenantId, ctx.threadId)
+        await ensureThread(tx, tenantId, ctx.threadId, extractAutoTitle(msgs) ?? undefined)
         const inserted = await saveMessages(tx, tenantId, ctx.threadId, msgs)
 
         await recordAudit(tx as unknown as Sql, {

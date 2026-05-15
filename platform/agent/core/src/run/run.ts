@@ -1,20 +1,21 @@
 import { AgentError, kernelErrorOf } from '../errors'
 import { isAbortError } from '../errors/classify'
 import { NullMemoryProvider } from '../memory/null-provider'
-import type {
-  AgentConfig,
-  KernelChunk,
-  KernelMessage,
-  MemoryContext,
-  Processor,
-  ProcessorContext,
-  RunCtx,
-  RunInput,
-  RunLoopOptions,
-} from '../types'
+import type { KernelChunk } from '../types/chunk'
+import type { AgentConfig, RunLoopOptions } from '../types/config'
+import type { MemoryContext } from '../types/memory'
+import type { KernelMessage } from '../types/message'
+import type { Processor, ProcessorContext } from '../types/processor'
+import type { RunCtx, RunInput } from '../types/run'
 import { createRunCtx } from './make-run-ctx'
 import { ProcessorAbortSignal, runProcessInput } from './processors'
 import { runToolLoop } from './tool-loop'
+import {
+  buildWorkingMemoryMessages,
+  buildWorkingMemoryTools,
+  filterWorkingMemoryToolMessages,
+  makeMemoryContext,
+} from './working-memory'
 
 export async function* run(
   cfg: AgentConfig,
@@ -29,16 +30,15 @@ export async function* run(
   })
 
   const memory = opts.memory ?? new NullMemoryProvider()
-  const memCtx: MemoryContext = {
-    threadId: input.threadId ?? ctx.runId,
-    ...(input.conversationId !== undefined ? { conversationId: input.conversationId } : {}),
-    scope: 'resource',
-  }
+  const memCtx: MemoryContext = makeMemoryContext(cfg, input, ctx.runId)
 
   try {
     validateRunLoopOptions(opts)
 
-    const recalled = await memory.recall(memCtx)
+    const [recalled, workingMemoryMessages] = await Promise.all([
+      memory.recall(memCtx),
+      buildWorkingMemoryMessages(cfg, memory, memCtx),
+    ])
     let workingInput = input
     if (opts.processors?.length) {
       try {
@@ -64,13 +64,32 @@ export async function* run(
       }
     }
 
-    const initialMessages = [...recalled.messages, ...workingInput.messages]
+    const initialMessages = [
+      ...workingMemoryMessages,
+      ...recalled.messages,
+      ...workingInput.messages,
+    ]
+    const configuredTools = cfg.tools ?? []
+    const memoryTools = configuredTools.some((tool) => tool.id === 'updateWorkingMemory')
+      ? []
+      : buildWorkingMemoryTools(cfg, memory, memCtx)
+    const tools = [...configuredTools, ...memoryTools]
     const iter = runToolLoop({
       cfg,
       ctx,
       opts,
       initialMessages,
-      tools: cfg.tools ?? [],
+      tools,
+      workingMemoryMsgCount: workingMemoryMessages.length,
+      ...(workingMemoryMessages.length > 0
+        ? { refreshWorkingMemoryMessages: () => buildWorkingMemoryMessages(cfg, memory, memCtx) }
+        : {}),
+      saveIterationMessages: async (msgs) => {
+        const filtered = filterWorkingMemoryToolMessages(msgs)
+        if (filtered.length > 0) {
+          await memory.saveTurn(memCtx, filtered)
+        }
+      },
     })
 
     let errored = false
@@ -92,7 +111,10 @@ export async function* run(
     }
 
     if (!errored && !ctx.signal.aborted) {
-      await memory.saveTurn(memCtx, [...workingInput.messages, ...added])
+      await memory.saveTurn(
+        memCtx,
+        filterWorkingMemoryToolMessages([...workingInput.messages, ...added]),
+      )
     }
   } catch (err) {
     if (isAbortError(err) && ctx.signal.aborted) {

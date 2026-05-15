@@ -62,4 +62,24 @@ describe('hydrateAgent', () => {
     expect(config.tools).toEqual([mockTool])
     expect(config.model).toBe('gpt-4o')
   })
+
+  it('enables resource-scoped working memory from the profile template', () => {
+    const registry = { resolve: vi.fn().mockReturnValue([]), register: vi.fn() }
+    const config = hydrateAgent(
+      {
+        ...PROFILE_ROW,
+        workingMemoryTemplate: 'Timezone: {{timezone}}\nConversation: {{convType}}',
+      } as never,
+      [],
+      { timezone: 'Asia/Bangkok', convType: 'direct' },
+      registry,
+    )
+
+    expect(config.workingMemory).toEqual({
+      enabled: true,
+      template: 'Timezone: Asia/Bangkok\nConversation: direct',
+      scope: 'resource',
+      version: 'vnext',
+    })
+  })
 })
