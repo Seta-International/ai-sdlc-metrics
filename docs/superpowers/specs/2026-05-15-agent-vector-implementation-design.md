@@ -32,8 +32,9 @@ The dedup design is folded in from the start — there is no "schema without
   (`FORCE RLS` + `GRANT`), `--custom` HNSW index.
 - Three public functions: `searchChunks`, `insertChunks` (with
   `ON CONFLICT DO NOTHING`), `findExistingHashes`.
-- Two `DomainError` subclasses: `VectorQueryFailedError`,
-  `VectorInsertFailedError`.
+- Two `AgentError` subclasses: `VectorQueryFailedError`,
+  `VectorInsertFailedError` (extending the agent-platform error base — mirrors
+  `MemoryPersistFailedError` in `@seta/agent-memory`).
 - Unit tests (co-located) + integration tests against real Postgres.
 - `@seta/db` `OWNER_ORDER` update to include `'agent_vector'`.
 - Replace the stale placeholder `VectorStore` interface in `src/index.ts`.
@@ -95,7 +96,7 @@ platform/agent/vector/
 │       └── 0002_snapshot.json
 ├── src/
 │   ├── schema.ts                 # Drizzle table + pgPolicy + $infer types
-│   ├── errors.ts                 # DomainError subclasses
+│   ├── errors.ts                 # AgentError subclasses
 │   ├── ingest.ts                 # insertChunks + findExistingHashes
 │   ├── search.ts                 # searchChunks (raw SQL + HNSW SET LOCAL)
 │   ├── index.ts                  # public re-exports only
@@ -117,7 +118,7 @@ pnpm --filter @seta/agent-vector add \
   @seta/db@workspace:* \
   @seta/tenant@workspace:* \
   @seta/observability@workspace:* \
-  @seta/middleware@workspace:* \
+  @seta/agent-core@workspace:* \
   @seta/agent-embeddings@workspace:* \
   drizzle-orm@0.45.2 \
   postgres@3.4.9 \
@@ -507,20 +508,34 @@ export async function searchChunks(
 ### `src/errors.ts`
 
 ```ts
-import { DomainError } from '@seta/middleware/errors'
+import { AgentError } from '@seta/agent-core'
 
-export class VectorQueryFailedError extends DomainError {
+export class VectorQueryFailedError extends AgentError {
   constructor(cause: unknown) {
-    super('VECTOR_QUERY_FAILED', 'Failed to query vector store', { cause })
+    super({
+      code: 'VECTOR_QUERY_FAILED',
+      category: 'SYSTEM',
+      message: 'Failed to query vector store',
+      cause,
+    })
   }
 }
 
-export class VectorInsertFailedError extends DomainError {
+export class VectorInsertFailedError extends AgentError {
   constructor(cause: unknown) {
-    super('VECTOR_INSERT_FAILED', 'Failed to insert chunks', { cause })
+    super({
+      code: 'VECTOR_INSERT_FAILED',
+      category: 'SYSTEM',
+      message: 'Failed to insert chunks',
+      cause,
+    })
   }
 }
 ```
+
+`AgentError` extends `DomainError` (HTTPException) with `code` + `category`
+fields and a stable `id`. Status defaults to 500. Mirrors
+`MemoryPersistFailedError` in `@seta/agent-memory/src/errors.ts`.
 
 | Code                  | Meaning                                              | HTTP (RFC 7807) |
 | --------------------- | ---------------------------------------------------- | --------------- |
@@ -571,9 +586,9 @@ only — full rewrite not required):
    `token_count`, `created_at` columns and the
    `chunks_tenant_source_hash_unique` unique index.
 3. **Owns** — add `findExistingHashes(sourceId, hashes)` and the two
-   `DomainError` subclasses to the public surface list.
+   `AgentError` subclasses to the public surface list.
 4. **Imports → Allowed internal** — add `@seta/observability` and
-   `@seta/middleware/errors` to the list.
+   `@seta/agent-core` (for the `AgentError` base) to the list.
 5. **Public interface** — replace the old block with the final shape from this
    spec (functions take `sql: DbSql`).
 6. **Patterns to follow** — add bullets:
@@ -600,8 +615,8 @@ only — full rewrite not required):
 - `src/schema.test.ts` — types compile against representative rows; column
   list on the inferred `NewChunk` matches the spec.
 - `src/errors.test.ts` — `VectorQueryFailedError` and `VectorInsertFailedError`
-  are instances of `DomainError`, carry the correct code, message, and
-  `cause`.
+  are instances of `AgentError` (and transitively `DomainError`), carry the
+  correct `code`, `category: 'SYSTEM'`, `message`, and `cause`.
 - `src/index.test.ts` — replaces the placeholder; asserts the public surface
   exports the documented names. Snapshot is fine.
 
