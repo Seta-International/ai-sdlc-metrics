@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
+import { createOpenAIEmbeddings, type EmbedResult } from '@seta/agent-embeddings'
 import { createPool } from '@seta/db'
 import { tenantContext } from '@seta/tenant'
 
@@ -151,6 +152,30 @@ try {
     record('migrations present', false, `run pnpm migrate; underlying: ${(err as Error).message}`)
     throw err
   }
+  console.log()
+
+  // ── 2/10: embed FAQ corpora ───────────────────────────────────────────────
+  printSection(2, TOTAL_STEPS, '📥', 'Embed FAQ corpora via OpenAI text-embedding-3-small')
+  const embeddings = createOpenAIEmbeddings({ apiKey })
+
+  const acmeContents = FAQ_ACME.map(faqToContent)
+  const globexContents = FAQ_GLOBEX.map(faqToContent)
+
+  const t0 = Date.now()
+  const [acmeEmbed, globexEmbed]: [EmbedResult, EmbedResult] = await Promise.all([
+    embeddings.embed(acmeContents),
+    embeddings.embed(globexContents),
+  ])
+  const elapsed = Date.now() - t0
+
+  record(
+    'embedded',
+    acmeEmbed.embeddings.length === FAQ_ACME.length &&
+      globexEmbed.embeddings.length === FAQ_GLOBEX.length,
+    `${FAQ_ACME.length + FAQ_GLOBEX.length} vectors · ${acmeEmbed.embeddings[0]?.length}d · ${
+      acmeEmbed.usage.totalTokens + globexEmbed.usage.totalTokens
+    } tokens · ${elapsed} ms`,
+  )
   console.log()
 } finally {
   await sql.end({ timeout: 2 })
