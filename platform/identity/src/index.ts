@@ -17,14 +17,13 @@ export type { SsoRoutesDeps } from './routes'
 export { createSsoRoutes } from './routes'
 export type { NewSession, NewUser, NewUserIdentity, Session, User, UserIdentity } from './schema'
 export { authSchema, sessions, userIdentities, users } from './schema'
-export type { MeResponse, SessionUser, TenantSummary } from './schemas'
 export {
   LoginBody,
   LoginResponse,
-  MeResponse as MeResponseSchema,
+  MeResponse,
   ProviderParam,
-  SessionUser as SessionUserSchema,
-  TenantSummary as TenantSummarySchema,
+  SessionUser,
+  TenantSummary,
 } from './schemas'
 export type { PostgresSessionStore } from './session-store'
 export { createSessionStore } from './session-store'
