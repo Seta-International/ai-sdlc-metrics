@@ -27,3 +27,84 @@ console.log('║         @seta/agent-vector  —  Live Demo                 ║'
 console.log('╚══════════════════════════════════════════════════════════╝\n')
 console.log(`Database: ${databaseUrl.replace(/(:\/\/)([^:]+):[^@]+@/, '$1$2:***@')}`)
 console.log()
+
+// ─── FAQ corpora ─────────────────────────────────────────────────────────────
+
+interface FaqItem {
+  question: string
+  answer: string
+}
+
+const FAQ_ACME: FaqItem[] = [
+  {
+    question: 'How do I reset my Acme password?',
+    answer:
+      'To reset your Acme password, visit acme.example.com/account, click "Forgot password", and follow the link sent to your registered email.',
+  },
+  {
+    question: 'How do I enable two-factor authentication on Acme?',
+    answer:
+      'Acme two-factor authentication is enabled from Settings → Security. We support TOTP apps and hardware security keys.',
+  },
+  {
+    question: 'What is the Acme refund policy?',
+    answer:
+      'Acme refunds are issued within 30 days of purchase. Open a ticket from your order history page and an agent will respond within 24 hours.',
+  },
+  {
+    question: 'How do I contact Acme support?',
+    answer:
+      'Acme support is reachable at support@acme.example.com or via live chat during business hours.',
+  },
+]
+
+const FAQ_GLOBEX: FaqItem[] = [
+  {
+    question: 'What Globex products are available?',
+    answer:
+      'Globex offers three product lines: Globex Cloud (managed hosting), Globex Insights (analytics), and Globex Forge (developer tooling).',
+  },
+  {
+    question: 'How is Globex Cloud billed?',
+    answer:
+      'Globex Cloud bills monthly based on metered compute and storage. Invoices are issued on the first of each month.',
+  },
+  {
+    question: 'Does Globex offer enterprise support?',
+    answer:
+      'Yes, Globex Enterprise plans include 24/7 phone support, a dedicated technical account manager, and a 99.95% uptime SLA.',
+  },
+  {
+    question: 'Where are Globex data centers located?',
+    answer:
+      'Globex operates data centers in Frankfurt, Singapore, and Virginia. Customers can pin workloads to a specific region.',
+  },
+]
+
+const ACME_QUERY = 'How do I reset my password?'
+const GLOBEX_QUERY = 'What Globex products are available?'
+
+// ─── presentation helpers ────────────────────────────────────────────────────
+
+function bar(sim: number, width = 40): string {
+  const clamped = Math.max(0, Math.min(1, sim))
+  const filled = Math.round(clamped * width)
+  return '█'.repeat(filled) + '░'.repeat(width - filled) + ` ${(clamped * 100).toFixed(1)}%`
+}
+
+function printSection(num: number, total: number, emoji: string, title: string): void {
+  console.log(`${emoji} [${num}/${total}] ${title}`)
+}
+
+function printResult(label: string, ok: boolean, detail: string): void {
+  const mark = ok ? '✓' : '✗'
+  console.log(`   ${mark} ${label}${detail ? ` — ${detail}` : ''}`)
+}
+
+function truncate(s: string, n: number): string {
+  return s.length <= n ? s : `${s.slice(0, n - 1)}…`
+}
+
+function faqToContent(item: FaqItem): string {
+  return `Q: ${item.question}\nA: ${item.answer}`
+}
