@@ -38,7 +38,7 @@ tests, and Playwright E2E scaffolding.
 PR-3 baseline:
 
 - Vite 8 + React 19 + TanStack Router + TanStack Query.
-- `@seta/portal` shared `LoginPage` + `CallbackSplash` mounted at
+- `@seta/identity-client` shared `LoginPage` + `CallbackSplash` mounted at
   `/login` and `/login/$provider/callback`.
 - AppShell with full nav, mounted **without** `agentContext` — Studio is
   admin-only, the right-side `AgentPanel` column is collapsed (PR-3
@@ -50,11 +50,11 @@ PR-4 layered:
 - `/tenants` reads from the canonical `GET /tenants` endpoint (owner:
   `@seta/tenancy.createTenantRoutes`) via `tenantsQueryOptions` —
   previously read `me.tenants`.
-- `/tenants/$id/connectors` renders `@seta/portal`'s shared
+- `/tenants/$id/connectors` renders `@seta/identity-client`'s shared
   `ConnectorsPage` (DataTable + StatusBadge + "Grant consent" button),
   fed by `connectorsQueryOptions` against the
   `@seta/connector-registry.createConnectorAdminRoutes` surface.
-- `/tenants/$id/connectors/$cid/consent` renders `@seta/portal`'s
+- `/tenants/$id/connectors/$cid/consent` renders `@seta/identity-client`'s
   `ConsentLandingPage`; the route loader invalidates the connectors
   query on mount so the success state shows immediately after the OAuth
   redirect returns.

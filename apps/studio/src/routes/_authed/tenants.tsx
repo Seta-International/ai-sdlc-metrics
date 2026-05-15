@@ -1,4 +1,4 @@
-import { TenantsPage } from '@seta/portal'
+import { TenantsPage } from '@seta/identity-client'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { tenantsQueryOptions } from '../../api/queries'

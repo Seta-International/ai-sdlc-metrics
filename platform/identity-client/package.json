@@ -1,7 +1,7 @@
 {
-  "name": "@seta/portal",
+  "name": "@seta/identity-client",
   "version": "0.1.0",
-  "description": "Seta Workspace portal — shared login, callback, and tenant-picker UI for every Workspace SPA",
+  "description": "Seta identity client: useMe hook, signIn helper, RequireSession, shared session/tenant types",
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --sourcemap",

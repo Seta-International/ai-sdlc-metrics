@@ -1,5 +1,5 @@
 import type { ConnectorSummary } from '@seta/agent-sdk'
-import { ConnectorsPage } from '@seta/portal'
+import { ConnectorsPage } from '@seta/identity-client'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { client } from '../../api/client'

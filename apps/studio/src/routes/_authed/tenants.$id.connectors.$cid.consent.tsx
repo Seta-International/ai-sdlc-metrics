@@ -1,4 +1,4 @@
-import { ConsentLandingPage } from '@seta/portal'
+import { ConsentLandingPage } from '@seta/identity-client'
 import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect } from 'react'

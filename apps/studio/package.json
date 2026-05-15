@@ -17,7 +17,7 @@
   "dependencies": {
     "@seta/agent-sdk": "workspace:*",
     "@seta/connector-registry": "workspace:*",
-    "@seta/portal": "workspace:*",
+    "@seta/identity-client": "workspace:*",
     "@seta/identity": "workspace:*",
     "@seta/ui": "workspace:*",
     "@tanstack/react-query": "5.100.10",
