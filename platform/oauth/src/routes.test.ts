@@ -174,6 +174,57 @@ describe('GET /oauth/:provider/callback', () => {
     await sql`DELETE FROM audit.audit_log WHERE tenant_id = ${customerTenantId}`
   })
 
+  it('redirects to onConsentRedirect URL when configured', async () => {
+    const sql3 = postgres(URL, { max: 1, prepare: false })
+    const ss3 = createStateStore(sql3)
+    const state = await ss3.mint({ providerId: 'entra', connectorIds: ['ms365-planner'] })
+
+    const onConsentRedirect = vi
+      .fn()
+      .mockImplementation(
+        ({
+          tenantId,
+          connectorIds,
+          ok,
+        }: {
+          tenantId: string
+          connectorIds: string[]
+          ok: boolean
+        }) =>
+          `https://studio.example.com/tenants/${tenantId}/connectors/${connectorIds[0]}/consent?ok=${ok ? 1 : 0}`,
+      )
+
+    const app3 = new Hono().onError(onError).route(
+      '/oauth',
+      createOAuthRoutes({
+        providers,
+        registry,
+        stateStore: ss3,
+        vault,
+        audit: createAuditWriter(sql3),
+        redirectBase: 'https://api.example.com',
+        onConsentRedirect,
+      }),
+    )
+
+    const res = await app3.request(
+      `/oauth/entra/callback?admin_consent=True&tenant=${customerTenantId}&state=${state}`,
+    )
+    expect(res.status).toBe(302)
+    expect(res.headers.get('location')).toBe(
+      `https://studio.example.com/tenants/${customerTenantId}/connectors/ms365-planner/consent?ok=1`,
+    )
+    expect(onConsentRedirect).toHaveBeenCalledWith({
+      tenantId: customerTenantId,
+      connectorIds: ['ms365-planner'],
+      ok: true,
+    })
+
+    await sql3`DELETE FROM oauth.oauth_tokens WHERE tenant_id = ${customerTenantId}`
+    await sql3`DELETE FROM audit.audit_log WHERE tenant_id = ${customerTenantId}`
+    await sql3.end()
+  })
+
   it('rejects when tenant query param mismatches token tid', async () => {
     const sql2 = postgres(URL, { max: 1, prepare: false })
     const ss2 = createStateStore(sql2)

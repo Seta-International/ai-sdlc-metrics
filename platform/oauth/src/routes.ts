@@ -20,6 +20,17 @@ export type OAuthRoutesDeps = {
     connectorIds: string[]
     scopesGranted: { delegated: string[]; application: string[] }
   }) => Promise<void>
+  /**
+   * If provided, the admin-consent callback redirects to this URL instead
+   * of rendering inline HTML. The composition root uses it to send the
+   * admin back to the Workspace SPA's consent-landing route.
+   */
+  onConsentRedirect?: (input: {
+    tenantId: string
+    connectorIds: string[]
+    ok: boolean
+    error?: string
+  }) => string
 }
 
 const ConsentUrlBody = z.object({
@@ -116,6 +127,16 @@ export function createOAuthRoutes(deps: OAuthRoutesDeps) {
         metadata: { connector_ids: stateRow.connectorIds },
       })
     })
+
+    if (deps.onConsentRedirect) {
+      return c.redirect(
+        deps.onConsentRedirect({
+          tenantId,
+          connectorIds: stateRow.connectorIds,
+          ok: true,
+        }),
+      )
+    }
 
     return c.html(`<!doctype html><html><body>
 <h1>Connected</h1>
