@@ -135,7 +135,7 @@ const tenancyRoutes = createTenancyRoutes({
     `) as Array<{ role: TenantMembershipRole }>
     return rows[0] ?? null
   },
-  invalidateUserSessions: async () => {}, // wired in Task 4.9
+  invalidateUserSessions: (uid: string) => sessionStore.deleteByUserId(uid),
   isSuperadmin: (uid: string) => isSuperadmin(sql as never, uid),
 })
 

@@ -11,6 +11,7 @@ export function createSessionStore(sql: Sql): SessionStore & {
     userAgent: string | null
   }): Promise<void>
   delete(sessionId: string): Promise<void>
+  deleteByUserId(userId: string): Promise<void>
 } {
   return {
     async get(sessionId) {
@@ -51,6 +52,9 @@ export function createSessionStore(sql: Sql): SessionStore & {
     },
     async delete(sessionId) {
       await sql`DELETE FROM auth.sessions WHERE id = ${sessionId}`
+    },
+    async deleteByUserId(userId) {
+      await sql`DELETE FROM auth.sessions WHERE user_id = ${userId}`
     },
   }
 }
