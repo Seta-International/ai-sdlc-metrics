@@ -1,4 +1,3 @@
-import { EMBEDDING_DIMENSIONS } from '@seta/agent-embeddings'
 import { tenantUser } from '@seta/db'
 import { sql } from 'drizzle-orm'
 import {
@@ -12,6 +11,12 @@ import {
   uuid,
   vector,
 } from 'drizzle-orm/pg-core'
+
+// drizzle-kit resolves schema.ts via CJS; @seta/agent-core exposes only ESM
+// exports so the transitive require() fails. Mirror the constant here to keep
+// drizzle-kit generation self-contained. Value must stay in sync with
+// @seta/agent-embeddings EMBEDDING_DIMENSIONS (currently 1536).
+const EMBEDDING_DIMENSIONS = 1536 as const
 
 export const agentVectorSchema = pgSchema('agent_vector')
 
