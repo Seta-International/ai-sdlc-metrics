@@ -60,6 +60,7 @@ import { Hono } from 'hono'
 import { agentMemory, agentRegistry } from './agent'
 import { sql } from './db'
 import { deployedApps, enabledSsoProviders, env, superadminEmails } from './env'
+import { lastAppMiddleware, verifyLastApp } from './last-app-middleware'
 import { runSeed } from './seed'
 
 // ── Infrastructure ────────────────────────────────────────────────────────────
@@ -116,6 +117,7 @@ const sso = createSsoRoutes({
   redirectBase: env.PUBLIC_BASE_URL,
   meContext,
   tenancy: { findOrAttachUser: (uid) => findOrAttachUser(sql as never, uid) },
+  verifyLastApp: (raw) => verifyLastApp(raw, env.SESSION_HMAC_KEY),
 })
 
 // ── Tenancy routes ────────────────────────────────────────────────────────────
@@ -243,6 +245,11 @@ const agentRouter = createAgentRouter({
 // ── Hono app ──────────────────────────────────────────────────────────────────
 
 const app = new Hono().onError(onError)
+
+app.use(
+  '*',
+  lastAppMiddleware({ hmacKey: env.SESSION_HMAC_KEY, secure: env.NODE_ENV === 'production' }),
+)
 
 app.get('/healthz', (c) => c.json({ ok: true }))
 

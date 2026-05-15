@@ -22,6 +22,7 @@ export type SsoRoutesDeps = {
   redirectBase: string
   meContext: MeContextProvider
   tenancy: { findOrAttachUser: (userId: string) => Promise<AttachStatus> }
+  verifyLastApp?: (raw: string | undefined) => string | null
 }
 
 const STATE_COOKIE_TTL_SEC = 600
@@ -123,7 +124,8 @@ export function createSsoRoutes(deps: SsoRoutesDeps): Hono<{ Variables: SsoVaria
     )
 
     const status = await deps.tenancy.findOrAttachUser(user.id)
-    const lastApp = getCookie(c, 'seta_last_app') ?? null
+    const rawLastApp = getCookie(c, 'seta_last_app') ?? undefined
+    const lastApp = deps.verifyLastApp ? deps.verifyLastApp(rawLastApp) : null
     const next =
       status === 'superadmin'
         ? '/console/admin/tenants'
