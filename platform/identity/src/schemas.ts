@@ -1,7 +1,5 @@
 import { z } from '@hono/zod-openapi'
-import { TenantSummary } from '@seta/tenancy'
-
-export { TenantSummary }
+import { TenantSummary } from './me-context-provider'
 
 export const SessionUser = z
   .object({

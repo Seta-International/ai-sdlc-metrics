@@ -1,7 +1,5 @@
 export type { TenantContextStore } from './context'
 export { tenantContext } from './context'
-export type { MeContext, MeContextProvider } from './me-context-provider'
-export { TenantSummary } from './me-context-provider'
 export type { RequireTenantMembershipOpts, TenantMembership } from './membership'
 export { requireTenantMembership } from './membership'
 export { tenantMiddleware } from './middleware'

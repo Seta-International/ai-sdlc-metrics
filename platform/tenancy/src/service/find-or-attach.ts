@@ -1,6 +1,7 @@
+import type { AttachStatus } from '@seta/identity'
 import type { Sql } from 'postgres'
 
-export type AttachStatus = 'superadmin' | 'attached' | 'no-membership'
+export type { AttachStatus }
 
 export async function findOrAttachUser(sql: Sql, userId: string): Promise<AttachStatus> {
   const superRows = (await sql`

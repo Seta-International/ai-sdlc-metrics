@@ -20,3 +20,5 @@ export type MeContext = {
 export interface MeContextProvider {
   resolve(userId: string): Promise<MeContext>
 }
+
+export type AttachStatus = 'superadmin' | 'attached' | 'no-membership'

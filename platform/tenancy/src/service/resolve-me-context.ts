@@ -1,5 +1,5 @@
+import type { MeContext, MeContextProvider } from '@seta/identity'
 import type { Sql } from 'postgres'
-import type { MeContext, MeContextProvider } from '../me-context-provider'
 
 export type CreateMeContextProviderOpts = {
   sql: Sql

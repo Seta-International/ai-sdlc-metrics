@@ -1,8 +1,9 @@
-export type { MeContext, MeContextProvider } from '@seta/tenancy'
 export { signCookie, verifyCookie } from './cookie'
 export { deriveCsrfToken } from './csrf'
 export type { ResolveNextUrlInput } from './me/resolve-next-url'
 export { resolveNextUrl } from './me/resolve-next-url'
+export type { AttachStatus, MeContext, MeContextProvider } from './me-context-provider'
+export { TenantSummary } from './me-context-provider'
 export type { CsrfOpts, RequireSessionOpts, SessionStore, SsoVariables } from './middleware'
 export { csrfMiddleware, requireSession } from './middleware'
 export type { RequireSuperadminOpts } from './middleware/require-superadmin'
@@ -17,14 +18,7 @@ export type { SsoRoutesDeps } from './routes'
 export { createSsoRoutes } from './routes'
 export type { NewSession, NewUser, NewUserIdentity, Session, User, UserIdentity } from './schema'
 export { authSchema, sessions, userIdentities, users } from './schema'
-export {
-  LoginBody,
-  LoginResponse,
-  MeResponse,
-  ProviderParam,
-  SessionUser,
-  TenantSummary,
-} from './schemas'
+export { LoginBody, LoginResponse, MeResponse, ProviderParam, SessionUser } from './schemas'
 export type { PostgresSessionStore } from './session-store'
 export { createSessionStore } from './session-store'
 export { isSuperadmin } from './superadmin-repo'

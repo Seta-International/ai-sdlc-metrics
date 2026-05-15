@@ -1023,9 +1023,6 @@ importers:
       '@seta/observability':
         specifier: workspace:*
         version: link:../observability
-      '@seta/tenancy':
-        specifier: workspace:*
-        version: link:../tenancy
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -1069,15 +1066,15 @@ importers:
       '@seta/agent-sdk':
         specifier: workspace:*
         version: link:../agent/sdk
+      '@seta/identity':
+        specifier: workspace:*
+        version: link:../identity
       '@seta/ui':
         specifier: workspace:*
         version: link:../ui
       lucide-react:
         specifier: 1.16.0
         version: 1.16.0(react@19.2.6)
-      zod:
-        specifier: 4.4.3
-        version: 4.4.3
     devDependencies:
       '@seta/tsconfig':
         specifier: workspace:*
@@ -1317,6 +1314,9 @@ importers:
       '@seta/audit':
         specifier: workspace:*
         version: link:../audit
+      '@seta/identity':
+        specifier: workspace:*
+        version: link:../identity
       '@seta/middleware':
         specifier: workspace:*
         version: link:../middleware
