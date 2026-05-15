@@ -1,0 +1,3 @@
+@import '@seta/ui/tokens.css';
+@import 'tailwindcss';
+@config '../tailwind.config.ts';
