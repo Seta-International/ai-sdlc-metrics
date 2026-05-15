@@ -9,5 +9,6 @@ describe('@seta/agent-vector public surface', () => {
     expect(api.VectorInsertFailedError).toBeDefined()
     expect(api.findExistingHashes).toBeInstanceOf(Function)
     expect(api.insertChunks).toBeInstanceOf(Function)
+    expect(api.searchChunks).toBeInstanceOf(Function)
   })
 })
