@@ -1,0 +1,10 @@
+{
+  "request": { "method": "GET", "url": "/tenants" },
+  "response": {
+    "status": 200,
+    "body": [
+      { "id": "00000000-0000-0000-0000-0000000000a1", "name": "Acme", "role": "admin" },
+      { "id": "00000000-0000-0000-0000-0000000000a2", "name": "Globex", "role": "member" }
+    ]
+  }
+}

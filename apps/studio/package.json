@@ -1,0 +1,50 @@
+{
+  "name": "@seta/studio",
+  "version": "0.1.0",
+  "description": "Seta Studio is a low-code platform for building and deploying AI agents. It provides a visual interface for designing agent workflows, integrating with various data sources and APIs, and managing agent deployments.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "check:bundle": "tsx scripts/check-bundle-size.ts"
+  },
+  "license": "Apache-2.0",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@seta/agent-sdk": "workspace:*",
+    "@seta/connector-registry": "workspace:*",
+    "@seta/portal": "workspace:*",
+    "@seta/sso": "workspace:*",
+    "@seta/ui": "workspace:*",
+    "@tanstack/react-query": "5.100.10",
+    "@tanstack/react-router": "1.169.2",
+    "lucide-react": "1.16.0",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "recharts": "3.8.1",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.11.3",
+    "@playwright/test": "1.60.0",
+    "@seta/tsconfig": "workspace:*",
+    "@tailwindcss/vite": "4.3.0",
+    "@tanstack/router-plugin": "1.167.35",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.1",
+    "@types/node": "25.8.0",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "jsdom": "29.1.1",
+    "msw": "2.14.6",
+    "tailwindcss": "4.3.0",
+    "typescript": "6.0.3",
+    "vite": "8.0.13",
+    "vitest": "4.1.5"
+  }
+}

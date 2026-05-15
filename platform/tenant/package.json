@@ -17,6 +17,7 @@
     "dist"
   ],
   "dependencies": {
+    "@hono/zod-openapi": "1.4.0",
     "@seta/middleware": "workspace:*",
     "dotenv": "17.4.2",
     "drizzle-orm": "0.45.2",
@@ -27,6 +28,7 @@
     "@seta/tsconfig": "workspace:*",
     "@types/node": "^25.7.0",
     "drizzle-kit": "0.31.10",
+    "postgres": "3.4.9",
     "tsup": "8.5.1",
     "typescript": "6.0.3",
     "vitest": "4.1.6"

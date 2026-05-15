@@ -1,6 +1,28 @@
 type Sql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>
 type SqlTransaction = Sql & { begin: (fn: (tx: Sql) => Promise<void>) => Promise<void> }
 
+export type TenantMembershipRole = 'owner' | 'admin' | 'member'
+
+export type TenantMembershipRow = {
+  id: string
+  name: string
+  role: TenantMembershipRole
+}
+
+export async function listTenantsForUser(sql: Sql, userId: string): Promise<TenantMembershipRow[]> {
+  const rows = (await sql`
+    SELECT t.id::text AS id,
+           COALESCE(t.display_name, t.slug) AS name,
+           m.role AS role
+    FROM tenant.tenant_members m
+    JOIN tenant.tenants t ON t.id = m.tenant_id
+    WHERE m.user_id = ${userId}
+      AND t.status = 'active'
+    ORDER BY name ASC
+  `) as Array<{ id: string; name: string; role: TenantMembershipRole }>
+  return rows.map((r) => ({ id: r.id, name: r.name, role: r.role }))
+}
+
 export async function isConnectorConsented(
   sql: Sql,
   tenantId: string,
