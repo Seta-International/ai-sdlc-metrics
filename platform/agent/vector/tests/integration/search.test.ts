@@ -91,3 +91,46 @@ describe('searchChunks — iterative_scan correctness under RLS (load-bearing)',
     expect(owners.every((r) => r.tenant_id === TENANT_A)).toBe(true)
   })
 })
+
+describe('searchChunks — similarity bounds', () => {
+  it('all returned similarities are in [0, 1] and the exact-match chunk scores ~1', async () => {
+    const queryEmbedding = seedEmbedding('exact')
+
+    await runAs(TENANT_A, () =>
+      insertChunks(tenantUserSql, [
+        // Exact match for queryEmbedding.
+        {
+          tenantId: TENANT_A,
+          sourceId: SOURCE_1,
+          content: 'exact',
+          contentHash: hashContent('exact'),
+          tokenCount: 1,
+          embedding: queryEmbedding,
+        },
+        // A few decoys.
+        ...['x', 'y', 'z'].map((t) => ({
+          tenantId: TENANT_A,
+          sourceId: SOURCE_1,
+          content: t,
+          contentHash: hashContent(t),
+          tokenCount: 1,
+          embedding: seedEmbedding(t),
+        })),
+      ]),
+    )
+
+    const hits = await runAs(TENANT_A, () =>
+      searchChunks(tenantUserSql, queryEmbedding, { k: 4, minSim: -1 }),
+    )
+    expect(hits.length).toBe(4)
+    for (const h of hits) {
+      // Cosine similarity range is [-1, 1]; seedEmbedding uses signed
+      // random unit vectors so decoys can yield small negative similarities.
+      expect(h.similarity).toBeGreaterThanOrEqual(-1 - 1e-6)
+      expect(h.similarity).toBeLessThanOrEqual(1 + 1e-6)
+    }
+    // The exact-match chunk should be first and have similarity ≈ 1.
+    expect(hits[0]?.content).toBe('exact')
+    expect(hits[0]?.similarity).toBeGreaterThan(0.999)
+  })
+})
