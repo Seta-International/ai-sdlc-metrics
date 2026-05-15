@@ -15,6 +15,13 @@
       "when": 1778827912063,
       "tag": "0001_security_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778828022580,
+      "tag": "0002_chunks_hnsw_index",
+      "breakpoints": true
     }
   ]
 }
