@@ -261,7 +261,7 @@ if (env.NODE_ENV === 'development') {
   }
   for (const [prefix, port] of Object.entries(FRONTEND_PORTS)) {
     app.all(`/${prefix}/*`, async (c) => {
-      const target = `http://localhost:${port}${c.req.path}${c.req.url.includes('?') ? '?' + c.req.url.split('?')[1] : ''}`
+      const target = `http://localhost:${port}${c.req.path}${c.req.url.includes('?') ? `?${c.req.url.split('?')[1]}` : ''}`
       const init: RequestInit = {
         method: c.req.method,
         headers: c.req.raw.headers,
