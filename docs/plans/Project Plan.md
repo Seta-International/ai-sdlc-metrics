@@ -109,6 +109,7 @@ This is v4.0. Predecessors archived in `docs/plans/`:
 | v3.0  | 2026-05-12 | Compression rewrite after team cut to 3.5 FTE / 14 days.                                                          |
 | v3.1  | 2026-05-12 | Sponsor reversal re-injected Analytics + FAQ + RAG; demand exceeded supply; opened A/B/C/D options.               |
 | **v4.0** | **2026-05-12** | **Sponsor confirms 4.0 FTE (Senior AI +0.5), commits 20% AI uplift, kickoff dated 2026-05-11; option maze removed.** |
+| v4.1  | 2026-05-15 | Mid-W1 status update — EP-04 (`agent-chunking`) and EP-05 (`agent-embeddings`) implemented; EP-06 (`agent-vector`) in prep with content-hash dedup folded into the initial schema (see §5.2.5). No WBS estimates or dates changed. |
 
 Revisions to v4 follow change-control per §5.3.2.
 
@@ -475,6 +476,45 @@ Weekly Man-Day allocation by role. W1 = 5 working days (D01-D05), W2 = 5 (D06-D1
 #### 5.2.4 Budget allocation
 
 P1 has no external budget line items (no AWS, no SaaS subscriptions, no contractors). All cost is internal headcount (4.0 FTE × 15 working days = 60 MD raw labour). LLM tokens for fixture recording are negligible (<$5 expected) and are part of existing OpenAI account.
+
+#### 5.2.5 Implementation status update — Mid-W1 (2026-05-15, D05)
+
+Status snapshot of the RAG-track packages (EP-04, EP-05, EP-06) at the end of Week 1. This subsection records actuals against §5.2.1; original WBS estimates, dates, and gates stand (no re-baselining).
+
+##### EP-04 · `@seta/agent-chunking` — Implemented (delivered)
+
+- Package landed at `platform/agent/chunking/` via PR #156. Public surface frozen per spec `docs/superpowers/specs/2026-05-13-agent-chunking-design.md`. SCOPE marked implemented at `platform/agent/chunking/SCOPE.md`.
+- Exports: `chunkText`, `Chunk`, `ChunkOptions`, `parseChunkOptions`, `ChunkOptionsSchema`, `ChunkingError`, `SupportedModel`, `SUPPORTED_MODELS`, `DEFAULT_MAX_TOKENS`, `DEFAULT_OVERLAP_TOKENS`.
+- Algorithm: hand-rolled token-budget greedy fill around `js-tiktoken@1.0.21` with a rolling `overlapTokens` window; char offsets (`startChar` / `endChar`) preserved for downstream citation provenance. Pure, synchronous, deterministic — no I/O, no model calls.
+- Test coverage: **67 unit + property tests** including 200-run `fast-check` invariants for token-budget bound, content/offset roundtrip, coverage, stride correctness, and determinism; tokenizer-parity tests guard `gpt-5` and `text-embedding-3-small` encodings.
+- Scope deviation from §5.2.1 task 4.2: the spec consolidated the three planned strategies (markdown / code / fixed) into a single token-bounded chunker. Markdown-heading awareness is deferred to the ingest layer in `@seta/agent-rag`. No schedule or estimate change — 2.0 MD held.
+
+##### EP-05 · `@seta/agent-embeddings` — Implemented (delivered)
+
+- Package landed at `platform/agent/embeddings/` via PR #164. Public surface frozen per spec `docs/superpowers/specs/2026-05-14-agent-embeddings-design.md`. SCOPE current-state updated to reflect implementation.
+- Exports: `createOpenAIEmbeddings`, `EmbeddingsClient`, `EmbeddingsConfig`, `EmbedOptions`, `EmbedResult`, `EmbedUsage`, `EMBEDDING_MODEL` (= `text-embedding-3-small`), `EMBEDDING_DIMENSIONS` (= 1536), `EMBEDDING_BATCH_SIZE` (= 100), `EMBEDDING_MAX_INPUT_TOKENS` (= 8192).
+- Behaviour: input batching via `chunkBy` to the 100-input per-request limit; `AbortSignal` propagation into the OpenAI fetch; retry classification via `@seta/agent-core` `mapOpenAIError` / `withRetry` (kernel parity: `maxRetries: 2`, 429 / 5xx / fetch-timeout only); Zod-validated boundary rejecting blank strings.
+- Test coverage: **43 unit tests** (constants, `parseInput` Zod boundary, `chunkBy` batch helper, factory, `embed` orchestration with a fake client, public-surface guard) plus integration scenarios with `msw` recordings at `tests/integration/__recordings__/` — single-batch happy path, 250-input multi-batch, 401 terminal, empty-input short-circuit.
+- Wiring: `apps/api` env extended with embeddings model + key (commit `7957df8` — *feat(api): add env vars for sync + embeddings*).
+
+##### EP-06 · `@seta/agent-vector` — In preparation (start: D07–D08 per plan)
+
+Branch `feat/agent-vector` opened (current working branch). The base SCOPE.md (`platform/agent/vector/SCOPE.md`) is the implementation contract. One **scope addition** is approved and folded into the **initial** migration (no delta against an existing schema — the package is a placeholder today):
+
+- **Content-hash dedup (β)** per spec `docs/superpowers/specs/2026-05-15-agent-vector-dedup-design.md`. Unique key: `(tenant_id, source_id, content_hash)`. Drivers: prevent OpenAI re-embed cost waste, RRF retrieval noise from near-duplicate hits, and unbounded storage growth on re-ingest. Cross-source content overlap within a tenant intentionally keeps separate rows for citation accuracy; option α (`chunk_sources` join table) deferred — migration path forward-only.
+- Companion spec `docs/superpowers/specs/2026-05-15-agent-rag-dedup-ingest-design.md` covers how `@seta/agent-rag.ingest` consumes the new write API: compute sha256 hashes → `findExistingHashes` → embed only missing → `insertChunks`. Hash computation lives in the composer so dedup kicks in *before* the OpenAI call — defeating the cost-saving rationale if pushed inside `insertChunks`.
+
+Planned implementation shape (lands inside tasks 6.1 → 6.5; estimates unchanged):
+
+- **Schema** (`platform/agent/vector/src/schema/chunks.ts`): `agent_vector.chunks(id uuid pk, tenant_id uuid, source_id uuid, content text, content_hash char(64), token_count integer, embedding vector(1536), created_at timestamptz)` with unique index `chunks_tenant_source_hash_unique (tenant_id, source_id, content_hash)`. `char(64)` invariant for sha256 hex; index lookups stay byte-comparable.
+- **HNSW index + RLS** land in separate `drizzle-kit generate --custom` blocks — Drizzle cannot express `WITH (m=16, ef_construction=128)` storage params or the `vector_cosine_ops` opclass. Per CLAUDE.md "Schema-driven" raw-DDL carve-out.
+- **`searchChunks(query, k=8, minSim=0.3)`** issues three `SET LOCAL` HNSW tuning statements inside `withTenant`: `hnsw.ef_search = 100`, `hnsw.iterative_scan = strict_order`, `hnsw.max_scan_tuples = 20000`. The `iterative_scan = strict_order` line is **load-bearing for correctness** under multi-tenant RLS filtering (setup.md §6), not just a tuning knob. Similarity hard-coded as `1 - cosineDistance` (footgun #2 from setup.md §6).
+- **`insertChunks(rows)`** batched insert with `ON CONFLICT (tenant_id, source_id, content_hash) DO NOTHING` — idempotent under concurrent ingest; race losers silently skip instead of throwing. Conflict handled at the SQL layer, not by try/catch.
+- **`findExistingHashes(sourceId, hashes)`** dedup lookup returning the subset of hashes already stored for `(currentTenant, sourceId)`. `tenantId` read from `tenantContext.getTenantId()` — never a function parameter (CLAUDE.md footgun).
+- **Errors**: `DomainError` codes `VECTOR_QUERY_FAILED` / `VECTOR_INSERT_FAILED` from `@seta/middleware/errors` (both 500 in RFC 7807).
+- **Logging via `@seta/observability`**: structured pino; `info` on boundary start/done, `debug` on intermediate counts, `error` rethrown as `DomainError`. **Never log chunk content** — PII; log only counts, tenant id, source id, hashes.
+
+**WBS impact on EP-06.** Tasks 6.1–6.5 unchanged in scope and estimate (4.0 MD total). The dedup additions are net ~0 MD over the base insert path — the unique index + `ON CONFLICT` is one SQL clause, and `findExistingHashes` is a one-query helper. Caller-side hash computation lives in `@seta/agent-rag.ingest` (EP-07), already in scope. CI-gate 6.4 (iterative_scan correctness test) and 6.5 (per-tenant isolation fixture) remain release blockers on Gate G4. ADR-0013 (vector + iterative_scan, task 15.4) extended to record the dedup decision.
 
 ### 5.3 Control plan
 
