@@ -1,11 +1,11 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { onError } from '@seta/middleware'
+import type { MiddlewareHandler } from 'hono'
 import { describe, expect, it } from 'vitest'
 import { createAdminRoutes } from './admin'
 
 const makeApp = (override: Partial<Parameters<typeof createAdminRoutes>[0]> = {}) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const reqSession: any = async (c: any, next: any) => {
+  const reqSession: MiddlewareHandler = async (c, next) => {
     c.set('userId', 'u1')
     c.set('sessionId', 's1')
     await next()
