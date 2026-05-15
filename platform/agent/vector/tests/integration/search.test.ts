@@ -134,3 +134,39 @@ describe('searchChunks — similarity bounds', () => {
     expect(hits[0]?.similarity).toBeGreaterThan(0.999)
   })
 })
+
+describe('searchChunks — minSim floor', () => {
+  it('returns only chunks above the minSim threshold', async () => {
+    const queryEmbedding = seedEmbedding('query')
+
+    await runAs(TENANT_A, () =>
+      insertChunks(tenantUserSql, [
+        // Near-match: same seed → ~1.0 similarity.
+        {
+          tenantId: TENANT_A,
+          sourceId: SOURCE_1,
+          content: 'near',
+          contentHash: hashContent('near'),
+          tokenCount: 1,
+          embedding: queryEmbedding,
+        },
+        // Far decoys.
+        ...Array.from({ length: 20 }, (_, i) => ({
+          tenantId: TENANT_A,
+          sourceId: SOURCE_1,
+          content: `far-${i}`,
+          contentHash: hashContent(`far-${i}`),
+          tokenCount: 1,
+          embedding: seedEmbedding(`far-${i}`),
+        })),
+      ]),
+    )
+
+    const hits = await runAs(TENANT_A, () =>
+      searchChunks(tenantUserSql, queryEmbedding, { k: 8, minSim: 0.99 }),
+    )
+    // Only the exact-match clears the 0.99 floor.
+    expect(hits.length).toBe(1)
+    expect(hits[0]?.content).toBe('near')
+  })
+})
