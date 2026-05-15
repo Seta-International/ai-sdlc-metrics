@@ -26,6 +26,14 @@ if (typeof window !== 'undefined') {
   }
 }
 
+// jsdom does not implement scrollIntoView; stub it to avoid test errors.
+if (
+  typeof Element !== 'undefined' &&
+  !(Element.prototype as { scrollIntoView?: unknown }).scrollIntoView
+) {
+  Element.prototype.scrollIntoView = () => {}
+}
+
 afterEach(() => {
   cleanup()
   if (typeof localStorage !== 'undefined') {
