@@ -1,58 +1,63 @@
 import { z } from 'zod'
 
-const Base = z.object({
-  id: z.string(),
-  runId: z.string(),
-  ts: z.number(),
+export const TokenUsage = z.object({
+  inputTokens: z.number(),
+  outputTokens: z.number(),
+  cacheReadInputTokens: z.number().optional(),
+  cacheCreationInputTokens: z.number().optional(),
 })
+export type TokenUsage = z.infer<typeof TokenUsage>
 
-export const TextDeltaChunk = Base.extend({
-  type: z.literal('text_delta'),
+export const KernelErrorPayload = z.object({
+  id: z.string(),
+  code: z.string(),
+  domain: z.enum(['AGENT', 'LLM', 'TOOL', 'KERNEL']),
+  category: z.enum(['USER', 'SYSTEM', 'THIRD_PARTY']),
+  details: z.record(z.string(), z.unknown()).optional(),
+  message: z.string(),
+})
+export type KernelErrorPayload = z.infer<typeof KernelErrorPayload>
+
+export const TextChunk = z.object({
+  type: z.literal('text'),
   delta: z.string(),
 })
 
-export const ToolCallChunk = Base.extend({
-  type: z.literal('tool_call'),
-  toolName: z.string(),
-  input: z.unknown(),
-})
-
-export const ToolResultChunk = Base.extend({
-  type: z.literal('tool_result'),
+export const ToolArgsChunk = z.object({
+  type: z.literal('tool_args'),
   toolCallId: z.string(),
-  output: z.unknown(),
-  durationMs: z.number(),
+  argsDelta: z.string(),
 })
 
-export const ModelCallStartChunk = Base.extend({
-  type: z.literal('model_call_start'),
-  model: z.string(),
+export const ToolCallChunk = z.object({
+  type: z.literal('tool_call'),
+  toolCallId: z.string(),
+  name: z.string(),
+  args: z.unknown(),
 })
 
-export const ModelCallEndChunk = Base.extend({
-  type: z.literal('model_call_end'),
-  tokensIn: z.number(),
-  tokensOut: z.number(),
-  durationMs: z.number(),
+export const FinishChunk = z.object({
+  type: z.literal('finish'),
+  reason: z.enum(['stop', 'tool_calls', 'length', 'error']),
+  usage: TokenUsage.optional(),
 })
 
-export const RunStartChunk = Base.extend({ type: z.literal('run_start') })
-export const RunEndChunk = Base.extend({ type: z.literal('run_end') })
-export const RunErrorChunk = Base.extend({
-  type: z.literal('run_error'),
-  message: z.string(),
-  code: z.string(),
+export const ErrorChunk = z.object({
+  type: z.literal('error'),
+  error: KernelErrorPayload,
+})
+
+export const AbortChunk = z.object({
+  type: z.literal('abort'),
 })
 
 export const KernelChunk = z.discriminatedUnion('type', [
-  TextDeltaChunk,
+  TextChunk,
+  ToolArgsChunk,
   ToolCallChunk,
-  ToolResultChunk,
-  ModelCallStartChunk,
-  ModelCallEndChunk,
-  RunStartChunk,
-  RunEndChunk,
-  RunErrorChunk,
+  FinishChunk,
+  ErrorChunk,
+  AbortChunk,
 ])
 
 export type KernelChunk = z.infer<typeof KernelChunk>
