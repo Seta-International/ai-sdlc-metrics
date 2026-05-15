@@ -1,7 +1,7 @@
 {
   "name": "@seta/agent-sdk",
   "version": "0.1.0",
-  "description": "Public TypeScript client + SSE helper for the seta-os agent platform",
+  "description": "Browser SDK for Seta apps/api — fetch + SSE streaming + kernel chunk types",
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --sourcemap",
@@ -22,8 +22,14 @@
   "devDependencies": {
     "@seta/tsconfig": "workspace:*",
     "@types/node": "^25.7.0",
+    "msw": "2.14.6",
     "tsup": "8.5.1",
     "typescript": "6.0.3",
     "vitest": "4.1.6"
-  }
+  },
+  "keywords": [
+    "seta",
+    "sdk",
+    "sse"
+  ]
 }

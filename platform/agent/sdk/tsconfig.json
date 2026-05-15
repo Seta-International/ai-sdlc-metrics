@@ -1,4 +1,9 @@
 {
-  "extends": "../../../platform/tsconfig/node.json",
-  "include": ["src/**/*"]
+  "extends": "../../tsconfig/node.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "types": []
+  },
+  "include": ["src/**/*"],
+  "exclude": ["**/*.test.ts", "src/sse/__fixtures__/**"]
 }
