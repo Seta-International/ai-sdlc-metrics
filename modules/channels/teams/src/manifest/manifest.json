@@ -26,7 +26,7 @@
   "bots": [
     {
       "botId": "{{MS_BOT_ID}}",
-      "scopes": ["personal", "team", "groupchat"],
+      "scopes": ["personal", "team", "groupChat"],
       "supportsFiles": false,
       "isNotificationOnly": false
     }
@@ -35,6 +35,5 @@
   "validDomains": ["{{VALID_DOMAINS}}"],
   "webApplicationInfo": {
     "id": "66c0893c-f2c9-4559-8204-84c069ce154e"
-  },
-  "supportsChannelFeatures": "tier1"
+  }
 }

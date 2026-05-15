@@ -22,7 +22,7 @@ import {
 import { createConnectorRegistry } from '@seta/connector-registry'
 import { onError, Unauthorized } from '@seta/middleware'
 import { createGraphFetch } from '@seta/ms-graph'
-import { createTeamsHandler } from '@seta/ms-teams'
+import { mockTeamsHandler, routes as teamsRoutes } from '@seta/ms-teams'
 import {
   createKmsClient,
   createOAuthRoutes,
@@ -170,16 +170,6 @@ const agentRouter = createAgentRouter({
   adapters: agentRegistry,
 })
 
-// ── Teams handler ─────────────────────────────────────────────────────────────
-
-const teamsHandler = createTeamsHandler({
-  sql: sql as never,
-  toolRegistry,
-  memory: threadStore,
-  workflowEngine,
-  adapters: agentRegistry,
-})
-
 // ── Hono app ──────────────────────────────────────────────────────────────────
 
 const app = new Hono().onError(onError)
@@ -202,14 +192,15 @@ app.route(
 
 app.route('/agent', agentRouter)
 
-app.post('/teams/messages', async (c) => {
-  const tenantId = c.req.header('x-tenant-id') ?? tenantContext.getTenantId()
-  const userId = c.req.header('x-user-id') ?? ''
-  const activity = await c.req.json()
-  if (activity.type !== 'message') return c.json({ ok: true })
-  const result = await teamsHandler(activity, { tenantId, userId })
-  return c.json(result)
-})
+app.route(
+  '/teams',
+  teamsRoutes(mockTeamsHandler, {
+    botId: env.MS_BOT_ID,
+    botSecret: env.MS_BOT_SECRET,
+    botTenantId: env.MS_BOT_TENANT_ID,
+    skipJwtVerify: env.TEAMS_SKIP_JWT_VERIFY,
+  }),
+)
 
 // ── Boot: seed agent profiles ─────────────────────────────────────────────────
 
