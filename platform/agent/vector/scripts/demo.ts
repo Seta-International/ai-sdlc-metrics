@@ -1,14 +1,15 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { createOpenAIEmbeddings, type EmbedResult } from '@seta/agent-embeddings'
+import { createPool, withTenant } from '@seta/db'
+import { tenantContext } from '@seta/tenant'
+import postgres from 'postgres'
 import {
   findExistingHashes,
   insertChunks,
   type NewChunk,
   type SearchHit,
   searchChunks,
-} from '@seta/agent-vector'
-import { createPool, withTenant } from '@seta/db'
-import { tenantContext } from '@seta/tenant'
+} from '../src/index.js'
 
 /**
  * Demo script — @seta/agent-vector
@@ -323,5 +324,41 @@ try {
   )
   console.log()
 } finally {
+  // ── 9/10: cleanup ────────────────────────────────────────────────────────
+  printSection(9, TOTAL_STEPS, '🧹', 'Cleanup — delete demo rows as platform_admin')
+  const adminUrl = databaseUrl.replace(
+    /(postgres:\/\/)[^:]+:[^@]+@/,
+    '$1platform_admin:dev_only_change_me@',
+  )
+  const admin = postgres(adminUrl, { max: 1, prepare: false })
+  try {
+    const deleted = await admin<{ count: string }[]>`
+      WITH d AS (
+        DELETE FROM agent_vector.chunks
+        WHERE tenant_id = ANY(${[ACME, GLOBEX]}::uuid[])
+        RETURNING 1
+      )
+      SELECT count(*)::text AS count FROM d
+    `
+    record('cleanup', true, `${deleted[0]?.count ?? 0} rows deleted`)
+  } catch (err) {
+    record('cleanup', false, (err as Error).message)
+  } finally {
+    await admin.end({ timeout: 2 })
+  }
   await sql.end({ timeout: 2 })
+  console.log()
+
+  // ── 10/10: summary ───────────────────────────────────────────────────────
+  printSection(10, TOTAL_STEPS, '📊', 'Summary')
+  const passed = results.filter((r) => r.ok).length
+  for (const r of results) {
+    console.log(`   ${r.ok ? 'PASS' : 'FAIL'}  ${r.name}${r.detail ? ` — ${r.detail}` : ''}`)
+  }
+  console.log()
+  console.log(`   ${passed}/${results.length} checks passed`)
+  console.log()
+  if (passed !== results.length) {
+    process.exit(1)
+  }
 }
