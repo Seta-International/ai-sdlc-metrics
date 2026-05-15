@@ -1,3 +1,5 @@
+import { NotFound } from '@seta/middleware'
+
 type Sql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>
 type SqlTransaction = Sql & { begin: (fn: (tx: Sql) => Promise<void>) => Promise<void> }
 
@@ -54,11 +56,9 @@ export async function recordConsent(
   },
 ): Promise<void> {
   await sql.begin(async (tx) => {
-    await tx`
-      INSERT INTO tenant.tenants (id, slug, display_name, status)
-      VALUES (${input.tenantId}, ${`t-${input.tenantId}`}, ${input.tenantId}, 'active')
-      ON CONFLICT (id) DO NOTHING
-    `
+    const exists =
+      (await tx`SELECT 1 FROM tenant.tenants WHERE id = ${input.tenantId} LIMIT 1`) as Array<unknown>
+    if (exists.length === 0) throw new NotFound('tenant')
     for (const connectorId of input.connectorIds) {
       await tx`
         INSERT INTO tenant.tenant_connectors
