@@ -1,9 +1,25 @@
 # Studio P2 — Full Implementation Master Plan
 
 **Date:** 2026-05-15
-**Scope:** All of Studio P2 — `@seta/sso` package, backend route surfaces in `apps/api`, `@seta/agent-sdk` method additions, `@seta/ui` primitives v2, `apps/studio` SPA across nine functional areas (the original four admin areas + workflow-run viewer + agents/playground + tools + memory inspector + metrics dashboard).
+**Scope:** All of Studio P2 — `@seta/sso` package, backend route surfaces in `apps/api`, `@seta/agent-sdk` method additions, `@seta/ui` primitives v2 + AppShell amendment, `apps/studio` SPA across nine functional areas (the original four admin areas + workflow-run viewer + agents/playground + tools + memory inspector + metrics dashboard).
 **Status:** Approved for implementation planning.
 **Companion spec:** [`2026-05-15-studio-design.md`](./2026-05-15-studio-design.md) — design language, token layer, AppShell behaviour, responsive matrix, Mastra reference table. This master plan sits on top of that spec and decomposes it into landable PRs.
+
+## 0. Studio layout & AgentPanel ownership (DDD)
+
+**Studio is admin/observability only and does NOT mount the right-side `AgentPanel`.** Studio follows Mastra Studio's two-column layout: left Sidebar + main canvas (with optional in-canvas surfaces like the per-agent Playground tab in PR-9). No conversational chat panel in the global chrome.
+
+`AgentPanel` is shared `@seta/ui` infrastructure for **other** Seta Workspace modules (Timesheet, PMO, Finance) that ship later and need contextual agent assistance docked to the right. Those modules mount AppShell with an `agentContext` prop; Studio mounts AppShell without one.
+
+To support this, **`AppShell` is amended** to treat `agentContext` as optional: when omitted, the AgentPanel column is not rendered and the main canvas extends to the right viewport edge. The Bot toggle in TopBar is hidden in that mode. This amendment lands as the first task of PR-3 (Studio kickoff) inside the `@seta/ui` package, with co-located tests for both the with-panel (existing) and without-panel (new) modes.
+
+**DDD reinforcement** (all already in CLAUDE.md, restated for emphasis on this milestone):
+
+- `platform/ui` owns shared chrome primitives. Per-module use is opt-in; Studio opts out of AgentPanel, Timesheet/PMO/Finance will opt in.
+- Each backend domain owns its admin/read routes inside its package via a `createXRoutes()` factory. No admin routes are added to `apps/api` directly; `apps/api/src/main.ts` is composition-only.
+- Cross-context references use IDs and read through the owning package's public interface — never direct DB joins across schemas. `tenant_id` is the only universal column.
+- `apps/studio` holds zero business logic, zero domain types of its own. All types come from `@seta/agent-sdk` (which re-exports from owning packages) or `@seta/ui` (UI shape types only).
+- Schema-per-module Drizzle is mandatory for every new table (PR-1's `auth.sessions`, PR-4's `auth.tenant_members`, PR-5's `agent_memory.runs`, PR-6's `rag.sources`, PR-7's `audit` indexes are explicit examples).
 
 ---
 
@@ -259,14 +275,16 @@ apps/studio/
 
 ### 6.3 PR-3 scope
 
-- All scaffold above.
+- **First task: amend `@seta/ui` `AppShell`** to make `agentContext` optional. When omitted, the AgentPanel column does not render, the main canvas extends to the right viewport edge, and the Bot toggle in TopBar is hidden. Co-located tests for both modes. This is the only `@seta/ui` change inside PR-3 — primitive additions go in PR-8.
+- All other scaffold above.
 - `/login` page with auth gradient hero, Microsoft + Google buttons.
 - `/login/:provider/callback` cleanup route.
-- `_authed.tsx` with `beforeLoad: ensureQueryData(meQuery)` + redirect, mounts `AppShell` with full nav (route files exist as stubs for slices PR-4..13).
+- `_authed.tsx` with `beforeLoad: ensureQueryData(meQuery)` + redirect, mounts `AppShell` with full nav **and NO `agentContext` prop** — Studio is admin-only and does not show the right-side panel.
 - `/tenants` smoke page using `TenantSummary[]` from `/me`.
 - `useSession()` from `@seta/ui` consumed.
 - `Toaster` mounted in `__root.tsx`.
 - `studioNav.ts` registers all sidebar entries; pages 5–9 stub with `EmptyState("Coming soon", BadgeAlert)` until their slice ships.
+- **No `agentContext.ts` helper in `apps/studio/src/nav/`.** That helper was intended to feed AppShell; Studio doesn't feed it. Routes that would have called `agentContextFor(location)` simply omit it.
 
 ---
 
@@ -330,7 +348,7 @@ Each method has Zod request/response schemas exported for MSW test recordings.
 - `/tenants/:id/connectors` `DataTable` with `StatusBadge`, "Grant consent" → `window.location.href = url` (single OAuth exception).
 - `/tenants/:id/connectors/:cid/consent` post-redirect landing.
 - `TenantSwitcher` wired in TopBar.
-- `AgentPanel` mounted from this PR onward.
+- **No `AgentPanel` mount.** Studio is admin-only; right-side panel is for other Workspace modules. PR-3 already configured `AppShell` without `agentContext`.
 
 ---
 
@@ -401,9 +419,9 @@ Exports in `platform/ui/src/index.ts`.
   - **Playground** tab — embedded `AgentPanel` style chat in the main canvas using `useChat`. `stream` callback posts to `/agent` with `{ agentId, agentContext: { tenantId, page: 'playground' } }`. Distinct from the global `AgentPanel` — this is a focused per-agent chat session that doesn't persist outside the page. Reset button clears the in-memory thread.
   - **Tools** tab — list of tools the agent has access to, links to `/tenants/:id/tools/:toolId`.
 
-### 13.3 AgentPanel coexistence
+### 13.3 No global AgentPanel in Studio
 
-The global `AgentPanel` (right-side, `useChat` against a generic Seta-help agent) stays visible on the agents page. The playground in the main canvas is a separate `useChat` instance against the selected profile. No state collision — two independent threads.
+The Playground is the only chat surface in Studio. It's rendered **in-canvas** inside the Playground tab; there is no global right-side `AgentPanel` to coexist with. The Playground uses its own `useChat` instance scoped to the selected agent profile, with a dedicated AbortController and a "Reset" button that clears the in-memory thread.
 
 ---
 
@@ -496,7 +514,9 @@ No new primitives — Recharts used directly. Future P3+ work could extract a `C
 
 ---
 
-## 18. AgentPanel context per route
+## 18. AgentContext (for OTHER Workspace modules, not Studio)
+
+Studio does NOT mount the `AgentPanel`. The shape below stays in `@seta/ui` for Timesheet / PMO / Finance which DO mount it. Studio's `_authed.tsx` passes no `agentContext` prop; AppShell omits the panel column.
 
 `AgentContext` shape extends `@seta/ui` type:
 
@@ -522,9 +542,7 @@ export interface AgentContext {
 }
 ```
 
-Per-route mapping lives in `apps/studio/src/nav/agentContext.ts`. The agent panel `stream` callback includes `agentContext` in `POST /agent` body. Route navigation does not reset the thread — `agentContext` is per-message metadata.
-
-The agents-page **playground** chat uses a separate `useChat` instance with its own `agentContext: { ..., page: 'playground' }` and the selected `agentId` injected into the request body. The global panel and playground are independent threads.
+Per-route mapping is the responsibility of any future module that opts in. Studio has no `agentContext.ts`. The agents-page **playground** chat in PR-9 is an **in-canvas** chat (`useChat` consumed inside the Playground tab on `/agents/:agentId`), not the global right-side panel. It's the single conversational surface in Studio, scoped to the selected agent, with its own AbortController. No global panel coexists with it.
 
 ---
 
