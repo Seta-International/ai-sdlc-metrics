@@ -1,4 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
+import type { AuditWriter } from '@seta/audit'
 import type { MiddlewareHandler } from 'hono'
 import type { Sql } from 'postgres'
 import type { TenantMembershipRole } from '../service'
@@ -11,6 +12,7 @@ export type CreateTenancyRoutesOpts = {
   membershipLookup: (userId: string) => Promise<{ role: TenantMembershipRole } | null>
   invalidateUserSessions: (userId: string) => Promise<void>
   isSuperadmin: (userId: string) => Promise<boolean>
+  audit: AuditWriter
 }
 
 export function createTenancyRoutes(opts: CreateTenancyRoutesOpts) {
@@ -22,6 +24,7 @@ export function createTenancyRoutes(opts: CreateTenancyRoutesOpts) {
       requireSession: opts.requireSession,
       membershipLookup: opts.membershipLookup,
       invalidateUserSessions: opts.invalidateUserSessions,
+      audit: opts.audit,
     }),
   )
   app.route(

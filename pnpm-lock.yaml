@@ -1232,6 +1232,9 @@ importers:
       '@hono/zod-openapi':
         specifier: 1.4.0
         version: 1.4.0(hono@4.12.18)(zod@4.4.3)
+      '@seta/audit':
+        specifier: workspace:*
+        version: link:../audit
       '@seta/middleware':
         specifier: workspace:*
         version: link:../middleware

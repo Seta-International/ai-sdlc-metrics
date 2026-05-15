@@ -142,6 +142,7 @@ const tenancyRoutes = createTenancyRoutes({
   },
   invalidateUserSessions: (uid: string) => sessionStore.deleteByUserId(uid),
   isSuperadmin: (uid: string) => isSuperadmin(sql as never, uid),
+  audit,
 })
 
 // ── Tool registry ─────────────────────────────────────────────────────────────
