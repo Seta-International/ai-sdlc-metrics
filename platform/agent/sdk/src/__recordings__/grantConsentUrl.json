@@ -1,0 +1,14 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/tenants/00000000-0000-0000-0000-0000000000a1/connectors/ms365-planner/consent-url",
+    "body": {}
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "url": "https://login.microsoftonline.com/00000000-0000-0000-0000-0000000000a1/v2.0/adminconsent?client_id=app&state=st_test&redirect_uri=https%3A%2F%2Fapi.test%2Foauth%2Fentra%2Fcallback&scope=Tasks.Read+Tasks.Read.All",
+      "state": "st_test"
+    }
+  }
+}

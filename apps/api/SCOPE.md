@@ -96,9 +96,20 @@ gracefully on SIGTERM/SIGINT.
 
 Endpoints currently mounted:
 - `GET  /healthz`
+- `POST /sso/login/:provider`, `GET /sso/callback/:provider`, `POST /sso/logout`,
+  `GET /me` — surface owned by `@seta/sso` `createSsoRoutes`.
 - `GET  /oauth/*` and `POST /oauth/*` — surface owned by `@seta/oauth`
   `createOAuthRoutes`; covers admin-consent URL issuance and the OAuth
-  callback per CLAUDE.md "Connector consent" + setup.md §4.
+  callback per CLAUDE.md "Connector consent" + setup.md §4. The callback
+  optionally redirects to `${PUBLIC_STUDIO_URL}/tenants/:id/connectors/:cid/consent`
+  via the `onConsentRedirect` hook (PR-4 — wires Studio's consent landing).
+- `GET  /tenants` — surface owned by `@seta/tenant` `createTenantRoutes`;
+  returns the membership rows joined from `tenant.tenant_members`.
+- `GET  /tenants/:id/connectors`, `POST /tenants/:id/connectors/:cid/consent-url`
+  — surface owned by `@seta/connector-registry` `createConnectorAdminRoutes`.
+  Each route is gated by a `tenant.tenant_members` lookup; the consent-url
+  endpoint delegates to a composition-root closure that reuses the same
+  provider + state-store as `/oauth/:provider/consent-url`.
 
 ## Public interface
 
@@ -129,6 +140,7 @@ This is an app, not a library — the "public interface" is HTTP and env.
 | `PORT` | number (coerced) | `8080` | no |
 | `DATABASE_URL` | URL | — | yes |
 | `PUBLIC_BASE_URL` | URL | — | yes |
+| `PUBLIC_STUDIO_URL` | URL | — | yes — Studio origin used by oauth `onConsentRedirect` |
 | `ENTRA_CLIENT_ID` | non-empty string | — | yes |
 | `ENTRA_CLIENT_SECRET` | non-empty string | — | yes |
 | `ENTRA_SSO_TENANT` | non-empty string | `common` | no |

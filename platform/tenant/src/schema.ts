@@ -28,7 +28,28 @@ export const tenantConnectors = tenantSchema.table(
   (t) => [primaryKey({ columns: [t.tenantId, t.connectorId] })],
 )
 
+export const tenantMemberRole = tenantSchema.enum('tenant_member_role', [
+  'owner',
+  'admin',
+  'member',
+])
+
+export const tenantMembers = tenantSchema.table(
+  'tenant_members',
+  {
+    userId: uuid('user_id').notNull(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    role: tenantMemberRole('role').notNull().default('member'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.tenantId] })],
+)
+
 export type Tenant = typeof tenants.$inferSelect
 export type NewTenant = typeof tenants.$inferInsert
 export type TenantConnector = typeof tenantConnectors.$inferSelect
 export type NewTenantConnector = typeof tenantConnectors.$inferInsert
+export type TenantMember = typeof tenantMembers.$inferSelect
+export type NewTenantMember = typeof tenantMembers.$inferInsert

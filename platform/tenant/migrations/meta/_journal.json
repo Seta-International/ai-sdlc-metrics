@@ -8,6 +8,20 @@
       "when": 1778502413497,
       "tag": "0000_amazing_lady_ursula",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778830724081,
+      "tag": "0001_tenant_members",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778830732706,
+      "tag": "0002_tenant_members_rls",
+      "breakpoints": true
     }
   ]
 }

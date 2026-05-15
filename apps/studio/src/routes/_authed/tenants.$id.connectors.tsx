@@ -1,9 +1,27 @@
-import { EmptyState } from '@seta/ui'
+import type { ConnectorSummary } from '@seta/agent-sdk'
+import { ConnectorsPage } from '@seta/portal'
+import { useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { Hammer } from 'lucide-react'
+import { client } from '../../api/client'
+import { connectorsQueryOptions } from '../../api/queries'
 
 export const Route = createFileRoute('/_authed/tenants/$id/connectors')({
-  component: () => (
-    <EmptyState icon={Hammer} title="Coming soon" description="This page lands in a later PR." />
-  ),
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(connectorsQueryOptions(params.id)),
+  component: ConnectorsRoute,
 })
+
+function ConnectorsRoute() {
+  const { id: tenantId } = Route.useParams()
+  const { data } = useSuspenseQuery(connectorsQueryOptions(tenantId))
+
+  async function handleGrantConsent(connector: ConnectorSummary) {
+    const { url } = await client.grantConsentUrl({
+      tenantId,
+      connectorId: connector.id,
+    })
+    window.location.href = url
+  }
+
+  return <ConnectorsPage connectors={data} onGrantConsent={handleGrantConsent} />
+}
