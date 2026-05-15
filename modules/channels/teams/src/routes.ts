@@ -10,6 +10,7 @@ import { replyToActivity } from './reply.js'
 export interface TeamsRouterOpts {
   botId: string
   botSecret: string
+  botTenantId: string
   skipJwtVerify?: boolean // dev-only gate; removed in 13.3
 }
 

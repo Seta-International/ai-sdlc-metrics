@@ -9,9 +9,9 @@ export async function replyToActivity(
   serviceUrl: string,
   conversationId: string,
   activity: OutboundActivity,
-  opts: { botId: string; botSecret: string },
+  opts: { botId: string; botSecret: string; botTenantId: string },
 ): Promise<void> {
-  const token = await getBotToken(opts.botId, opts.botSecret)
+  const token = await getBotToken(opts.botId, opts.botSecret, opts.botTenantId)
   const res = await fetch(`${serviceUrl}/v3/conversations/${conversationId}/activities`, {
     method: 'POST',
     headers: {
@@ -22,7 +22,10 @@ export async function replyToActivity(
   })
   if (!res.ok) {
     const body = await res.text()
-    log.error({ status: res.status }, 'teams.reply-failed')
+    log.error(
+      { status: res.status },
+      `teams.reply-failed serviceUrl: ${serviceUrl}, conversationId: ${conversationId}, activity: ${JSON.stringify(activity)}, responseBody: ${body}`,
+    )
     throw new ServiceUnavailable(`teams reply failed: ${res.status} ${body}`)
   }
 }

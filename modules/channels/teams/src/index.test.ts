@@ -6,14 +6,23 @@ const stubHandler: TeamsHandler = async () => null
 
 describe('routes', () => {
   test('GET /health returns ok', async () => {
-    const app = routes(stubHandler, { botId: 'test-bot', botSecret: 'secret' })
+    const app = routes(stubHandler, {
+      botId: 'test-bot',
+      botSecret: 'secret',
+      botTenantId: 'test-tenant',
+    })
     const res = await app.request('/health')
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ ok: true })
   })
 
   test('POST /messages with valid body returns 200', async () => {
-    const app = routes(stubHandler, { botId: 'test-bot', botSecret: 'secret', skipJwtVerify: true })
+    const app = routes(stubHandler, {
+      botId: 'test-bot',
+      botSecret: 'secret',
+      botTenantId: 'test-tenant',
+      skipJwtVerify: true,
+    })
     const body = {
       type: 'message',
       serviceUrl: 'https://smba.trafficmanager.net/apis',

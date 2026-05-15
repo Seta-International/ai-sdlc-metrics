@@ -19,8 +19,8 @@
    - **Subscription / Resource group:** use your dev resource group
    - **Pricing tier:** F0 (free, 10 k messages/month — sufficient for dev)
    - **Microsoft App ID:** select **Create new Microsoft App ID**
-   - **Type of app:** Multi-tenant (**must be Multi-tenant** — Single Tenant breaks Bot Framework token auth; the token issuer won't match and every reply returns 401)
-     - In the App Registration this maps to **"Accounts in any organizational directory (Any Azure AD directory — Multi-tenant)"** — do NOT select "+ Personal Microsoft accounts"; consumer accounts are not used in enterprise Teams
+   - **Type of app:** Single Tenant (Azure now only allows Single Tenant for new Azure Bot resources)
+     - After creation, open the **App Registration** → **Authentication** → Supported account types → set to **"Accounts in any organizational directory (Any Azure AD directory — Multi-tenant)"** → **Save**. This makes the app usable across customer tenants while the Azure Bot resource itself stays in your tenant.
      - In the Bot resource **Tenant access** setting, select **Allow all tenants** (required so the bot accepts messages from any customer's Microsoft 365 tenant)
 3. **Review + create** → **Create**.
 4. Once deployed, open the resource → **Configuration** → note the **Microsoft App ID** → this is `MS_BOT_ID`.
@@ -83,8 +83,11 @@ Add to `apps/api/.env.local` (git-ignored — never commit):
 ```env
 MS_BOT_ID=<Application ID from step 1>
 MS_BOT_SECRET=<client secret from step 2>
+MS_BOT_TENANT_ID=<Directory (tenant) ID of the Azure AD tenant where the bot's App Registration lives>
 TEAMS_SKIP_JWT_VERIFY=true    # dev only — remove this line when 13.3 ships
 ```
+
+> **Where to find `MS_BOT_TENANT_ID`:** Azure Portal → Azure Active Directory → Overview → Directory (tenant) ID.
 
 ## 8. Verify the setup
 
@@ -105,14 +108,12 @@ Then open the 1:1 chat with SetaAgent in Teams and send `show my tasks` — you 
 
 ## Troubleshooting: bot replies return 401
 
-Every bot reply fails with `401 {"message":"Authorization has been denied for this request."}` when the Azure Bot resource was created as **Single Tenant**. The Bot Framework rejects the token because its issuer does not match.
+Bot replies fail with `401 {"message":"Authorization has been denied for this request."}` when the token endpoint used to acquire the bot token doesn't match the tenant the Azure Bot was registered in.
 
-The Bot Type cannot be changed on an existing resource. Fix:
+Two things must be correct:
 
-1. **App Registration** (`66c0893c-...`) → **Authentication** → Supported account types → **"Accounts in any organizational directory (Multi-tenant)"** → **Save**. (The secret and App ID are unaffected.)
-2. **Delete** the existing Azure Bot resource.
-3. **Recreate** the Azure Bot resource using the same App ID, this time selecting **Multi-tenant**.
-4. Re-enable the Teams channel and re-set the messaging endpoint (steps 3–4 above).
+1. **`MS_BOT_TENANT_ID`** in `.env.local` must be the Directory (tenant) ID of the Azure AD tenant where the bot's App Registration lives (Azure AD → Overview → Directory (tenant) ID). The bot token is fetched from `https://login.microsoftonline.com/{MS_BOT_TENANT_ID}/oauth2/v2.0/token` — using the wrong value or leaving it blank causes Bot Connector to reject every reply.
+2. **App Registration** → **Authentication** → Supported account types must be **"Accounts in any organizational directory (Multi-tenant)"** — this lets the bot receive messages from any customer tenant even though the Azure Bot resource itself is single-tenant.
 
 ---
 
@@ -128,7 +129,7 @@ The Bot Type cannot be changed on an existing resource. Fix:
 
 | Task | New env vars |
 |---|---|
-| 13.1 | `MS_BOT_ID`, `MS_BOT_SECRET`, `TEAMS_SKIP_JWT_VERIFY` |
+| 13.1 | `MS_BOT_ID`, `MS_BOT_SECRET`, `MS_BOT_TENANT_ID`, `TEAMS_SKIP_JWT_VERIFY` |
 | 13.2 | (none — uses vars from 13.1) |
 | 13.3 | Remove `TEAMS_SKIP_JWT_VERIFY` |
 | 13.4 | (none — OBO uses `MS_BOT_ID` + oauth infrastructure from Epic 1) |

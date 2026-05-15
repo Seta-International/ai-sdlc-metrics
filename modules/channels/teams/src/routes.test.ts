@@ -8,9 +8,11 @@ const SERVICE_URL = 'https://test-service-url.invalid'
 const CONV_ID = 'conv-test-1'
 const capturedReplies: unknown[] = []
 
+const BOT_TENANT_ID = 'test-tenant-id'
+
 const server = setupServer(
-  // Bot Framework token endpoint — getBotToken() calls this
-  http.post('https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token', () =>
+  // Bot Framework token endpoint — getBotToken() calls this with the bot's tenant ID
+  http.post(`https://login.microsoftonline.com/${BOT_TENANT_ID}/oauth2/v2.0/token`, () =>
     HttpResponse.json({ access_token: 'test-token', expires_in: 3600 }),
   ),
   // Outbound reply endpoint — replyToActivity() posts here
@@ -51,6 +53,7 @@ describe('routes', () => {
     const app = routes(echoHandler, {
       botId: 'bot-id',
       botSecret: 'bot-secret',
+      botTenantId: BOT_TENANT_ID,
       skipJwtVerify: true,
     })
 
@@ -69,7 +72,11 @@ describe('routes', () => {
   })
 
   test('POST /messages without skipJwtVerify returns 401', async () => {
-    const app = routes(echoHandler, { botId: 'bot-id', botSecret: 'bot-secret' })
+    const app = routes(echoHandler, {
+      botId: 'bot-id',
+      botSecret: 'bot-secret',
+      botTenantId: BOT_TENANT_ID,
+    })
     const res = await app.request('/messages', {
       method: 'POST',
       body: JSON.stringify(buildActivity('hi')),
@@ -83,6 +90,7 @@ describe('routes', () => {
     const app = routes(noReplyHandler, {
       botId: 'bot-id',
       botSecret: 'bot-secret',
+      botTenantId: BOT_TENANT_ID,
       skipJwtVerify: true,
     })
 
