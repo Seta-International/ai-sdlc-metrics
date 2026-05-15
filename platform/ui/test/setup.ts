@@ -4,5 +4,8 @@ import { afterEach } from 'vitest'
 
 afterEach(() => {
   cleanup()
-  localStorage.clear()
+  // localStorage may be undefined in Node 26+ without --localstorage-file
+  if (typeof localStorage !== 'undefined') {
+    localStorage.clear()
+  }
 })
