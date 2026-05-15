@@ -58,7 +58,7 @@ import {
 import { Hono } from 'hono'
 import { agentMemory, agentRegistry } from './agent'
 import { sql } from './db'
-import { env } from './env'
+import { deployedApps, env } from './env'
 
 // ── Infrastructure ────────────────────────────────────────────────────────────
 
@@ -98,7 +98,7 @@ const googleSso = new GoogleSsoProvider({
 
 const meContext = createMeContextProvider({
   sql: sql as never,
-  deployedApps: ['studio'],
+  deployedApps: deployedApps(),
 })
 
 const sso = createSsoRoutes({

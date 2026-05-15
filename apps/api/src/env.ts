@@ -37,6 +37,30 @@ export const EnvSchema = z.object({
   PLANNER_SYNC_INTERVAL_MS: z.coerce.number().int().positive().default(180_000),
   OPENAI_EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
   AGENT_EMBEDDINGS_PROVIDER: z.enum(['openai', 'azure-openai', 'none']).default('none'),
+  SETA_SEED_TENANT_ID: z.string().uuid(),
+  SETA_SEED_TENANT_SLUG: z.string().min(1),
+  SETA_SEED_TENANT_NAME: z.string().min(1),
+  SETA_SEED_SUPERADMIN_EMAILS: z.string().default(''),
+  SETA_APPS_DEPLOYED: z.string().default('studio'),
+  SSO_ENTRA_ENABLED: z.coerce.boolean().default(true),
+  SSO_GOOGLE_ENABLED: z.coerce.boolean().default(true),
 })
 
 export const env = EnvSchema.parse(process.env)
+
+export const deployedApps = () =>
+  env.SETA_APPS_DEPLOYED.split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+export const superadminEmails = () =>
+  env.SETA_SEED_SUPERADMIN_EMAILS.split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+export const enabledSsoProviders = (): Array<'entra' | 'google'> => {
+  const out: Array<'entra' | 'google'> = []
+  if (env.SSO_ENTRA_ENABLED) out.push('entra')
+  if (env.SSO_GOOGLE_ENABLED) out.push('google')
+  return out
+}
