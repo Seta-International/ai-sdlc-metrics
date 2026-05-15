@@ -1,3 +1,4 @@
+export type { MeContext, MeContextProvider } from '@seta/tenancy'
 export { signCookie, verifyCookie } from './cookie'
 export { deriveCsrfToken } from './csrf'
 export type { CsrfOpts, RequireSessionOpts, SessionStore, SsoVariables } from './middleware'
