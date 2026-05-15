@@ -28,6 +28,7 @@ export default defineConfig({
       '/rag': { target: 'http://localhost:8080', changeOrigin: true },
     },
   },
+  base: '/studio/',
   build: {
     sourcemap: true,
     reportCompressedSize: true,

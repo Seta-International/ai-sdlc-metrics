@@ -10,6 +10,7 @@ export const queryClient = new QueryClient({
 
 export const router = createRouter({
   routeTree,
+  basepath: '/studio',
   context: { queryClient },
   defaultPreload: 'intent',
 })

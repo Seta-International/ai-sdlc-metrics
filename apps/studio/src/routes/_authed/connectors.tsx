@@ -1,18 +1,18 @@
 import type { ConnectorSummary } from '@seta/agent-sdk'
+import { useMe } from '@seta/identity-client'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { client } from '../../api/client'
 import { connectorsQueryOptions } from '../../api/queries'
 import { ConnectorsPage } from '../../pages/ConnectorsPage'
 
-export const Route = createFileRoute('/_authed/tenants/$id/connectors')({
-  loader: ({ context, params }) =>
-    context.queryClient.ensureQueryData(connectorsQueryOptions(params.id)),
+export const Route = createFileRoute('/_authed/connectors')({
   component: ConnectorsRoute,
 })
 
 function ConnectorsRoute() {
-  const { id: tenantId } = Route.useParams()
+  const { data: me } = useMe()
+  const tenantId = me?.tenant?.id ?? ''
   const { data } = useSuspenseQuery(connectorsQueryOptions(tenantId))
 
   async function handleGrantConsent(connector: ConnectorSummary) {

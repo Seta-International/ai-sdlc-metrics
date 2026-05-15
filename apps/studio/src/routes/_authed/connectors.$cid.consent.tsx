@@ -1,3 +1,4 @@
+import { useMe } from '@seta/identity-client'
 import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect } from 'react'
@@ -10,13 +11,15 @@ const ConsentSearch = z.object({
   error: z.string().optional(),
 })
 
-export const Route = createFileRoute('/_authed/tenants/$id/connectors/$cid/consent')({
+export const Route = createFileRoute('/_authed/connectors/$cid/consent')({
   validateSearch: ConsentSearch,
   component: ConsentLandingRoute,
 })
 
 function ConsentLandingRoute() {
-  const { id: tenantId, cid: connectorId } = Route.useParams()
+  const { cid: connectorId } = Route.useParams()
+  const { data: me } = useMe()
+  const tenantId = me?.tenant?.id ?? ''
   const search = Route.useSearch()
   const queryClient = useQueryClient()
   const ok = search.ok === '1'
@@ -31,12 +34,8 @@ function ConsentLandingRoute() {
       connectorId={connectorId}
       ok={ok}
       {...(search.error !== undefined ? { error: search.error } : {})}
-      renderBackLink={({ tenantId }) => (
-        <Link
-          to="/tenants/$id/connectors"
-          params={{ id: tenantId }}
-          className="text-primary hover:underline"
-        >
+      renderBackLink={() => (
+        <Link to="/connectors" className="text-primary hover:underline">
           Back to connectors
         </Link>
       )}
