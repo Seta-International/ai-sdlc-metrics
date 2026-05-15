@@ -252,6 +252,34 @@ app.use(
   lastAppMiddleware({ hmacKey: env.SESSION_HMAC_KEY, secure: env.NODE_ENV === 'production' }),
 )
 
+if (env.NODE_ENV === 'development') {
+  app.get('/', (c) => c.redirect('/console/'))
+
+  const FRONTEND_PORTS: Record<string, number> = {
+    console: 5174,
+    studio: 5180,
+  }
+  for (const [prefix, port] of Object.entries(FRONTEND_PORTS)) {
+    app.all(`/${prefix}/*`, async (c) => {
+      const target = `http://localhost:${port}${c.req.path}${c.req.url.includes('?') ? '?' + c.req.url.split('?')[1] : ''}`
+      const init: RequestInit = {
+        method: c.req.method,
+        headers: c.req.raw.headers,
+      }
+      if (c.req.method !== 'GET' && c.req.method !== 'HEAD') {
+        init.body = c.req.raw.body
+        ;(init as { duplex?: string }).duplex = 'half'
+      }
+      const upstream = await fetch(target, init)
+      return upstream
+    })
+    app.all(`/${prefix}`, async (c) => {
+      const target = `http://localhost:${port}/${prefix}`
+      return fetch(target, { method: c.req.method, headers: c.req.raw.headers })
+    })
+  }
+}
+
 app.get('/healthz', (c) => c.json({ ok: true }))
 
 const ipKey = (c: Context) => c.req.header('x-forwarded-for') ?? 'anon'

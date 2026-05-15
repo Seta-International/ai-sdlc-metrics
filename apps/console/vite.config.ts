@@ -18,14 +18,6 @@ export default defineConfig({
   },
   server: {
     port: 5174,
-    proxy: {
-      '/me': { target: 'http://localhost:8080', changeOrigin: true },
-      '/sso': { target: 'http://localhost:8080', changeOrigin: true },
-      '/oauth': { target: 'http://localhost:8080', changeOrigin: true },
-      '/tenants/api': { target: 'http://localhost:8080', changeOrigin: true },
-      '/members': { target: 'http://localhost:8080', changeOrigin: true },
-      '/admin': { target: 'http://localhost:8080', changeOrigin: true },
-    },
   },
   build: {
     sourcemap: true,

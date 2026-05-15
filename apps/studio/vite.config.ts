@@ -16,17 +16,7 @@ export default defineConfig({
     'import.meta.env.VITE_PUBLIC_BUILD_SHA': JSON.stringify(gitSha),
   },
   server: {
-    port: 5173,
-    proxy: {
-      '/me': { target: 'http://localhost:8080', changeOrigin: true },
-      '/sso': { target: 'http://localhost:8080', changeOrigin: true },
-      '/oauth': { target: 'http://localhost:8080', changeOrigin: true },
-      '/runs': { target: 'http://localhost:8080', changeOrigin: true },
-      '/tenants/api': { target: 'http://localhost:8080', changeOrigin: true },
-      '/agent': { target: 'http://localhost:8080', changeOrigin: true },
-      '/audit': { target: 'http://localhost:8080', changeOrigin: true },
-      '/rag': { target: 'http://localhost:8080', changeOrigin: true },
-    },
+    port: 5180,
   },
   base: '/studio/',
   build: {
