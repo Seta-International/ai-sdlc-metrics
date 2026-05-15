@@ -17,7 +17,7 @@ export interface AgentContext {
 export interface Tenant {
   id: string
   name: string
-  role: 'admin' | 'member' | 'viewer'
+  role: 'owner' | 'admin' | 'member'
 }
 
 export type Variant = 'success' | 'warning' | 'error' | 'info' | 'neutral'
