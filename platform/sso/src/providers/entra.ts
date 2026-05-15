@@ -87,13 +87,14 @@ export class EntraSsoProvider implements SsoProvider {
     if (typeof payload.sub !== 'string' || typeof payload.email !== 'string') {
       throw new ServiceUnavailable('Entra id_token missing sub or email')
     }
-    return {
+    const out: OidcIdToken = {
       sub: payload.sub,
       email: payload.email,
-      name: typeof payload.name === 'string' ? payload.name : undefined,
-      picture: typeof payload.picture === 'string' ? payload.picture : undefined,
       iss: typeof payload.iss === 'string' ? payload.iss : '',
       aud: this.cfg.clientId,
     }
+    if (typeof payload.name === 'string') out.name = payload.name
+    if (typeof payload.picture === 'string') out.picture = payload.picture
+    return out
   }
 }
