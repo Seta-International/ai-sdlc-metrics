@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { createOpenAIEmbeddings, type EmbedResult } from '@seta/agent-embeddings'
+import { insertChunks, type NewChunk } from '@seta/agent-vector'
 import { createPool } from '@seta/db'
 import { tenantContext } from '@seta/tenant'
 
@@ -114,6 +115,24 @@ function faqToContent(item: FaqItem): string {
   return `Q: ${item.question}\nA: ${item.answer}`
 }
 
+function buildChunks(
+  tenantId: string,
+  sourceId: string,
+  contents: string[],
+  vectors: number[][],
+  totalTokens: number,
+): NewChunk[] {
+  const perRow = Math.max(1, Math.round(totalTokens / contents.length))
+  return contents.map((content, i) => ({
+    tenantId,
+    sourceId,
+    content,
+    contentHash: hashContent(content),
+    tokenCount: perRow,
+    embedding: vectors[i]!,
+  }))
+}
+
 // ─── main ────────────────────────────────────────────────────────────────────
 
 const TOTAL_STEPS = 10
@@ -176,6 +195,32 @@ try {
       acmeEmbed.usage.totalTokens + globexEmbed.usage.totalTokens
     } tokens · ${elapsed} ms`,
   )
+  console.log()
+
+  // ── 3/10: ingest as Acme ──────────────────────────────────────────────────
+  printSection(3, TOTAL_STEPS, '📦', 'Ingest 4 FAQ chunks as tenant Acme')
+  const acmeRows = buildChunks(
+    ACME,
+    ACME_SOURCE,
+    acmeContents,
+    acmeEmbed.embeddings,
+    acmeEmbed.usage.totalTokens,
+  )
+  await runAs(ACME, () => insertChunks(sql, acmeRows))
+  record('inserted Acme', true, `${acmeRows.length} rows`)
+  console.log()
+
+  // ── 4/10: ingest as Globex ────────────────────────────────────────────────
+  printSection(4, TOTAL_STEPS, '📦', 'Ingest 4 FAQ chunks as tenant Globex')
+  const globexRows = buildChunks(
+    GLOBEX,
+    GLOBEX_SOURCE,
+    globexContents,
+    globexEmbed.embeddings,
+    globexEmbed.usage.totalTokens,
+  )
+  await runAs(GLOBEX, () => insertChunks(sql, globexRows))
+  record('inserted Globex', true, `${globexRows.length} rows`)
   console.log()
 } finally {
   await sql.end({ timeout: 2 })
