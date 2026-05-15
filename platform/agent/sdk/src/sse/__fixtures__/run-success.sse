@@ -1,0 +1,12 @@
+event: text
+data: {"type":"text","delta":"Hello"}
+
+event: text
+data: {"type":"text","delta":" world"}
+
+event: tool_call
+data: {"type":"tool_call","toolCallId":"c1","name":"graph.search","args":{"q":"x"}}
+
+event: finish
+data: {"type":"finish","reason":"stop","usage":{"inputTokens":10,"outputTokens":2}}
+
