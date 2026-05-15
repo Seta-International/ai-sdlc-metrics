@@ -75,5 +75,15 @@ export function hydrateAgent(
     model: profile.model,
     systemPrompt: interpolateInstructions(profile.instructions, ctx),
     tools: [...toolRegistry.resolve(profile.toolIds)],
+    ...(profile.workingMemoryTemplate !== null
+      ? {
+          workingMemory: {
+            enabled: true,
+            template: interpolateInstructions(profile.workingMemoryTemplate, ctx),
+            scope: 'resource' as const,
+            version: 'vnext' as const,
+          },
+        }
+      : {}),
   }
 }

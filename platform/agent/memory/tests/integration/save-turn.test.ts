@@ -25,6 +25,29 @@ afterAll(async () => {
 })
 
 describe('ensureThread', () => {
+  it('sets title on first insert when autoTitle is provided', async () => {
+    const threadId = randomUUID()
+    await tenantContext.run({ tenantId: TENANT, userId: 'alice' }, async () => {
+      await withTenant(testSql(), TENANT, async (tx) => {
+        await ensureThread(tx, TENANT, threadId, 'Hello from user')
+      })
+    })
+    const rows = await testSql()`SELECT title FROM agent_memory.threads WHERE id = ${threadId}`
+    expect(rows[0]?.title).toBe('Hello from user')
+  })
+
+  it('does not overwrite an existing title on subsequent ensureThread calls', async () => {
+    const threadId = randomUUID()
+    await tenantContext.run({ tenantId: TENANT, userId: 'alice' }, async () => {
+      await withTenant(testSql(), TENANT, async (tx) => {
+        await ensureThread(tx, TENANT, threadId, 'First title')
+        await ensureThread(tx, TENANT, threadId, 'Second title')
+      })
+    })
+    const rows = await testSql()`SELECT title FROM agent_memory.threads WHERE id = ${threadId}`
+    expect(rows[0]?.title).toBe('First title')
+  })
+
   it('creates a thread row stamped with the current user id', async () => {
     const threadId = randomUUID()
     await tenantContext.run({ tenantId: TENANT, userId: 'alice' }, async () => {
