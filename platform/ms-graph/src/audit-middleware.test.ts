@@ -1,5 +1,5 @@
 import type { AuditEntry } from '@seta/audit'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import { HttpResponse, http } from 'msw'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { normalizePath } from './audit-middleware'

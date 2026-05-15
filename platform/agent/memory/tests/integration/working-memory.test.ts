@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { withTenant } from '@seta/db'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import postgres from 'postgres'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { WorkingMemoryTooLargeError } from '../../src/errors'

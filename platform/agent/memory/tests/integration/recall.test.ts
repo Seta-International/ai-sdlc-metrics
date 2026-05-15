@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { KernelMessage } from '@seta/agent-core'
 import { withTenant } from '@seta/db'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { fetchRecallPage } from '../../src/recall'
 import { ensureThread, saveMessages } from '../../src/save-turn'

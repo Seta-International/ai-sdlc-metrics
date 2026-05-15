@@ -1,7 +1,7 @@
 import type { AuditWriter } from '@seta/audit'
 import type { ConnectorRegistry } from '@seta/connector-registry'
 import { BadRequest, ServiceUnavailable } from '@seta/middleware'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { OAuthProvider } from './provider'

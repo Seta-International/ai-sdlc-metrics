@@ -10,7 +10,7 @@ import {
   run,
 } from '@seta/agent-core'
 import { setupLLMRecording } from '@seta/agent-core/testkit'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { AgentMemoryProvider } from '../../src/provider'
 import { ensureMigrations, testSql, truncateMemoryTables } from './_helpers'

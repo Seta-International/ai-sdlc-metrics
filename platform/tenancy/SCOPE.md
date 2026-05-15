@@ -1,8 +1,8 @@
-# SCOPE — platform/tenant  (@seta/tenant)
+# SCOPE — platform/tenant  (@seta/tenancy)
 
 ## Purpose
 
-`@seta/tenant` owns request-identity propagation across async boundaries inside
+`@seta/tenancy` owns request-identity propagation across async boundaries inside
 the API process. It exposes an AsyncLocalStorage-backed `tenantContext`, a Hono
 middleware that establishes that store from a resolver, and the Drizzle schema
 for `tenant.tenants` + `tenant.tenant_connectors`. It is the **only** sanctioned
@@ -17,7 +17,7 @@ function parameters.
   - The `AsyncLocalStorage<TenantContextStore>` instance and its public API
     (`tenantContext.run` / `getTenantId` / `getUserId`).
   - The Hono middleware shape that bridges an HTTP request into the ALS store
-    (resolver injected by the caller — `@seta/tenant` does not know about JWTs,
+    (resolver injected by the caller — `@seta/tenancy` does not know about JWTs,
     headers, or API keys).
   - The Drizzle schema for the `tenant` Postgres schema (`tenants`,
     `tenant_connectors`) plus their inferred row/insert types.
@@ -76,14 +76,14 @@ Implemented and shipped on `main`:
     `@seta/connector-registry`, anything under `modules/*` or `apps/*`. This
     package is upstream of every other tenant-aware package; importing them
     would create a cycle. `@seta/db.withTenant` will read from this ALS but
-    `@seta/tenant` must not call back into `@seta/db`.
+    `@seta/tenancy` must not call back into `@seta/db`.
 - **External (pinned per setup.md §13):**
   - `hono@4.12.18` — for `MiddlewareHandler` type only.
   - `drizzle-orm@0.45.2` — for `pgSchema` / column builders.
   - `dotenv@17.4.2`, `zod@4.4.3` — present in `package.json` but currently
     unused by `src/*`; retained for migration runner consistency.
 
-  **Divergence from setup.md §13:** §13 line 1822 lists `@seta/tenant` with no
+  **Divergence from setup.md §13:** §13 line 1822 lists `@seta/tenancy` with no
   external runtime deps beyond `node:async_hooks`. Reality adds `hono`,
   `drizzle-orm`, `zod`, `dotenv` because middleware + schema were folded into
   the same package rather than split.
@@ -100,7 +100,7 @@ Implemented and shipped on `main`:
   the auth middleware" (`07-request-context.md:26`). Never expose a `set()` /
   `update()` / `promoteUser()` helper. New fields land via a new
   `tenantContext.run` frame, not by mutating an in-flight store.
-- **Resolver injection in the middleware** keeps `@seta/tenant` free of any
+- **Resolver injection in the middleware** keeps `@seta/tenancy` free of any
   knowledge about JWT/Bot-Framework/API-key validation — the consumer in
   `apps/api/src/main.ts` (or a sibling auth middleware) owns identity proof.
   See `src/middleware.ts:9-23` and CLAUDE.md "No DI containers" rule.

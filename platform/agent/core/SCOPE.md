@@ -35,7 +35,7 @@ server, no thread CRUD).
     where `outputSchema` is mandatory for write tools (`04-tools-mcp.md:32, 49`).
   - The `ToolExecutionContext` discriminated by surface (`teams`/`direct`/future `mcp`),
     always carrying `abortSignal` and a read-only request handle; tenant id is NOT a field
-    — it is read from `@seta/tenant` (`04-tools-mcp.md:52`, CLAUDE.md "Tenant id is never a
+    — it is read from `@seta/tenancy` (`04-tools-mcp.md:52`, CLAUDE.md "Tenant id is never a
     function parameter").
   - `MemoryProvider` interface + `NullMemoryProvider` (kept for unit tests and the testkit)
     — the loop calls `recall()` pre-model and `saveTurn()` post-model unconditionally
@@ -79,7 +79,7 @@ server, no thread CRUD).
   - The `agent.write_continuations` HMAC preview→commit table — that is the agent product's
     schema, not the kernel's (`04-tools-mcp.md:50`).
   - Connector / Graph calls — see `@seta/ms-graph` and `modules/connectors/ms365-*`.
-  - Tenant context — read via `tenantContext.getTenantId()` from `@seta/tenant`
+  - Tenant context — read via `tenantContext.getTenantId()` from `@seta/tenancy`
     (`07-request-context.md:36`, CLAUDE.md "Footguns").
   - MCP server exposure — P2-deferred (`04-tools-mcp.md:56`).
   - RAG vector storage and chunking — `@seta/agent-vector`, `@seta/agent-chunking`,
@@ -293,7 +293,7 @@ keys; tests skip gracefully without them.
     `KernelError`/`AgentError`/`LlmError`/`ToolError`). The RFC 7807 mapper lives in
     middleware; the kernel only throws the subclasses (`02-agent-core.md:41`, setup.md §15
     line 2062).
-  - `@seta/tenant` — `tenantContext.getTenantId()` for tenant-scoped audit + memory keys
+  - `@seta/tenancy` — `tenantContext.getTenantId()` for tenant-scoped audit + memory keys
     (CLAUDE.md "Tenant id is never a function parameter"; `07-request-context.md`).
   - `@seta/observability` — `logger` for kernel-internal logs (CLAUDE.md "No `console.log`
     outside CLI scripts").
@@ -413,7 +413,7 @@ keys; tests skip gracefully without them.
 - **No mutable `RequestContext` map** — `02-agent-core.md:42`. Use an explicit `RunCtx`
   parameter instead. If 3+ unrelated callers need ad-hoc keys, revisit in P2.
 - **No `tenantId` / `resourceId` on tool or memory contexts** — read from
-  `@seta/tenant` ALS instead (CLAUDE.md "Footguns"; `09-memory.md:52`;
+  `@seta/tenancy` ALS instead (CLAUDE.md "Footguns"; `09-memory.md:52`;
   `07-request-context.md:25`).
 - **No legacy `mitt`-style event bus** — `02-agent-core.md:36`. Fire-and-forget via
   `setImmediate` defeats OTel span correlation. Use a typed `Processor` or an OTel span

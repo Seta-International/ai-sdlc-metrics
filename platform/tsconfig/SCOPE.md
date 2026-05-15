@@ -94,4 +94,4 @@ regression net.
   multi-entry packages; the former is simpler for single-entry `src/index.ts`.
 - **Browser variant timing.** Studio is P2; do not add `browser.json` until a concrete
   consumer exists (`07-request-context.md` § "lazy-resolver split" calls out the eventual
-  need for a browser-safe `@seta/tenant` shim, but P1 has no browser code).
+  need for a browser-safe `@seta/tenancy` shim, but P1 has no browser code).

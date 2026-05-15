@@ -19,7 +19,7 @@
   "dependencies": {
     "@hono/zod-openapi": "1.4.0",
     "@seta/middleware": "workspace:*",
-    "@seta/tenant": "workspace:*",
+    "@seta/tenancy": "workspace:*",
     "hono": "4.12.18",
     "zod": "4.4.3"
   },

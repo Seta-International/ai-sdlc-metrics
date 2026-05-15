@@ -26,7 +26,7 @@ the only place that owns `auth.users`, `auth.sessions`, `auth.api_keys`.
     the long-term home per setup.md is `@seta/auth/src/kms/`. See Open
     Questions.
 - **Does NOT own:**
-  - Tenant identity / `tenant.tenants` — that's `@seta/tenant`.
+  - Tenant identity / `tenant.tenants` — that's `@seta/tenancy`.
   - OAuth token storage, MSAL CCAs, admin-consent URL building — that's
     `@seta/oauth`.
   - Authorization (RBAC). RBAC will land here per setup.md §13 ("RBAC +
@@ -79,7 +79,7 @@ Implemented and shipped on `main`:
     `auth.api_keys` / `auth.sessions` (setup.md §3 expects RLS on every
     tenant-data table; not yet wired).
 - **Forbidden:**
-  - `@seta/tenant` — circular risk; `@seta/auth` does not read the ALS, it
+  - `@seta/tenancy` — circular risk; `@seta/auth` does not read the ALS, it
     only models persistence. Services in `apps/api` join the two.
   - `@seta/oauth` — `auth` is upstream of `oauth` in the dep DAG (oauth
     depends on a user existing).
@@ -127,7 +127,7 @@ Implemented and shipped on `main`:
   "Never hand-edit migrations/*.sql; fix the schema and regenerate."
 - **Schema-per-module** — own `drizzle.config.ts` + `migrations/`; no
   cross-schema FKs; `users.tenant_id` is by id, not a Drizzle `.references`
-  to `@seta/tenant.tenants` (CLAUDE.md "No cross-schema foreign keys").
+  to `@seta/tenancy.tenants` (CLAUDE.md "No cross-schema foreign keys").
 
 ## Patterns to avoid
 
@@ -139,7 +139,7 @@ Implemented and shipped on `main`:
   `@seta/oauth`, delete the oauth copy in the same PR (CLAUDE.md "No
   legacy, no backward compat. Change every caller in the same PR and
   delete the old shape").
-- **Do not import `@seta/tenant`** to read `tenantId` — `auth` is a
+- **Do not import `@seta/tenancy`** to read `tenantId` — `auth` is a
   persistence-only module. `apps/api` services pass `tenantId` to `auth`
   helpers; that is *not* the "never a function parameter" rule (setup.md
   §15 line 2063) because the call site itself reads the ALS via

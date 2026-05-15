@@ -2,7 +2,7 @@ import type { KernelMessage, MemoryContext, MemoryProvider, RecallResult } from 
 import { recordAudit } from '@seta/audit'
 import { type DbSql, withTenant } from '@seta/db'
 import { logger } from '@seta/observability'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import type { Sql } from 'postgres'
 import { actorFromContext } from './audit'
 import { MemoryPersistFailedError, WorkingMemoryTooLargeError } from './errors'

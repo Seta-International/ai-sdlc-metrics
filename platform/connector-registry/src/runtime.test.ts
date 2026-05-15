@@ -1,4 +1,4 @@
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import { describe, expect, it } from 'vitest'
 import { type ConnectorDefinition, createConnectorRegistry } from './index'
 

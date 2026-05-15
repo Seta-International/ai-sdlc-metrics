@@ -1,7 +1,7 @@
 import { Unprocessable } from '@seta/middleware'
 import { GraphNotFound, GraphUnavailable } from '@seta/ms-graph'
 import { logger } from '@seta/observability'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import type { PlannerClient } from './client'
 
 const log = logger.child({ component: 'planner-cache' })

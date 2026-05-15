@@ -48,7 +48,7 @@ PR-3 baseline:
 PR-4 layered:
 
 - `/tenants` reads from the canonical `GET /tenants` endpoint (owner:
-  `@seta/tenant.createTenantRoutes`) via `tenantsQueryOptions` —
+  `@seta/tenancy.createTenantRoutes`) via `tenantsQueryOptions` —
   previously read `me.tenants`.
 - `/tenants/$id/connectors` renders `@seta/portal`'s shared
   `ConnectorsPage` (DataTable + StatusBadge + "Grant consent" button),
@@ -94,7 +94,7 @@ Studio is an app, not a library. Its "public interface" is the HTTP it consumes 
 
 Grouped by functional area. **Several of these endpoints do not yet exist in `apps/api` § Current state** (`apps/api/SCOPE.md` lists only `/healthz` + `/oauth/*` today). Building Studio requires landing these routes in `apps/api` first — cross-reference `apps/api/SCOPE.md` § Open questions ("`src/routes/` directory") for the route-surface plan.
 
-- `GET  /tenants` — list tenants the current session can access. Owner: `apps/api` middleware reading `@seta/tenant` + `@seta/auth` (`platform/auth/SCOPE.md` for the session shape; tenant ALS per setup.md §3).
+- `GET  /tenants` — list tenants the current session can access. Owner: `apps/api` middleware reading `@seta/tenancy` + `@seta/auth` (`platform/auth/SCOPE.md` for the session shape; tenant ALS per setup.md §3).
 - `GET  /tenants/:id/connectors` — owner: `@seta/connector-registry` exposed via a new `apps/api/src/routes/connectors.ts`. Returns the `ConnectorDefinition[]` plus per-tenant consent status. Definition shape per `platform/connector-registry/SCOPE.md` § Public interface.
 - `POST /oauth/:provider/consent-url` — returns the admin-consent redirect URL. Owner: `@seta/oauth` per `platform/oauth/SCOPE.md` § Current state (`src/routes.ts` — `createOAuthRoutes`).
 - `GET  /oauth/:provider/callback` — owner: `@seta/oauth`, same route file. Already mounted by `apps/api/src/main.ts` per `apps/api/SCOPE.md` § Current state.

@@ -23,7 +23,7 @@
     "@seta/connector-registry": "workspace:*",
     "@seta/db": "workspace:*",
     "@seta/middleware": "workspace:*",
-    "@seta/tenant": "workspace:*",
+    "@seta/tenancy": "workspace:*",
     "dotenv": "17.4.2",
     "drizzle-orm": "0.45.2",
     "hono": "4.12.18",

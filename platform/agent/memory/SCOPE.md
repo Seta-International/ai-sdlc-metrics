@@ -77,7 +77,7 @@ The package also exports its Drizzle schema (`agentMemorySchema`, `conversations
 
 ## Imports (when implementation lands — P1)
 
-- **Allowed internal:** `@seta/agent-core` (the `MemoryProvider` interface + `KernelMessage` types), `@seta/db` (pool + `withTenant` + role exports + migration runner integration), `@seta/tenant` (context reads), `@seta/audit` (record recall/save events), `@seta/observability` (logger).
+- **Allowed internal:** `@seta/agent-core` (the `MemoryProvider` interface + `KernelMessage` types), `@seta/db` (pool + `withTenant` + role exports + migration runner integration), `@seta/tenancy` (context reads), `@seta/audit` (record recall/save events), `@seta/observability` (logger).
 - **Allowed P2-only:** `@seta/agent-vector`, `@seta/agent-embeddings`, `@seta/agent-chunking` for semantic recall.
 - **Forbidden:** any `modules/channels/*`, any `modules/products/*`, `apps/*`. `@seta/middleware` route helpers (Hono / OpenAPI) are forbidden — this is a library, not a route module. The `@seta/middleware/errors` subpath (`DomainError` base) is allowed and is the canonical project contract per CLAUDE.md. No model SDKs (`openai`, `@anthropic-ai/sdk`) — memory is provider-agnostic.
 - **External (pinned per setup.md §13):** `zod@4.4.3`, `drizzle-orm@0.45.2`, `postgres@3.4.9` (transitively via `@seta/db`).

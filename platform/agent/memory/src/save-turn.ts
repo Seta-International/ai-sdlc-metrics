@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { KernelMessage } from '@seta/agent-core'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import type { TransactionSql } from 'postgres'
 
 export async function ensureThread(

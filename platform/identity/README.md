@@ -6,7 +6,7 @@ OIDC + PKCE single sign-on for Seta. Owns the `auth.users`, `auth.user_identitie
 
 `@seta/identity` is a `platform/*` package — framework primitives, vendor-neutral.
 
-- **Depends on:** `@seta/db`, `@seta/middleware`, `@seta/observability`, `@seta/tenant` (type-only — for the `TenantSummary` shape returned by `/me`).
+- **Depends on:** `@seta/db`, `@seta/middleware`, `@seta/observability`, `@seta/tenancy` (type-only — for the `TenantSummary` shape returned by `/me`).
 - **Does not depend on:** `@seta/auth` (api_keys, separate package), `@seta/oauth` (vendor token vault, separate package), MSAL, model SDKs, any `modules/*`.
 
 ## Public interface
@@ -35,7 +35,7 @@ import {
 
 ## Tenant membership
 
-`/me` returns `tenants: []` until the tenant-membership schema lands in `@seta/tenant`; the field shape is final.
+`/me` returns `tenants: []` until the tenant-membership schema lands in `@seta/tenancy`; the field shape is final.
 
 ## Test strategy
 

@@ -1,5 +1,5 @@
 import { type DbSql, withTenant } from '@seta/db'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import type { ResumeParams, RunOpts } from './create-workflow'
 import { WorkflowError, WorkflowNotRegistered, WorkflowSnapshotNotFound } from './errors'
 import { readSnapshot } from './persistence/snapshot-store'

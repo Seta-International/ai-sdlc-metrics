@@ -1,4 +1,4 @@
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import { describe, expect, it, vi } from 'vitest'
 import { createEtagStore } from './etag'
 

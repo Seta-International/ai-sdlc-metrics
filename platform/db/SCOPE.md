@@ -27,7 +27,7 @@ owner-package migrations in dependency order. Owns no application tables — sch
   - `tenantUser` / `platformAdmin` drizzle `pgRole` exports — used by owner packages when
     declaring RLS policies (`as: "permissive", to: tenantUser, …`).
 - **Does NOT own:**
-  - **Application tables / schemas.** Every owner package (`@seta/auth`, `@seta/tenant`,
+  - **Application tables / schemas.** Every owner package (`@seta/auth`, `@seta/tenancy`,
     `@seta/directory`, `@seta/oauth`, `@seta/audit`, each `@seta/connector-*`,
     `@seta/agent`, `@seta/agent-memory`, `@seta/agent-workflows`) declares its own Drizzle
     schema file, `drizzle.config.ts`, and `migrations/` directory. setup.md §3
@@ -38,7 +38,7 @@ owner-package migrations in dependency order. Owns no application tables — sch
     writes that package's `migrations/*.sql` — `@seta/db` only applies them at boot.
   - **RLS policy bodies.** Owners declare `pgPolicy(…)` against the `tenantUser` export
     in their own schema files; `@seta/db` does not centralize the policy SQL.
-  - **`AsyncLocalStorage` tenant propagation.** That lives in `@seta/tenant` (per setup.md
+  - **`AsyncLocalStorage` tenant propagation.** That lives in `@seta/tenancy` (per setup.md
     §3 "Multi-tenancy: app-layer + RLS" and §11 "Repo layout"); `@seta/db` accepts the
     tenant id as a `withTenant` parameter and does no ALS reads.
 
@@ -88,7 +88,7 @@ From `src/index.ts`:
 ## Imports
 - **Allowed internal:** none. `@seta/db` is a leaf platform primitive.
 - **Forbidden:**
-  - `@seta/tenant` — would invert the dependency: setup.md §3 keeps ALS in `@seta/tenant`
+  - `@seta/tenancy` — would invert the dependency: setup.md §3 keeps ALS in `@seta/tenancy`
     and the DB seam in `@seta/db`; tenant id flows as a parameter to `withTenant`, never
     pulled from ALS here. (`07-request-context.md` § "Deliberately avoid" — DB layer must
     not read ALS.)

@@ -24,7 +24,7 @@
     "@seta/db": "workspace:*",
     "@seta/middleware": "workspace:*",
     "@seta/observability": "workspace:*",
-    "@seta/tenant": "workspace:*",
+    "@seta/tenancy": "workspace:*",
     "drizzle-orm": "0.45.2",
     "lru-cache": "11.3.6",
     "zod": "4.4.3"

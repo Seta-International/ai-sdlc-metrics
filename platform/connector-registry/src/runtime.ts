@@ -1,5 +1,5 @@
 import { DomainError } from '@seta/middleware'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import type { ConnectorDefinition, ConnectorRegistry } from './types'
 
 export class ConnectorNotConsented extends DomainError {

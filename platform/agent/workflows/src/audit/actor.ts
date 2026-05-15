@@ -1,5 +1,5 @@
 import type { AuditActor } from '@seta/audit'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 
 export function actorFromContext(): AuditActor {
   tenantContext.getTenantId()

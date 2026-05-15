@@ -56,7 +56,7 @@ All exports from `modules/connectors/ms365-directory/src/index.ts`.
   - `@seta/audit` — `recordAudit()` for sync events and JIT user creation (currently declared; setup.md §13).
   - `@seta/oauth` — token acquisition for Graph application calls (setup.md §13 — **missing in current `package.json`**; add via `pnpm --filter @seta/connector-ms365-directory add @seta/oauth@workspace:*`).
   - `@seta/ms-graph` — Graph HTTP wrapper (setup.md §13 — **missing in current `package.json`**; add via the same pattern).
-  - `@seta/tenant` — `tenantContext.getTenantId()` (CLAUDE.md; setup.md §11 dep direction).
+  - `@seta/tenancy` — `tenantContext.getTenantId()` (CLAUDE.md; setup.md §11 dep direction).
   - `@seta/observability` — logger, OTel spans (setup.md §11 dep direction).
   - Other `modules/connectors/*` packages permitted by setup.md §11; this connector does not currently need any.
 

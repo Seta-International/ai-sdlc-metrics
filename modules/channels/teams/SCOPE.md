@@ -27,7 +27,7 @@ Epic 1 was auth-focused; the Teams channel is a scaffold only.
 
 - `modules/channels/teams/src/index.ts` is `export {}` — no `teamsRouter`, no `TeamsHandler`, no JWT/JWKS/SSO code yet.
 - `modules/channels/teams/src/index.test.ts` is a `placeholder` assertion.
-- `package.json` declares the right surface deps from setup.md §13 (`hono@4.12.18`, `jose@6.2.3`, `lru-cache@11.3.6`, `zod@4.4.3`, `@seta/oauth`, `@seta/tenant`) — wired but not yet used.
+- `package.json` declares the right surface deps from setup.md §13 (`hono@4.12.18`, `jose@6.2.3`, `lru-cache@11.3.6`, `zod@4.4.3`, `@seta/oauth`, `@seta/tenancy`) — wired but not yet used.
 
 Everything below is the contract future work must respect; nothing is implemented yet.
 
@@ -51,7 +51,7 @@ All exports from `modules/channels/teams/src/index.ts`. Signatures only — bodi
 
 - **Allowed internal:**
   - `@seta/oauth` — OBO and bot-token client-credentials grants; KMS-envelope token vault (setup.md §11 dep direction `modules/channels/* → platform/oauth`; setup.md §13).
-  - `@seta/tenant` — `tenantContext.getTenantId()` for the in-handler tenant binding (setup.md §13; CLAUDE.md "tenant id is never a function parameter").
+  - `@seta/tenancy` — `tenantContext.getTenantId()` for the in-handler tenant binding (setup.md §13; CLAUDE.md "tenant id is never a function parameter").
   - `@seta/middleware`, `@seta/observability`, `@seta/audit`, `@seta/db`, `@seta/auth` — permitted by setup.md §11 dep direction `modules/channels/* → platform/{middleware,observability,oauth,db,auth,tenant,audit}`. Use only when needed (e.g., `@seta/middleware` for error mapping; `@seta/db` only for a stateless JWKS-cache row per setup.md §7).
 
 - **Forbidden:**
@@ -95,7 +95,7 @@ All exports from `modules/channels/teams/src/index.ts`. Signatures only — bodi
 - **Synchronous reply on the inbound request** — Bot Framework expects an immediate 200; reply via the outbound transport (setup.md §7 table).
 - **Enforcing the agent-restriction policy inside the channel** — the channel surfaces `ConversationScope`; it does NOT decide which agent runs. Pushing that decision into transport leaks product knowledge into the channel layer (CLAUDE.md "channels never import products"). The product router enforces the constraint.
 - **Treating `groupChat` and `channel` as identical** — they share the FAQ-only constraint in P1 but they're distinct Bot Framework conversation types; keep the `ConversationScope` union strict so a future relaxation (e.g., Analytics in `groupChat` only) is a clean change.
-- **Threading `tenantId` as a function parameter** — read from `@seta/tenant`'s AsyncLocalStorage (CLAUDE.md).
+- **Threading `tenantId` as a function parameter** — read from `@seta/tenancy`'s AsyncLocalStorage (CLAUDE.md).
 - **`console.log`** — use `logger` from `@seta/middleware`/`@seta/observability` (CLAUDE.md conventions).
 - **`vi.mock` of internal `@seta/*` modules** — if you feel the urge, the seam is wrong (CLAUDE.md "never mock internal `@seta/*` modules").
 

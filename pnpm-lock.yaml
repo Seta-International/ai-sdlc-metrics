@@ -101,9 +101,9 @@ importers:
       '@seta/planner':
         specifier: workspace:*
         version: link:../../modules/products/planner
-      '@seta/tenant':
+      '@seta/tenancy':
         specifier: workspace:*
-        version: link:../../platform/tenant
+        version: link:../../platform/tenancy
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -357,9 +357,9 @@ importers:
       '@seta/observability':
         specifier: workspace:*
         version: link:../../../platform/observability
-      '@seta/tenant':
+      '@seta/tenancy':
         specifier: workspace:*
-        version: link:../../../platform/tenant
+        version: link:../../../platform/tenancy
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(postgres@3.4.9)
@@ -409,9 +409,9 @@ importers:
       '@seta/observability':
         specifier: workspace:*
         version: link:../../../platform/observability
-      '@seta/tenant':
+      '@seta/tenancy':
         specifier: workspace:*
-        version: link:../../../platform/tenant
+        version: link:../../../platform/tenancy
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(postgres@3.4.9)
@@ -461,9 +461,9 @@ importers:
       '@seta/observability':
         specifier: workspace:*
         version: link:../../../platform/observability
-      '@seta/tenant':
+      '@seta/tenancy':
         specifier: workspace:*
-        version: link:../../../platform/tenant
+        version: link:../../../platform/tenancy
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(postgres@3.4.9)
@@ -523,9 +523,9 @@ importers:
       '@seta/observability':
         specifier: workspace:*
         version: link:../../observability
-      '@seta/tenant':
+      '@seta/tenancy':
         specifier: workspace:*
-        version: link:../../tenant
+        version: link:../../tenancy
       hono:
         specifier: 4.12.18
         version: 4.12.18
@@ -609,9 +609,9 @@ importers:
       '@seta/observability':
         specifier: workspace:*
         version: link:../../observability
-      '@seta/tenant':
+      '@seta/tenancy':
         specifier: workspace:*
-        version: link:../../tenant
+        version: link:../../tenancy
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(postgres@3.4.9)
@@ -689,9 +689,9 @@ importers:
       '@seta/middleware':
         specifier: workspace:*
         version: link:../../middleware
-      '@seta/tenant':
+      '@seta/tenancy':
         specifier: workspace:*
-        version: link:../../tenant
+        version: link:../../tenancy
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(postgres@3.4.9)
@@ -747,9 +747,9 @@ importers:
       '@seta/observability':
         specifier: workspace:*
         version: link:../../observability
-      '@seta/tenant':
+      '@seta/tenancy':
         specifier: workspace:*
-        version: link:../../tenant
+        version: link:../../tenancy
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(postgres@3.4.9)
@@ -873,9 +873,9 @@ importers:
       '@seta/middleware':
         specifier: workspace:*
         version: link:../middleware
-      '@seta/tenant':
+      '@seta/tenancy':
         specifier: workspace:*
-        version: link:../tenant
+        version: link:../tenancy
       hono:
         specifier: 4.12.18
         version: 4.12.18
@@ -987,9 +987,9 @@ importers:
       '@seta/observability':
         specifier: workspace:*
         version: link:../observability
-      '@seta/tenant':
+      '@seta/tenancy':
         specifier: workspace:*
-        version: link:../tenant
+        version: link:../tenancy
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -1088,9 +1088,9 @@ importers:
       '@seta/observability':
         specifier: workspace:*
         version: link:../observability
-      '@seta/tenant':
+      '@seta/tenancy':
         specifier: workspace:*
-        version: link:../tenant
+        version: link:../tenancy
       zod:
         specifier: 4.4.3
         version: 4.4.3
@@ -1134,9 +1134,9 @@ importers:
       '@seta/middleware':
         specifier: workspace:*
         version: link:../middleware
-      '@seta/tenant':
+      '@seta/tenancy':
         specifier: workspace:*
-        version: link:../tenant
+        version: link:../tenancy
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -1273,7 +1273,7 @@ importers:
         specifier: 4.1.5
         version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@25.8.0)(@vitest/coverage-v8@4.1.6(vitest@4.1.6))(jsdom@29.1.1)(msw@2.14.6(@types/node@25.8.0)(typescript@6.0.3))(vite@8.0.13(@types/node@25.8.0)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.8.4))
 
-  platform/tenant:
+  platform/tenancy:
     dependencies:
       '@hono/zod-openapi':
         specifier: 1.4.0

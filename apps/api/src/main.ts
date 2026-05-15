@@ -45,7 +45,7 @@ import {
   listTenantsForUser,
   recordConsent,
   tenantContext,
-} from '@seta/tenant'
+} from '@seta/tenancy'
 import { Hono } from 'hono'
 import { agentMemory, agentRegistry } from './agent'
 import { sql } from './db'

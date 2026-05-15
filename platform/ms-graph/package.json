@@ -23,7 +23,7 @@
     "@seta/middleware": "workspace:*",
     "@seta/oauth": "workspace:*",
     "@seta/observability": "workspace:*",
-    "@seta/tenant": "workspace:*",
+    "@seta/tenancy": "workspace:*",
     "zod": "4.4.3"
   },
   "devDependencies": {

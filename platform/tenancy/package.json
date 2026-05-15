@@ -1,7 +1,7 @@
 {
-  "name": "@seta/tenant",
+  "name": "@seta/tenancy",
   "version": "0.1.0",
-  "description": "AsyncLocalStorage tenant context + guards",
+  "description": "Tenancy: tenants, members, connector consent, admin",
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --sourcemap",
