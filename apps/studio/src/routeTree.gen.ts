@@ -25,6 +25,7 @@ import { Route as AuthedTenantsIdCorpusRouteImport } from './routes/_authed/tena
 import { Route as AuthedTenantsIdConnectorsRouteImport } from './routes/_authed/tenants.$id.connectors'
 import { Route as AuthedTenantsIdAuditRouteImport } from './routes/_authed/tenants.$id.audit'
 import { Route as AuthedTenantsIdAgentsRouteImport } from './routes/_authed/tenants.$id.agents'
+import { Route as AuthedTenantsIdConnectorsCidConsentRouteImport } from './routes/_authed/tenants.$id.connectors.$cid.consent'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -107,6 +108,12 @@ const AuthedTenantsIdAgentsRoute = AuthedTenantsIdAgentsRouteImport.update({
   path: '/agents',
   getParentRoute: () => AuthedTenantsIdRoute,
 } as any)
+const AuthedTenantsIdConnectorsCidConsentRoute =
+  AuthedTenantsIdConnectorsCidConsentRouteImport.update({
+    id: '/$cid/consent',
+    path: '/$cid/consent',
+    getParentRoute: () => AuthedTenantsIdConnectorsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedRouteWithChildren
@@ -117,7 +124,7 @@ export interface FileRoutesByFullPath {
   '/login/$provider/callback': typeof LoginProviderCallbackRoute
   '/tenants/$id/agents': typeof AuthedTenantsIdAgentsRoute
   '/tenants/$id/audit': typeof AuthedTenantsIdAuditRoute
-  '/tenants/$id/connectors': typeof AuthedTenantsIdConnectorsRoute
+  '/tenants/$id/connectors': typeof AuthedTenantsIdConnectorsRouteWithChildren
   '/tenants/$id/corpus': typeof AuthedTenantsIdCorpusRoute
   '/tenants/$id/metrics': typeof AuthedTenantsIdMetricsRoute
   '/tenants/$id/runs': typeof AuthedTenantsIdRunsRoute
@@ -125,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/tenants/$id/threads': typeof AuthedTenantsIdThreadsRoute
   '/tenants/$id/tools': typeof AuthedTenantsIdToolsRoute
   '/tenants/$id/workflows': typeof AuthedTenantsIdWorkflowsRoute
+  '/tenants/$id/connectors/$cid/consent': typeof AuthedTenantsIdConnectorsCidConsentRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AuthedRouteWithChildren
@@ -135,7 +143,7 @@ export interface FileRoutesByTo {
   '/login/$provider/callback': typeof LoginProviderCallbackRoute
   '/tenants/$id/agents': typeof AuthedTenantsIdAgentsRoute
   '/tenants/$id/audit': typeof AuthedTenantsIdAuditRoute
-  '/tenants/$id/connectors': typeof AuthedTenantsIdConnectorsRoute
+  '/tenants/$id/connectors': typeof AuthedTenantsIdConnectorsRouteWithChildren
   '/tenants/$id/corpus': typeof AuthedTenantsIdCorpusRoute
   '/tenants/$id/metrics': typeof AuthedTenantsIdMetricsRoute
   '/tenants/$id/runs': typeof AuthedTenantsIdRunsRoute
@@ -143,6 +151,7 @@ export interface FileRoutesByTo {
   '/tenants/$id/threads': typeof AuthedTenantsIdThreadsRoute
   '/tenants/$id/tools': typeof AuthedTenantsIdToolsRoute
   '/tenants/$id/workflows': typeof AuthedTenantsIdWorkflowsRoute
+  '/tenants/$id/connectors/$cid/consent': typeof AuthedTenantsIdConnectorsCidConsentRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -154,7 +163,7 @@ export interface FileRoutesById {
   '/login/$provider/callback': typeof LoginProviderCallbackRoute
   '/_authed/tenants/$id/agents': typeof AuthedTenantsIdAgentsRoute
   '/_authed/tenants/$id/audit': typeof AuthedTenantsIdAuditRoute
-  '/_authed/tenants/$id/connectors': typeof AuthedTenantsIdConnectorsRoute
+  '/_authed/tenants/$id/connectors': typeof AuthedTenantsIdConnectorsRouteWithChildren
   '/_authed/tenants/$id/corpus': typeof AuthedTenantsIdCorpusRoute
   '/_authed/tenants/$id/metrics': typeof AuthedTenantsIdMetricsRoute
   '/_authed/tenants/$id/runs': typeof AuthedTenantsIdRunsRoute
@@ -162,6 +171,7 @@ export interface FileRoutesById {
   '/_authed/tenants/$id/threads': typeof AuthedTenantsIdThreadsRoute
   '/_authed/tenants/$id/tools': typeof AuthedTenantsIdToolsRoute
   '/_authed/tenants/$id/workflows': typeof AuthedTenantsIdWorkflowsRoute
+  '/_authed/tenants/$id/connectors/$cid/consent': typeof AuthedTenantsIdConnectorsCidConsentRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -182,6 +192,7 @@ export interface FileRouteTypes {
     | '/tenants/$id/threads'
     | '/tenants/$id/tools'
     | '/tenants/$id/workflows'
+    | '/tenants/$id/connectors/$cid/consent'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -200,6 +211,7 @@ export interface FileRouteTypes {
     | '/tenants/$id/threads'
     | '/tenants/$id/tools'
     | '/tenants/$id/workflows'
+    | '/tenants/$id/connectors/$cid/consent'
   id:
     | '__root__'
     | '/_authed'
@@ -218,6 +230,7 @@ export interface FileRouteTypes {
     | '/_authed/tenants/$id/threads'
     | '/_authed/tenants/$id/tools'
     | '/_authed/tenants/$id/workflows'
+    | '/_authed/tenants/$id/connectors/$cid/consent'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -339,13 +352,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedTenantsIdAgentsRouteImport
       parentRoute: typeof AuthedTenantsIdRoute
     }
+    '/_authed/tenants/$id/connectors/$cid/consent': {
+      id: '/_authed/tenants/$id/connectors/$cid/consent'
+      path: '/$cid/consent'
+      fullPath: '/tenants/$id/connectors/$cid/consent'
+      preLoaderRoute: typeof AuthedTenantsIdConnectorsCidConsentRouteImport
+      parentRoute: typeof AuthedTenantsIdConnectorsRoute
+    }
   }
 }
+
+interface AuthedTenantsIdConnectorsRouteChildren {
+  AuthedTenantsIdConnectorsCidConsentRoute: typeof AuthedTenantsIdConnectorsCidConsentRoute
+}
+
+const AuthedTenantsIdConnectorsRouteChildren: AuthedTenantsIdConnectorsRouteChildren =
+  {
+    AuthedTenantsIdConnectorsCidConsentRoute:
+      AuthedTenantsIdConnectorsCidConsentRoute,
+  }
+
+const AuthedTenantsIdConnectorsRouteWithChildren =
+  AuthedTenantsIdConnectorsRoute._addFileChildren(
+    AuthedTenantsIdConnectorsRouteChildren,
+  )
 
 interface AuthedTenantsIdRouteChildren {
   AuthedTenantsIdAgentsRoute: typeof AuthedTenantsIdAgentsRoute
   AuthedTenantsIdAuditRoute: typeof AuthedTenantsIdAuditRoute
-  AuthedTenantsIdConnectorsRoute: typeof AuthedTenantsIdConnectorsRoute
+  AuthedTenantsIdConnectorsRoute: typeof AuthedTenantsIdConnectorsRouteWithChildren
   AuthedTenantsIdCorpusRoute: typeof AuthedTenantsIdCorpusRoute
   AuthedTenantsIdMetricsRoute: typeof AuthedTenantsIdMetricsRoute
   AuthedTenantsIdRunsRoute: typeof AuthedTenantsIdRunsRoute
@@ -358,7 +393,7 @@ interface AuthedTenantsIdRouteChildren {
 const AuthedTenantsIdRouteChildren: AuthedTenantsIdRouteChildren = {
   AuthedTenantsIdAgentsRoute: AuthedTenantsIdAgentsRoute,
   AuthedTenantsIdAuditRoute: AuthedTenantsIdAuditRoute,
-  AuthedTenantsIdConnectorsRoute: AuthedTenantsIdConnectorsRoute,
+  AuthedTenantsIdConnectorsRoute: AuthedTenantsIdConnectorsRouteWithChildren,
   AuthedTenantsIdCorpusRoute: AuthedTenantsIdCorpusRoute,
   AuthedTenantsIdMetricsRoute: AuthedTenantsIdMetricsRoute,
   AuthedTenantsIdRunsRoute: AuthedTenantsIdRunsRoute,

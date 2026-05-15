@@ -216,6 +216,12 @@ app.route(
     redirectBase: env.PUBLIC_BASE_URL,
     onConsented: async ({ tenantId, connectorIds, scopesGranted }) =>
       recordConsent(sql as never, { tenantId, connectorIds, scopesGranted }),
+    onConsentRedirect: ({ tenantId, connectorIds, ok, error }) => {
+      const cid = connectorIds[0] ?? 'unknown'
+      const params = new URLSearchParams({ ok: ok ? '1' : '0' })
+      if (error) params.set('error', error)
+      return `${env.PUBLIC_STUDIO_URL}/tenants/${tenantId}/connectors/${cid}/consent?${params.toString()}`
+    },
   }),
 )
 
