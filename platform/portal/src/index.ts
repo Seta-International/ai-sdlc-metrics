@@ -1,4 +1,5 @@
 export { CallbackSplash, type CallbackSplashProps } from './CallbackSplash'
+export { ConnectorsPage, type ConnectorsPageProps } from './ConnectorsPage'
 export { LoginPage, type LoginPageProps } from './LoginPage'
 export { type SignInOptions, type SsoProviderId, signIn } from './signIn'
 export { TenantsPage, type TenantsPageProps } from './TenantsPage'

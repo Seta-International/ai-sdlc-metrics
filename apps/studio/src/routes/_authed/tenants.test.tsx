@@ -29,10 +29,10 @@ function mount(qc: QueryClient) {
   const TenantsComponent = TenantsRoute.options.component
   if (!TenantsComponent) throw new Error('TenantsRoute missing component')
   const tenants = createRoute({
-    getParentRoute: () => root,
+    // biome-ignore lint/suspicious/noExplicitAny: createRoute parent typing mismatch with context-aware root in this isolated test harness
+    getParentRoute: () => root as any,
     path: '/tenants',
     component: TenantsComponent,
-    loader: TenantsRoute.options.loader,
   })
   const router = createRouter({
     routeTree: root.addChildren([tenants]),
