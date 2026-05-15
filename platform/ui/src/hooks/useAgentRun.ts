@@ -38,9 +38,10 @@ export function useAgentRun(runId: string): UseAgentRunResult {
     setStatus('running')
     void client
       .streamRun(runId, { signal: ctrl.signal })
-      .then((res) =>
-        parseSseStream(
-          res.body!,
+      .then((res) => {
+        if (!res.body) throw new Error('streamRun returned a response with no body')
+        return parseSseStream(
+          res.body,
           (chunk) => {
             if (!mountedRef.current) return
             setChunks((prev) => [...prev, chunk])
@@ -48,8 +49,8 @@ export function useAgentRun(runId: string): UseAgentRunResult {
             if (chunk.type === 'abort') setStatus('aborted')
           },
           { signal: ctrl.signal },
-        ),
-      )
+        )
+      })
       .then(() => {
         if (!mountedRef.current) return
         setStatus((prev) => (prev === 'running' ? 'completed' : prev))

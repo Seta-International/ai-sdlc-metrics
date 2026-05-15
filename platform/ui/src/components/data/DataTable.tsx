@@ -62,7 +62,6 @@ export function DataTable<T>({
               <th
                 key={col.key}
                 onClick={() => toggleSort(col.key, col.sortable)}
-                // biome-ignore lint/a11y/useKeyWithClickEvents: table sort; keyboard activation TBD
                 className={cn(
                   'sticky top-0 px-3.5 py-2.5 text-left text-[12px] font-medium text-ink-mute tnum',
                   col.align === 'right' && 'text-right',
@@ -86,7 +85,6 @@ export function DataTable<T>({
               <tr
                 key={key}
                 onClick={() => onRowClick?.(row)}
-                // biome-ignore lint/a11y/useKeyWithClickEvents: row activation; keyboard support TBD
                 className={cn(
                   'border-t border-hairline transition-colors tnum',
                   onRowClick && 'cursor-pointer',
