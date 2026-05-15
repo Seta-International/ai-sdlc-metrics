@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react'
 import { useAgentPanel } from '../../hooks/useAgentPanel'
+import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { useSidebar } from '../../hooks/useSidebar'
 import type { SetaUIMessage } from '../../lib/chunksToUIMessages'
 import { cn } from '../../lib/cn'
 import type { AgentContext, NavItem, Tenant } from '../../types'
+import { Dialog } from '../feedback/Dialog'
 import { AgentPanel } from './AgentPanel'
 import { AppSwitcher, type AppTile } from './AppSwitcher'
 import type { Crumb } from './Breadcrumb'
@@ -34,6 +36,66 @@ interface Props {
 export function AppShell(props: Props) {
   const sidebar = useSidebar()
   const panel = useAgentPanel()
+  const isDesktop = useMediaQuery('(min-width: 768px)')
+
+  if (!isDesktop) {
+    return (
+      <div className="flex h-screen flex-col bg-canvas">
+        <TopBar
+          {...(props.breadcrumb !== undefined ? { breadcrumb: props.breadcrumb } : {})}
+          agentPanelOpen={panel.open}
+          onAgentToggle={panel.toggle}
+          onSearch={() => sidebar.toggle()}
+          {...(props.notificationCount !== undefined
+            ? { notificationCount: props.notificationCount }
+            : {})}
+          {...(props.userMenu !== undefined ? { userMenu: props.userMenu } : {})}
+        />
+        <main className="flex-1 overflow-y-auto p-4">{props.children}</main>
+
+        <Dialog.Root open={!sidebar.collapsed} onOpenChange={(o) => sidebar.set(!o)}>
+          <Dialog.Content className="!left-0 !top-0 !right-auto !translate-x-0 !translate-y-0 h-full w-64 max-w-[85vw] rounded-none p-0">
+            <Sidebar
+              nav={props.nav}
+              currentPath={props.currentPath}
+              collapsed={false}
+              onToggleCollapse={() => sidebar.set(true)}
+              {...(props.logo !== undefined ? { logo: props.logo } : {})}
+              tenantSwitcher={
+                <TenantSwitcher
+                  tenants={props.tenants}
+                  currentId={props.currentTenantId}
+                  onSelect={props.onTenantSelect}
+                  collapsed={false}
+                />
+              }
+              appSwitcher={
+                <AppSwitcher
+                  tiles={props.appTiles}
+                  activeId={props.activeAppId}
+                  collapsed={false}
+                />
+              }
+              {...(props.userMenu !== undefined ? { userMenu: props.userMenu } : {})}
+            />
+          </Dialog.Content>
+        </Dialog.Root>
+
+        <Dialog.Root open={panel.open} onOpenChange={panel.set}>
+          <Dialog.Content className="!right-0 !left-auto !top-0 !translate-x-0 !translate-y-0 h-full w-[85vw] max-w-[360px] rounded-none p-0">
+            <AgentPanel
+              agentContext={props.agentContext}
+              messages={props.agentMessages}
+              {...(props.agentStreaming !== undefined ? { streaming: props.agentStreaming } : {})}
+              {...(props.agentPending !== undefined ? { pending: props.agentPending } : {})}
+              onClose={() => panel.set(false)}
+              onSubmit={props.onAgentSubmit}
+            />
+          </Dialog.Content>
+        </Dialog.Root>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-canvas">

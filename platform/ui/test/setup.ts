@@ -34,6 +34,22 @@ if (
   Element.prototype.scrollIntoView = () => {}
 }
 
+if (typeof window !== 'undefined' && !window.matchMedia) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: (query: string) => ({
+      matches: true,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  })
+}
+
 afterEach(() => {
   cleanup()
   if (typeof localStorage !== 'undefined') {
