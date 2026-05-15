@@ -1,0 +1,51 @@
+{
+  "meta": {
+    "name": "embed-auth-failed",
+    "createdAt": "2026-05-14T06:41:57.004Z",
+    "provider": "openai",
+    "model": "text-embedding-3-small",
+    "updatedAt": "2026-05-14T06:41:57.485Z"
+  },
+  "recordings": [
+    {
+      "hash": "131ca5903fb674c1",
+      "request": {
+        "url": "https://api.openai.com/v1/embeddings",
+        "method": "POST",
+        "body": {
+          "model": "text-embedding-3-small",
+          "input": ["hello"],
+          "encoding_format": "base64"
+        }
+      },
+      "response": {
+        "status": 401,
+        "statusText": "Unauthorized",
+        "headers": {
+          "access-control-expose-headers": "CF-Ray",
+          "alt-svc": "h3=\":443\"; ma=86400",
+          "cf-cache-status": "DYNAMIC",
+          "cf-ray": "9fb7eb90ad95dd39-HKG",
+          "connection": "keep-alive",
+          "content-length": "270",
+          "content-type": "text/plain",
+          "date": "Thu, 14 May 2026 06:41:58 GMT",
+          "server": "cloudflare",
+          "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+          "x-content-type-options": "nosniff",
+          "x-error-json": "ewogICJlcnJvciI6IHsKICAgICJtZXNzYWdlIjogIkluY29ycmVjdCBBUEkga2V5IHByb3ZpZGVkOiBzay1pbnZhbCoqKioqKioqKioqKmRpbmcuIFlvdSBjYW4gZmluZCB5b3VyIEFQSSBrZXkgYXQgaHR0cHM6Ly9wbGF0Zm9ybS5vcGVuYWkuY29tL2FjY291bnQvYXBpLWtleXMuIiwKICAgICJ0eXBlIjogImludmFsaWRfcmVxdWVzdF9lcnJvciIsCiAgICAiY29kZSI6ICJpbnZhbGlkX2FwaV9rZXkiLAogICAgInBhcmFtIjogbnVsbAogIH0sCiAgInN0YXR1cyI6IDQwMQp9",
+          "x-openai-authorization-error": "401",
+          "x-openai-ide-error-code": "invalid_api_key",
+          "x-openai-internal-caller": "unknown_through_ide",
+          "x-openai-proxy-wasm": "v0.1",
+          "x-request-id": "req_1177e3dd1df74efca5af579a150ed227"
+        },
+        "chunks": [
+          "{\n  \"error\": {\n    \"message\": \"Incorrect API key provided: sk-inval************ding. You can find your API key at https://platform.openai.com/account/api-keys.\",\n    \"type\": \"invalid_request_error\",\n    \"code\": \"invalid_api_key\",\n    \"param\": null\n  },\n  \"status\": 401\n}"
+        ],
+        "chunkTimings": [4],
+        "isStreaming": true
+      }
+    }
+  ]
+}
