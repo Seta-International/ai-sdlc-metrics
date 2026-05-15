@@ -170,3 +170,29 @@ describe('searchChunks — minSim floor', () => {
     expect(hits[0]?.content).toBe('near')
   })
 })
+
+describe('searchChunks — RLS isolation', () => {
+  it('queries as tenantA see no rows when only tenantB has chunks', async () => {
+    const queryEmbedding = seedEmbedding('q')
+
+    // Populate ONLY tenantB.
+    await runAs(TENANT_B, () =>
+      insertChunks(
+        tenantUserSql,
+        Array.from({ length: 16 }, (_, i) => ({
+          tenantId: TENANT_B,
+          sourceId: SOURCE_1,
+          content: `b-${i}`,
+          contentHash: hashContent(`b-${i}`),
+          tokenCount: 1,
+          embedding: seedEmbedding(`b-${i}`),
+        })),
+      ),
+    )
+
+    const hits = await runAs(TENANT_A, () =>
+      searchChunks(tenantUserSql, queryEmbedding, { k: 8, minSim: -1 }),
+    )
+    expect(hits.length).toBe(0)
+  })
+})
