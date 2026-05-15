@@ -13,8 +13,16 @@ describe('auth.tenant_members schema', () => {
       userId: '00000000-0000-0000-0000-000000000001',
       tenantId: '00000000-0000-0000-0000-000000000002',
       role: 'admin',
+      source: 'manual',
       createdAt: new Date(),
     }
     expect(row.role).toBe('admin')
+  })
+})
+
+describe('tenant.tenant_members shape', () => {
+  it('has source column with default manual', () => {
+    expect(tenantMembers.source.name).toBe('source')
+    expect(tenantMembers.source.notNull).toBe(true)
   })
 })

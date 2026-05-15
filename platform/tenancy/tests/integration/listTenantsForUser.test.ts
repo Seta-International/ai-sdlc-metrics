@@ -24,23 +24,17 @@ describe('listTenantsForUser', () => {
   it('returns rows joined by tenant_members + tenants for the given user', async () => {
     const userId = '11111111-1111-1111-1111-111111111111'
     const tA = '22222222-2222-2222-2222-22222222aaaa'
-    const tB = '22222222-2222-2222-2222-22222222bbbb'
     await sql`
       INSERT INTO tenant.tenants (id, slug, display_name)
-      VALUES (${tA}, 'acme', 'Acme'), (${tB}, 'globex', 'Globex')
+      VALUES (${tA}, 'acme', 'Acme')
     `
     await sql`
       INSERT INTO tenant.tenant_members (user_id, tenant_id, role)
-      VALUES (${userId}, ${tA}, 'admin'), (${userId}, ${tB}, 'member')
+      VALUES (${userId}, ${tA}, 'admin')
     `
 
     const rows = await listTenantsForUser(sql, userId)
-    expect(rows).toEqual(
-      expect.arrayContaining([
-        { id: tA, name: 'Acme', role: 'admin' },
-        { id: tB, name: 'Globex', role: 'member' },
-      ]),
-    )
+    expect(rows).toEqual([{ id: tA, name: 'Acme', role: 'admin' }])
   })
 
   it('returns [] for a user with no memberships', async () => {

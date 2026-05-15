@@ -5,22 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1778502413497,
-      "tag": "0000_amazing_lady_ursula",
+      "when": 1778835798531,
+      "tag": "0000_init",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1778830724081,
-      "tag": "0001_tenant_members",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1778830732706,
-      "tag": "0002_tenant_members_rls",
+      "when": 1778835801692,
+      "tag": "0001_rls_and_grants",
       "breakpoints": true
     }
   ]

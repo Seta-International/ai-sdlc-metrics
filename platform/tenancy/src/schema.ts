@@ -1,4 +1,4 @@
-import { jsonb, pgSchema, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { jsonb, pgSchema, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
 
 export const tenantSchema = pgSchema('tenant')
 
@@ -42,9 +42,13 @@ export const tenantMembers = tenantSchema.table(
       .notNull()
       .references(() => tenants.id),
     role: tenantMemberRole('role').notNull().default('member'),
+    source: text('source').notNull().default('manual'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [primaryKey({ columns: [t.userId, t.tenantId] })],
+  (t) => [
+    primaryKey({ columns: [t.userId, t.tenantId] }),
+    unique('tenant_members_user_unique').on(t.userId),
+  ],
 )
 
 export type Tenant = typeof tenants.$inferSelect

@@ -1,6 +1,6 @@
 {
-  "id": "a94ccba6-d339-4afa-b4e4-9ecf6f396ea7",
-  "prevId": "c9789ec8-ec8a-4693-9bac-91b3cbea73f9",
+  "id": "9fb7b35f-a228-4842-9297-988fecfedada",
+  "prevId": "2f5b95c1-2a96-4bd4-8104-dfc5ba2b18c7",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -65,12 +65,12 @@
         "tenant_connectors_tenant_id_tenants_id_fk": {
           "name": "tenant_connectors_tenant_id_tenants_id_fk",
           "tableFrom": "tenant_connectors",
+          "columnsFrom": ["tenant_id"],
           "tableTo": "tenants",
           "schemaTo": "tenant",
-          "columnsFrom": ["tenant_id"],
           "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -108,6 +108,13 @@
           "notNull": true,
           "default": "'member'"
         },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'manual'"
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -121,12 +128,12 @@
         "tenant_members_tenant_id_tenants_id_fk": {
           "name": "tenant_members_tenant_id_tenants_id_fk",
           "tableFrom": "tenant_members",
+          "columnsFrom": ["tenant_id"],
           "tableTo": "tenants",
           "schemaTo": "tenant",
-          "columnsFrom": ["tenant_id"],
           "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -135,7 +142,13 @@
           "columns": ["user_id", "tenant_id"]
         }
       },
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "tenant_members_user_unique": {
+          "name": "tenant_members_user_unique",
+          "columns": ["user_id"],
+          "nullsNotDistinct": false
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -191,8 +204,8 @@
       "uniqueConstraints": {
         "tenants_slug_unique": {
           "name": "tenants_slug_unique",
-          "nullsNotDistinct": false,
-          "columns": ["slug"]
+          "columns": ["slug"],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -210,10 +223,10 @@
   "schemas": {
     "tenant": "tenant"
   },
+  "views": {},
   "sequences": {},
   "roles": {},
   "policies": {},
-  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},

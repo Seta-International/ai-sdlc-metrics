@@ -1,5 +1,5 @@
 {
-  "id": "c9789ec8-ec8a-4693-9bac-91b3cbea73f9",
+  "id": "2f5b95c1-2a96-4bd4-8104-dfc5ba2b18c7",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -84,6 +84,75 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "tenant.tenant_members": {
+      "name": "tenant_members",
+      "schema": "tenant",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "tenant_member_role",
+          "typeSchema": "tenant",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'member'"
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'manual'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "tenant_members_tenant_id_tenants_id_fk": {
+          "name": "tenant_members_tenant_id_tenants_id_fk",
+          "tableFrom": "tenant_members",
+          "tableTo": "tenants",
+          "schemaTo": "tenant",
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "tenant_members_user_id_tenant_id_pk": {
+          "name": "tenant_members_user_id_tenant_id_pk",
+          "columns": ["user_id", "tenant_id"]
+        }
+      },
+      "uniqueConstraints": {
+        "tenant_members_user_unique": {
+          "name": "tenant_members_user_unique",
+          "nullsNotDistinct": false,
+          "columns": ["user_id"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "tenant.tenants": {
       "name": "tenants",
       "schema": "tenant",
@@ -144,7 +213,13 @@
       "isRLSEnabled": false
     }
   },
-  "enums": {},
+  "enums": {
+    "tenant.tenant_member_role": {
+      "name": "tenant_member_role",
+      "schema": "tenant",
+      "values": ["owner", "admin", "member"]
+    }
+  },
   "schemas": {
     "tenant": "tenant"
   },
