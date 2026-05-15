@@ -74,4 +74,5 @@ export async function recordConsent(
   })
 }
 
+export * from './find-or-attach'
 export * from './members'

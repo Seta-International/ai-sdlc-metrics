@@ -8,8 +8,9 @@ export { requireTenantAdmin } from './middleware/require-tenant-admin'
 export type { CreateTenantRoutesOpts } from './routes'
 export { createTenantRoutes, TenantSummary } from './routes'
 export * from './schema'
-export type { Member, TenantMembershipRole, TenantMembershipRow } from './service'
+export type { AttachStatus, Member, TenantMembershipRole, TenantMembershipRow } from './service'
 export {
+  findOrAttachUser,
   getActiveTenantIds,
   isConnectorConsented,
   listMembers,
