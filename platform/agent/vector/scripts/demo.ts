@@ -34,11 +34,17 @@ if (!apiKey) {
 }
 
 const databaseUrl = process.env.DATABASE_URL ?? 'postgres://seta:dev@localhost:5432/seta'
+// App pool runs as tenant_user so RLS is enforced (same pattern as integration tests).
+// The `seta` superuser bypasses RLS and would invalidate the isolation demo.
+const tenantUserUrl = databaseUrl.replace(
+  /(postgres:\/\/)[^:]+:[^@]+@/,
+  '$1tenant_user:dev_only_change_me@',
+)
 
 console.log('\n╔══════════════════════════════════════════════════════════╗')
 console.log('║         @seta/agent-vector  —  Live Demo                 ║')
 console.log('╚══════════════════════════════════════════════════════════╝\n')
-console.log(`Database: ${databaseUrl.replace(/(:\/\/)([^:]+):[^@]+@/, '$1$2:***@')}`)
+console.log(`Database: ${tenantUserUrl.replace(/(:\/\/)([^:]+):[^@]+@/, '$1$2:***@')}`)
 console.log()
 
 // ─── FAQ corpora ─────────────────────────────────────────────────────────────
@@ -162,7 +168,7 @@ function runAs<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
   return tenantContext.run({ tenantId }, fn)
 }
 
-const sql = createPool(databaseUrl)
+const sql = createPool(tenantUserUrl)
 
 try {
   // ── 1/10: setup ───────────────────────────────────────────────────────────
