@@ -58,8 +58,11 @@ gracefully on SIGTERM/SIGINT.
 - `src/env.ts` — Zod schema parsing `process.env` once at module load via
   `Env.parse(process.env)`. Fields: `NODE_ENV` (enum, default `development`),
   `PORT` (coerced number, default `8080`), `DATABASE_URL`, `PUBLIC_BASE_URL`,
-  `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET`, `KMS_PROVIDER` (enum `'aws'|'env'`,
-  default `'env'`), `DEV_DEK_BASE64?`, `AWS_REGION?`, `KMS_KEY_ARN?`. The file
+  `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET`, `ENTRA_SSO_TENANT` (default
+  `common`), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_HMAC_KEY`
+  (≥32 chars), `SESSION_TTL_SEC` (default `86400`), `KMS_PROVIDER` (enum
+  `'aws'|'env'`, default `'env'`), `DEV_DEK_BASE64?`, `AWS_REGION?`,
+  `KMS_KEY_ARN?`. The file
   also `import 'dotenv/config'` for local development. **Single export: `env`.**
 - `src/instrumentation.ts` — currently a placeholder (`export {}`) loaded via
   `--import`. The file exists so the OTel boot pattern is correct from day one
@@ -103,6 +106,10 @@ This is an app, not a library — the "public interface" is HTTP and env.
 
 **HTTP endpoints (current).**
 - `GET /healthz` — liveness, returns `{ ok: true }`.
+- `POST /sso/login/:provider` — issues PKCE handshake URL (provider ∈ `entra | google`).
+- `GET  /sso/callback/:provider` — exchanges code, sets `seta_sess` cookie, 302 redirects.
+- `POST /sso/logout` — clears session.
+- `GET  /me` — returns `{ user, tenants, csrfToken }` or 401 RFC 7807 problem JSON.
 - `GET|POST /oauth/...` — admin-consent + callback routes mounted from
   `@seta/oauth`. Exact subpaths are owned by `createOAuthRoutes`; this
   package only owns the `/oauth` mount prefix.
@@ -124,6 +131,11 @@ This is an app, not a library — the "public interface" is HTTP and env.
 | `PUBLIC_BASE_URL` | URL | — | yes |
 | `ENTRA_CLIENT_ID` | non-empty string | — | yes |
 | `ENTRA_CLIENT_SECRET` | non-empty string | — | yes |
+| `ENTRA_SSO_TENANT` | non-empty string | `common` | no |
+| `GOOGLE_CLIENT_ID` | non-empty string | — | yes |
+| `GOOGLE_CLIENT_SECRET` | non-empty string | — | yes |
+| `SESSION_HMAC_KEY` | string (≥32 chars) | — | yes |
+| `SESSION_TTL_SEC` | positive int | `86400` | no |
 | `KMS_PROVIDER` | `'aws' \| 'env'` | `env` | no |
 | `DEV_DEK_BASE64` | string | — | no (required when `KMS_PROVIDER=env`) |
 | `AWS_REGION` | string | — | no (required when `KMS_PROVIDER=aws`) |
