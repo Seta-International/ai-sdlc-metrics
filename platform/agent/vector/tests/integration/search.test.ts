@@ -196,3 +196,34 @@ describe('searchChunks — RLS isolation', () => {
     expect(hits.length).toBe(0)
   })
 })
+
+describe('searchChunks — recall ordering', () => {
+  it('orders results by descending similarity to the query', async () => {
+    const queryEmbedding = seedEmbedding('center')
+
+    await runAs(TENANT_A, () =>
+      insertChunks(
+        tenantUserSql,
+        // 30 rows with deterministic seeds; the "center" seed should rank first.
+        ['center', ...Array.from({ length: 29 }, (_, i) => `noise-${i}`)].map((seed) => ({
+          tenantId: TENANT_A,
+          sourceId: SOURCE_1,
+          content: seed,
+          contentHash: hashContent(seed),
+          tokenCount: 1,
+          embedding: seedEmbedding(seed),
+        })),
+      ),
+    )
+
+    const hits = await runAs(TENANT_A, () =>
+      searchChunks(tenantUserSql, queryEmbedding, { k: 5, minSim: -1 }),
+    )
+    expect(hits.length).toBe(5)
+    expect(hits[0]?.content).toBe('center')
+    // Sorted descending by similarity.
+    for (let i = 1; i < hits.length; i++) {
+      expect(hits[i - 1]!.similarity).toBeGreaterThanOrEqual(hits[i]!.similarity)
+    }
+  })
+})
