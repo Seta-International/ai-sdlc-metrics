@@ -4,8 +4,6 @@ export {
   MeSchema,
   type SessionUser,
   SessionUserSchema,
-  type TenantSummary,
-  TenantSummarySchema,
 } from './client/AgentClient'
 export {
   AbortChunk,
@@ -19,6 +17,20 @@ export {
   ToolArgsChunk,
   ToolCallChunk,
 } from './schemas/chunk'
+export {
+  type ConnectorStatus,
+  ConnectorStatusSchema,
+  type ConnectorSummary,
+  ConnectorSummaryListSchema,
+  ConnectorSummarySchema,
+  type ConsentUrlResponse,
+  ConsentUrlResponseSchema,
+} from './schemas/connectors'
+export {
+  type TenantSummary,
+  TenantSummaryListSchema,
+  TenantSummarySchema,
+} from './schemas/tenants'
 export { parseSseStream } from './sse/parseSseStream'
 export { AgentClientError } from './transport/AgentClientError'
 export type { AgentClientOptions, RequestOptions, RunStatus } from './types'
