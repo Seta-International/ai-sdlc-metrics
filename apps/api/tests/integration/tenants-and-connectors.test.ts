@@ -27,25 +27,6 @@ describe('tenants + connector admin slice', () => {
     await sql.end()
   })
 
-  it('GET /tenants returns the rows the session user is a member of', async () => {
-    const app = buildApp()
-    const res = await app.request('/tenants', { headers: { 'x-session-user': userId } })
-    expect(res.status).toBe(200)
-    const body = (await res.json()) as Array<{ id: string; name: string; role: string }>
-    expect(body).toEqual(
-      expect.arrayContaining([
-        { id: tenantA, name: 'Acme', role: 'admin' },
-        { id: tenantB, name: 'Globex', role: 'member' },
-      ]),
-    )
-  })
-
-  it('GET /tenants returns 401 without a session user', async () => {
-    const app = buildApp()
-    const res = await app.request('/tenants')
-    expect(res.status).toBe(401)
-  })
-
   it('GET /tenants/:id/connectors lists registered connectors with consent status', async () => {
     const app = buildApp()
     const res = await app.request(`/tenants/${tenantA}/connectors`, {

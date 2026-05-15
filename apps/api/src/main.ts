@@ -40,11 +40,9 @@ import {
 } from '@seta/planner'
 import {
   createMeContextProvider,
-  createTenantRoutes,
   findOrAttachUser,
   getActiveTenantIds,
   isConnectorConsented,
-  listTenantsForUser,
   recordConsent,
   tenantContext,
 } from '@seta/tenancy'
@@ -250,13 +248,6 @@ const buildConsentUrl: Parameters<typeof createConnectorAdminRoutes>[0]['buildCo
     })
     return { url, state }
   }
-
-app.route(
-  '/',
-  createTenantRoutes({
-    listTenants: async ({ userId }) => listTenantsForUser(sql as never, userId),
-  }),
-)
 
 app.route(
   '/',
