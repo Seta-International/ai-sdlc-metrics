@@ -86,7 +86,7 @@ git commit -m "feat(audit): add (tenant_id, ts), (tenant_id, actor_id, ts), (ten
 ```sh
 pnpm --filter @seta/audit add hono@4.10.5
 pnpm --filter @seta/audit add @hono/zod-openapi@0.20.0
-pnpm --filter @seta/audit add @seta/sso@workspace:* @seta/tenant@workspace:* @seta/middleware@workspace:* @seta/observability@workspace:*
+pnpm --filter @seta/audit add @seta/identity@workspace:* @seta/tenant@workspace:* @seta/middleware@workspace:* @seta/observability@workspace:*
 ```
 
 (Confirm the pinned versions of `hono` and `@hono/zod-openapi` first via `pnpm view <pkg> version` and the lockfile of any sibling routes package such as `platform/oauth`; if those packages pin different versions, match them — never bifurcate.)
@@ -842,7 +842,7 @@ Diff (apply minimum surgical change — do not refactor unrelated lines):
 -import { createAuditWriter } from '@seta/audit'
 +import { createAuditRoutes, createAuditWriter } from '@seta/audit'
 @@
-+import { requireSession } from '@seta/sso'
++import { requireSession } from '@seta/identity'
 +import { requireTenantMembership, tenantMiddleware } from '@seta/tenant'
 @@
  app.route('/agent', agentRouter)

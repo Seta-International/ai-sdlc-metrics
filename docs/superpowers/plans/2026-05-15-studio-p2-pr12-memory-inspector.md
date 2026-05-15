@@ -787,7 +787,7 @@ export { createMemoryAdminRoutes, type MemoryAdminRoutesOptions } from './admin-
 
 ```ts
 import { createMemoryAdminRoutes } from '@seta/agent-memory'
-import { requireSession } from '@seta/sso'
+import { requireSession } from '@seta/identity'
 import { requireTenantMembership } from '@seta/tenant'
 
 const memoryAdmin = createMemoryAdminRoutes({ sql, requireSession, requireTenantMembership })

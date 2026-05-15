@@ -14,7 +14,7 @@ Microsoft 365 Directory (Entra ID) vendor adapter. Owns the `users` + `groups` +
   - Drizzle row types: `DirectoryUser`, `DirectoryGroup`, `DirectoryGroupMember` (`$inferSelect`, current `src/schema.ts`).
 
 - **Does NOT own:**
-  - Session creation, cookie issuance, inbound SSO web UI — that is P2 `@seta/sso` (setup.md §11 P2 list).
+  - Session creation, cookie issuance, inbound SSO web UI — that is P2 `@seta/identity` (setup.md §11 P2 list).
   - The canonical `auth.users` / `directory.external_identities` tables themselves — those are owned by `@seta/auth` and `@seta/directory` respectively; this connector only writes through their interfaces (setup.md §11 platform/auth + platform/directory).
   - Writes back to Graph — manifest pins `writes: false`. If a future capability needs to write users/groups, it is a separate connector or a manifest-flag change with an ADR.
   - Tools, agent runtime, channel transport — boundary rules (CLAUDE.md; setup.md §11).
@@ -66,7 +66,7 @@ All exports from `modules/connectors/ms365-directory/src/index.ts`.
   - `@seta/agent-core` — not consumed by connectors (setup.md §11 dep direction).
   - `openai`, `@anthropic-ai/sdk` — no LLM here.
   - `@microsoft/microsoft-graph-client` (the official SDK) — use the hand-rolled `@seta/ms-graph` wrapper (setup.md §11 §13).
-  - `passport`, `passport-azure-ad`, `next-auth` — JIT mapping uses `@seta/directory` directly; session/cookie work belongs to P2 `@seta/sso`.
+  - `passport`, `passport-azure-ad`, `next-auth` — JIT mapping uses `@seta/directory` directly; session/cookie work belongs to P2 `@seta/identity`.
 
 - **External (pinned per setup.md §13):**
   - `zod@4.4.3`

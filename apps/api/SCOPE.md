@@ -97,7 +97,7 @@ gracefully on SIGTERM/SIGINT.
 Endpoints currently mounted:
 - `GET  /healthz`
 - `POST /sso/login/:provider`, `GET /sso/callback/:provider`, `POST /sso/logout`,
-  `GET /me` — surface owned by `@seta/sso` `createSsoRoutes`.
+  `GET /me` — surface owned by `@seta/identity` `createSsoRoutes`.
 - `GET  /oauth/*` and `POST /oauth/*` — surface owned by `@seta/oauth`
   `createOAuthRoutes`; covers admin-consent URL issuance and the OAuth
   callback per CLAUDE.md "Connector consent" + setup.md §4. The callback

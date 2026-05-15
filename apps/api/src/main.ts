@@ -20,6 +20,7 @@ import {
   plannerConnector,
 } from '@seta/connector-ms365-planner'
 import { createConnectorAdminRoutes, createConnectorRegistry } from '@seta/connector-registry'
+import { createSsoRoutes, EntraSsoProvider, GoogleSsoProvider } from '@seta/identity'
 import { onError, Unauthorized } from '@seta/middleware'
 import { createGraphFetch } from '@seta/ms-graph'
 import { mockTeamsHandler, routes as teamsRoutes } from '@seta/ms-teams'
@@ -37,7 +38,6 @@ import {
   createTaskIndexer,
   PLANNER_PROFILE_SEED,
 } from '@seta/planner'
-import { createSsoRoutes, EntraSsoProvider, GoogleSsoProvider } from '@seta/sso'
 import {
   createTenantRoutes,
   getActiveTenantIds,

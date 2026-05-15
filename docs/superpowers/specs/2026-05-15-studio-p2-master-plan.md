@@ -1,7 +1,7 @@
 # Studio P2 — Full Implementation Master Plan
 
 **Date:** 2026-05-15
-**Scope:** All of Studio P2 — `@seta/sso` package, backend route surfaces in `apps/api`, `@seta/agent-sdk` method additions, `@seta/ui` primitives v2 + AppShell amendment, `apps/studio` SPA across nine functional areas (the original four admin areas + workflow-run viewer + agents/playground + tools + memory inspector + metrics dashboard).
+**Scope:** All of Studio P2 — `@seta/identity` package, backend route surfaces in `apps/api`, `@seta/agent-sdk` method additions, `@seta/ui` primitives v2 + AppShell amendment, `apps/studio` SPA across nine functional areas (the original four admin areas + workflow-run viewer + agents/playground + tools + memory inspector + metrics dashboard).
 **Status:** Approved for implementation planning.
 **Companion spec:** [`2026-05-15-studio-design.md`](./2026-05-15-studio-design.md) — design language, token layer, AppShell behaviour, responsive matrix, Mastra reference table. This master plan sits on top of that spec and decomposes it into landable PRs.
 
@@ -29,7 +29,7 @@ To support this, **`AppShell` is amended** to treat `agentContext` as optional: 
 |---|---|
 | `@seta/ui` (`platform/ui/`) | **Shipped.** Tokens, AppShell, Sidebar, TopBar, AgentPanel, all forms primitives, all data primitives (`DataTable`, `StatusBadge`, `Card`, `EmptyState`, `Timeline`, `TimelineEvent`, `TokenUsageBar`, `Code`), all feedback primitives (`Dialog`, `Toast`, `Toaster`, `Tooltip`), provider, hooks (`useChat`, `useAgentRun`, `useSession`, `useSidebar`, `useAgentPanel`, `useMediaQuery`). Commit `41be7714`. |
 | `@seta/agent-sdk` (`platform/agent/sdk/`) | **Shipped.** `AgentClient`, `parseSseStream`, `KernelChunk` types. Commit `570e411f`. Will gain typed methods per slice PR. |
-| `@seta/sso` | **Does not exist.** This plan creates it. |
+| `@seta/identity` | **Does not exist.** This plan creates it. |
 | `apps/api` route surface | **Has `/healthz`, `/oauth`, `/agent`, `/teams/messages`.** Missing: `/sso/*`, `/me`, `/tenants`, `/tenants/:id/connectors`, `/runs(+stream)`, `/rag/*`, `/audit(+/export.csv)`, `/agents`, `/workflows(+/runs+stream)`, `/tools(+/try)`, `/threads(+/messages+working-memory)`, `/metrics`. |
 | `apps/studio` | **SCOPE.md placeholder only.** |
 
@@ -61,7 +61,7 @@ Evals / Scorers / Datasets / Experiments / Review, MCPs, Prompt blocks, Processo
 ## 3. Sub-project decomposition (13 PRs)
 
 ```
-PR-1   @seta/sso package                                  (platform/sso/ — new)
+PR-1   @seta/identity package                                  (platform/sso/ — new)
 PR-2   apps/api: mount /sso + /me                         (composition diff)
 PR-3   apps/studio kickoff                                (scaffold + /login + /me + /tenants smoke)
 PR-4   Tenants + connector admin slice
@@ -108,7 +108,7 @@ Original P2 spec primitives shipped in commit `41be7714` (already done). The Mas
 
 ---
 
-## 4. PR-1 — `@seta/sso` package
+## 4. PR-1 — `@seta/identity` package
 
 ### 4.1 Location & boundary
 
@@ -172,7 +172,7 @@ export type TenantSummary = z.infer<typeof TenantSummary>
 Composition-only diff in `apps/api/src/main.ts`:
 
 ```ts
-import { createSsoRoutes, EntraSsoProvider, GoogleSsoProvider } from '@seta/sso'
+import { createSsoRoutes, EntraSsoProvider, GoogleSsoProvider } from '@seta/identity'
 
 const sso = createSsoRoutes({
   providers: {
@@ -208,7 +208,7 @@ pnpm --filter @seta/studio add react@<pin> react-dom@<pin> \
   @tanstack/react-query@<pin> vite@<pin> tailwindcss@<pin> \
   zod@4.4.3 lucide-react@<pin> recharts@<pin>
 pnpm --filter @seta/studio add @seta/agent-sdk@workspace:* @seta/ui@workspace:*
-pnpm --filter @seta/studio add @seta/connector-registry@workspace:* @seta/sso@workspace:*
+pnpm --filter @seta/studio add @seta/connector-registry@workspace:* @seta/identity@workspace:*
 pnpm --filter @seta/studio add -D vitest@4.1.5 @testing-library/react@<pin> \
   @testing-library/jest-dom@<pin> @testing-library/user-event@<pin> \
   msw@2.14.6 jsdom@<pin> @playwright/test@<pin> @axe-core/playwright@<pin> \
@@ -307,7 +307,7 @@ Every Studio-consumed route lives in its **owning platform/module package**, exp
 
 ### 7.1 Universal route conventions
 
-1. **Auth wall** — `requireSession` from `@seta/sso`. `/me` is the only auth-aware route.
+1. **Auth wall** — `requireSession` from `@seta/identity`. `/me` is the only auth-aware route.
 2. **Tenant scope** — `/tenants/:id/*` and any tenant-scoped query call `tenantMiddleware` from `@seta/tenant`.
 3. **Membership preflight** — `requireTenantMembership(tenantId, userId)`. 403 if missing.
 4. **Zod-validated** request/response via `@hono/zod-openapi`. Import `z` from there, not `zod`.
@@ -550,7 +550,7 @@ Per-route mapping is the responsibility of any future module that opts in. Studi
 
 1. **Tenant switching UX.** `TenantSwitcher` navigates to the equivalent path on the new tenant id. Fallback to `/tenants/:id/connectors` if no equivalent exists.
 2. **OAuth consent redirect.** Single `window.location.href` exception, `features/connectors/grantConsent.ts`.
-3. **CSRF.** `SameSite=Lax` cookie + `X-CSRF-Token` header on state-changing endpoints. Token from `/me`. `csrfMiddleware` from `@seta/sso`.
+3. **CSRF.** `SameSite=Lax` cookie + `X-CSRF-Token` header on state-changing endpoints. Token from `/me`. `csrfMiddleware` from `@seta/identity`.
 4. **Observability.** `X-Request-Id` UUIDv7 per request, propagated to OTel.
 5. **Build-info footer.** `VITE_PUBLIC_BUILD_SHA` (first 7 chars) in `__root.tsx`.
 6. **Accessibility.** `@axe-core/playwright` per route. WCAG AA.
@@ -579,9 +579,9 @@ Per existing spec §8 plus:
 
 ## 21. Boundaries & constraints
 
-- `@seta/sso` → `platform/sso/`. No imports from `modules/*` or `apps/*`.
+- `@seta/identity` → `platform/sso/`. No imports from `modules/*` or `apps/*`.
 - All Studio HTTP through `AgentClient`. No raw `fetch`.
-- `apps/studio` imports allowed: `@seta/agent-sdk`, `@seta/ui`, `@seta/connector-registry` (type-only), `@seta/sso` (type-only). Forbidden: every server-only package.
+- `apps/studio` imports allowed: `@seta/agent-sdk`, `@seta/ui`, `@seta/connector-registry` (type-only), `@seta/identity` (type-only). Forbidden: every server-only package.
 - `localStorage` for `seta:sidebar:collapsed` + `seta:agent-panel:open` only.
 - `window.location.href` for OAuth consent redirect only.
 - Auth gradient on `/login` only.
@@ -597,7 +597,7 @@ Per existing spec §8 plus:
 | Standalone primitives wave 1 | Dropped — already shipped in `41be7714`. |
 | Standalone primitives wave 2 | Adopted as PR-8 — Tabs, KeyValueList, SectionCard, Searchbar. Slice-specific primitives ride inside their owning slice PR. |
 | Backend route ownership | Per-package `createXRoutes()` factories. |
-| `@seta/sso` vs `@seta/auth` | Dedicated `@seta/sso`. |
+| `@seta/identity` vs `@seta/auth` | Dedicated `@seta/identity`. |
 | MVP scope | All nine functional areas. No carve-outs. |
 | Sequencing | Backend-first vertical slices. 13 PRs. |
 | Mocking strategy | MSW for tests only. Dev uses real `apps/api` via Vite proxy. |

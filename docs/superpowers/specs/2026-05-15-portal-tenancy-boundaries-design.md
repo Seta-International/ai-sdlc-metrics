@@ -335,7 +335,7 @@ Old packages renamed, no shims:
 
 | From | To | Notes |
 |---|---|---|
-| `platform/sso` (`@seta/sso`) | `platform/identity` (`@seta/identity`) | All references updated in same PR |
+| `platform/sso` (`@seta/identity`) | `platform/identity` (`@seta/identity`) | All references updated in same PR |
 | `platform/tenant` (`@seta/tenant`) | `platform/tenancy` (`@seta/tenancy`) | |
 | `platform/portal` (`@seta/portal`) | `platform/identity-client` (`@seta/identity-client`) | Page components removed (see below) |
 | `platform/auth` | (deleted) | Only contained `auth.api_keys` schema; moved into `platform/identity`. The `apps/api` dependency on `@seta/auth` is removed in the same PR. |

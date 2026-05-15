@@ -1,5 +1,5 @@
+import { createSsoRoutes, type SsoProvider } from '@seta/identity'
 import { onError } from '@seta/middleware'
-import { createSsoRoutes, type SsoProvider } from '@seta/sso'
 import { Hono } from 'hono'
 import postgres from 'postgres'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'

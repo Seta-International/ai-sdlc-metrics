@@ -1,7 +1,7 @@
 {
-  "name": "@seta/sso",
+  "name": "@seta/identity",
   "version": "0.1.0",
-  "description": "OIDC + PKCE SSO for Entra and Google; signed-cookie sessions",
+  "description": "Identity: SSO flow, users, sessions, API keys, superadmins",
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --sourcemap",

@@ -978,7 +978,7 @@ seta/
 │   ├── tenant/                             # @seta/tenant           — AsyncLocalStorage + guards
 │   ├── tsconfig/                           # @seta/tsconfig         — shared TS configs
 │   │── (P2) packages
-│   ├── sso/                                # @seta/sso              — inbound OIDC (Entra ID + Google) → sessions
+│   ├── sso/                                # @seta/identity              — inbound OIDC (Entra ID + Google) → sessions
 │   └── ui/                                 # @seta/ui               — shared design system (studio + future webs)
 │
 ├── tests/                                  # CROSS-PACKAGE TESTS (per-package unit/integration stay co-located)

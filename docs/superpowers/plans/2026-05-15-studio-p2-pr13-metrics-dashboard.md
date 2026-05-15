@@ -29,7 +29,7 @@
 
 - [ ] Run `pnpm view @hono/zod-openapi version` and record the pin. (At time of writing the workspace uses one pin across packages; reuse it.)
 - [ ] Run `pnpm --filter @seta/analytics add @hono/zod-openapi@<resolved-pin> hono@<resolved-pin>`. Verify only `modules/products/analytics/package.json` `dependencies` and `pnpm-lock.yaml` change.
-- [ ] Run `pnpm --filter @seta/analytics add @seta/sso@workspace:* @seta/tenant@workspace:*` (workspace protocol mandatory). `@seta/tenant` is already a transitive but make it a direct dep — `createMetricsRoutes` imports `requireTenantMembership` from it.
+- [ ] Run `pnpm --filter @seta/analytics add @seta/identity@workspace:* @seta/tenant@workspace:*` (workspace protocol mandatory). `@seta/tenant` is already a transitive but make it a direct dep — `createMetricsRoutes` imports `requireTenantMembership` from it.
 - [ ] Run `pnpm --filter @seta/analytics typecheck` — must pass before any code change.
 
 ---
@@ -967,7 +967,7 @@ import {
   createMetricsRoutes,
   refreshAnalyticsViews,
 } from '@seta/analytics'
-import { requireSession } from '@seta/sso'
+import { requireSession } from '@seta/identity'
 import { requireTenantMembership, tenantMiddleware } from '@seta/tenant'
 ```
 

@@ -45,7 +45,7 @@ Skip if `DATABASE_URL` is not set; otherwise record what passes today.
 
 These three sub-phases rename packages with no other change. Each ends in a green typecheck + unit-test run + commit.
 
-### Task 1.1: Rename `@seta/sso` → `@seta/identity`
+### Task 1.1: Rename `@seta/identity` → `@seta/identity`
 
 **Files:**
 - Rename dir: `platform/sso` → `platform/identity`
@@ -60,16 +60,16 @@ git mv platform/sso platform/identity
 
 - [ ] **Step 2: Update `platform/identity/package.json`**
 
-Change `"name": "@seta/sso"` → `"name": "@seta/identity"`. Update `description` to `"Identity: SSO flow, users, sessions, API keys, superadmins"`.
+Change `"name": "@seta/identity"` → `"name": "@seta/identity"`. Update `description` to `"Identity: SSO flow, users, sessions, API keys, superadmins"`.
 
 - [ ] **Step 3: Find every consumer**
 
 ```bash
-grep -rln "@seta/sso" --include='*.ts' --include='*.tsx' --include='package.json' \
+grep -rln "@seta/identity" --include='*.ts' --include='*.tsx' --include='package.json' \
   apps modules platform | sort -u
 ```
 
-Replace `@seta/sso` with `@seta/identity` in every match (use `sed -i '' 's|@seta/sso|@seta/identity|g'` per macOS, or `sed -i` on Linux). Known sites today: `apps/api/package.json:38`, `apps/api/src/main.ts:40`, `apps/api/tests/integration/sso.test.ts:2`, `apps/studio/package.json:21`, plus several SCOPE.md files (update those too — they reference package names).
+Replace `@seta/identity` with `@seta/identity` in every match (use `sed -i '' 's|@seta/identity|@seta/identity|g'` per macOS, or `sed -i` on Linux). Known sites today: `apps/api/package.json:38`, `apps/api/src/main.ts:40`, `apps/api/tests/integration/sso.test.ts:2`, `apps/studio/package.json:21`, plus several SCOPE.md files (update those too — they reference package names).
 
 - [ ] **Step 4: Reinstall + typecheck**
 
@@ -94,7 +94,7 @@ Expected: all existing tests pass unchanged.
 
 ```bash
 git add -A
-git commit -m "refactor(identity): rename @seta/sso → @seta/identity"
+git commit -m "refactor(identity): rename @seta/identity → @seta/identity"
 ```
 
 ---
@@ -2289,7 +2289,7 @@ pnpm --filter @seta/check-no-cross-imports run check    # or whatever the existi
 ```
 
 Confirm:
-- `apps/studio` has no `@seta/portal` or `@seta/sso` or `@seta/tenant` imports.
+- `apps/studio` has no `@seta/portal` or `@seta/identity` or `@seta/tenant` imports.
 - `modules/products/*` has no frontend imports (no `@seta/identity-client`, no `@seta/ui`).
 
 - [ ] **Step 5: Open the PR**

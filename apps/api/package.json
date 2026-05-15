@@ -35,7 +35,7 @@
     "@seta/oauth": "workspace:*",
     "@seta/observability": "workspace:*",
     "@seta/planner": "workspace:*",
-    "@seta/sso": "workspace:*",
+    "@seta/identity": "workspace:*",
     "@seta/tenant": "workspace:*",
     "dotenv": "17.4.2",
     "hono": "4.12.18",

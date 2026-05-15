@@ -18,7 +18,7 @@
   ],
   "dependencies": {
     "@seta/agent-sdk": "workspace:*",
-    "@seta/sso": "workspace:*",
+    "@seta/identity": "workspace:*",
     "@seta/ui": "workspace:*",
     "lucide-react": "1.16.0"
   },

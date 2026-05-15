@@ -7,7 +7,7 @@ export type TenantMembership = { role: TenantMembershipRole }
 export type RequireTenantMembershipOpts = {
   /**
    * Resolve session user id from request context. Default reads
-   * `c.get('sessionUser')?.id` (set by @seta/sso requireSession) and falls
+   * `c.get('sessionUser')?.id` (set by @seta/identity requireSession) and falls
    * back to the `x-session-user` header (test seam).
    */
   sessionUser?: (c: Context) => string | undefined

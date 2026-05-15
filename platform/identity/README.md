@@ -1,10 +1,10 @@
-# @seta/sso
+# @seta/identity
 
 OIDC + PKCE single sign-on for Seta. Owns the `auth.users`, `auth.user_identities`, and `auth.sessions` tables; mints HMAC-signed opaque session cookies; exposes `requireSession`, `csrfMiddleware`, and the `createSsoRoutes` factory.
 
 ## Boundary
 
-`@seta/sso` is a `platform/*` package — framework primitives, vendor-neutral.
+`@seta/identity` is a `platform/*` package — framework primitives, vendor-neutral.
 
 - **Depends on:** `@seta/db`, `@seta/middleware`, `@seta/observability`, `@seta/tenant` (type-only — for the `TenantSummary` shape returned by `/me`).
 - **Does not depend on:** `@seta/auth` (api_keys, separate package), `@seta/oauth` (vendor token vault, separate package), MSAL, model SDKs, any `modules/*`.
@@ -20,7 +20,7 @@ import {
   csrfMiddleware,
   type SessionUser,
   type TenantSummary,
-} from '@seta/sso'
+} from '@seta/identity'
 ```
 
 - `createSsoRoutes(opts)` returns a `Hono` app exposing `POST /sso/login/:provider`, `GET /sso/callback/:provider`, `POST /sso/logout`, `GET /me`.

@@ -394,7 +394,7 @@ The run loop must record into the new storage so the viewer has data. Add an opt
   import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
   import { streamKernelSSE } from '@seta/agent-core'
   import { DomainError } from '@seta/middleware'
-  import { requireSession } from '@seta/sso'
+  import { requireSession } from '@seta/identity'
   import { requireTenantMembership, tenantContext, tenantMiddleware } from '@seta/tenant'
   import { getRun, listRuns, streamRun } from './run-admin-handlers'
   import {
