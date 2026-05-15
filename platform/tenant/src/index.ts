@@ -3,6 +3,8 @@ export { tenantContext } from './context'
 export type { RequireTenantMembershipOpts, TenantMembership } from './membership'
 export { requireTenantMembership } from './membership'
 export { tenantMiddleware } from './middleware'
+export type { CreateTenantRoutesOpts } from './routes'
+export { createTenantRoutes, TenantSummary } from './routes'
 export * from './schema'
 export type { TenantMembershipRole, TenantMembershipRow } from './service'
 export {

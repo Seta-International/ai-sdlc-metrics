@@ -17,6 +17,7 @@
     "dist"
   ],
   "dependencies": {
+    "@hono/zod-openapi": "1.4.0",
     "@seta/middleware": "workspace:*",
     "dotenv": "17.4.2",
     "drizzle-orm": "0.45.2",
