@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { fileURLToPath } from 'node:url'
 import { createPool, type DbSql, runMigrations } from '@seta/db'
 import postgres from 'postgres'
 
@@ -73,7 +74,7 @@ export function hashContent(text: string): string {
 
 function findRepoRoot(): string {
   // _helpers.ts is at platform/agent/vector/tests/integration/_helpers.ts
-  // From the file URL, each ../ goes up one directory level.
-  // Need to reach the repo root (D:\Work\seta-os\).
-  return new URL('../../../../../../', import.meta.url).pathname
+  // new URL('../', fileUrl) goes up one directory from the file's parent.
+  // 5 hops: integration/ → tests/ → vector/ → agent/ → platform/ → repo root
+  return fileURLToPath(new URL('../../../../../', import.meta.url))
 }
