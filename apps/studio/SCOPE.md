@@ -31,12 +31,39 @@ Studio is the web admin/management UI for Seta-managed tenants. It is the surfac
 
 ## 3. Current state (P2)
 
-- **Directory placeholder only.** This SCOPE.md is the only file under `apps/studio/`. No `package.json`, no `src/`, no `vite.config.ts`, no `index.html`, no tests in this PR.
-- The next PR (P2 kickoff) creates the package per CLAUDE.md "CLI-only — packages and dependencies":
-  1. `pnpm new:package` to scaffold the workspace entry.
-  2. `pnpm --filter @seta/studio add <dep>@<version>` for each external pin (chosen at kickoff via `pnpm view <pkg> version` per CLAUDE.md "For 'add library X' without a known pin").
-  3. `pnpm --filter @seta/studio add @seta/agent-sdk@workspace:* @seta/ui@workspace:*` for workspace deps (workspace protocol mandatory per CLAUDE.md).
-- The Studio app does **not** appear in `apps/api/SCOPE.md` § Current state — `apps/api` is the only P1 deployable. Studio adds a second deployable shape (SPA bundle), not a second Hono process.
+PR-3 scaffold + PR-4 tenants/connectors slice shipped. Studio has
+`package.json`, Vite SPA, TanStack Router file-based routes, MSW unit
+tests, and Playwright E2E scaffolding.
+
+PR-3 baseline:
+
+- Vite 8 + React 19 + TanStack Router + TanStack Query.
+- `@seta/portal` shared `LoginPage` + `CallbackSplash` mounted at
+  `/login` and `/login/$provider/callback`.
+- AppShell with full nav, mounted **without** `agentContext` — Studio is
+  admin-only, the right-side `AgentPanel` column is collapsed (PR-3
+  Phase 0.5 amended `AppShell` to omit it when the prop is absent).
+- Bundle-size gate keeps the main chunk < 250 kB gzipped.
+
+PR-4 layered:
+
+- `/tenants` reads from the canonical `GET /tenants` endpoint (owner:
+  `@seta/tenant.createTenantRoutes`) via `tenantsQueryOptions` —
+  previously read `me.tenants`.
+- `/tenants/$id/connectors` renders `@seta/portal`'s shared
+  `ConnectorsPage` (DataTable + StatusBadge + "Grant consent" button),
+  fed by `connectorsQueryOptions` against the
+  `@seta/connector-registry.createConnectorAdminRoutes` surface.
+- `/tenants/$id/connectors/$cid/consent` renders `@seta/portal`'s
+  `ConsentLandingPage`; the route loader invalidates the connectors
+  query on mount so the success state shows immediately after the OAuth
+  redirect returns.
+- `_authed.tsx` mounts `TenantSwitcher` in the AppShell TopBar, fed by
+  `tenantsQueryOptions`; navigation preserves the current
+  `/tenants/$id/<sub-path>` (defaulting to `/connectors`).
+- `grantConsent` is the single sanctioned `window.location.href` use in
+  Studio (cross-origin OAuth handoff). All other navigation goes through
+  TanStack Router.
 
 ## 4. Tech stack (slot-level, not pinned)
 
