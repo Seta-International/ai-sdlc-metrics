@@ -27,8 +27,11 @@ export function AgentPanel({
       className="flex h-full w-full flex-col border-l border-hairline bg-agent-bg"
     >
       <AgentPanelHeader onClose={onClose} />
-      <AgentMessageList messages={messages} streaming={streaming} />
-      <AgentInput pending={pending} onSubmit={(text) => onSubmit(text, agentContext)} />
+      <AgentMessageList messages={messages} {...(streaming !== undefined ? { streaming } : {})} />
+      <AgentInput
+        {...(pending !== undefined ? { pending } : {})}
+        onSubmit={(text) => onSubmit(text, agentContext)}
+      />
     </section>
   )
 }
