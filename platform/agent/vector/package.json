@@ -29,6 +29,7 @@
     "@seta/agent-core": "workspace:*",
     "@seta/agent-embeddings": "workspace:*",
     "@seta/db": "workspace:*",
+    "@seta/middleware": "workspace:*",
     "@seta/observability": "workspace:*",
     "@seta/tenancy": "workspace:*",
     "drizzle-orm": "0.45.2",
