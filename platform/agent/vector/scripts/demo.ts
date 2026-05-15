@@ -1,6 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { createOpenAIEmbeddings, type EmbedResult } from '@seta/agent-embeddings'
-import { findExistingHashes, insertChunks, type NewChunk } from '@seta/agent-vector'
+import {
+  findExistingHashes,
+  insertChunks,
+  type NewChunk,
+  type SearchHit,
+  searchChunks,
+} from '@seta/agent-vector'
 import { createPool, withTenant } from '@seta/db'
 import { tenantContext } from '@seta/tenant'
 
@@ -254,6 +260,25 @@ try {
     'insertChunks (retry)',
     countAfter === countBefore,
     `${countAfter - countBefore} new rows (ON CONFLICT DO NOTHING)`,
+  )
+  console.log()
+
+  // ── 6/10: search as Acme ─────────────────────────────────────────────────
+  printSection(6, TOTAL_STEPS, '🔍', `Search as Acme: "${ACME_QUERY}"`)
+  const acmeQueryEmbed = await embeddings.embed([ACME_QUERY])
+  const acmeQueryVec = acmeQueryEmbed.embeddings[0]!
+  const acmeHits: SearchHit[] = await runAs(ACME, () => searchChunks(sql, acmeQueryVec, { k: 3 }))
+  for (let i = 0; i < acmeHits.length; i++) {
+    const h = acmeHits[i]!
+    console.log(
+      `   ${i + 1}.  ${bar(h.similarity)}  "${truncate(h.content.replace(/\n/g, ' '), 60)}"`,
+    )
+  }
+  const acmeIds = new Set(acmeHits.map((h) => h.id))
+  record(
+    'search Acme',
+    acmeHits.length >= 1 && (acmeHits[0]?.similarity ?? 0) >= 0.3,
+    `${acmeHits.length} hits · top similarity ${((acmeHits[0]?.similarity ?? 0) * 100).toFixed(1)}%`,
   )
   console.log()
 } finally {
