@@ -281,6 +281,47 @@ try {
     `${acmeHits.length} hits · top similarity ${((acmeHits[0]?.similarity ?? 0) * 100).toFixed(1)}%`,
   )
   console.log()
+
+  // ── 7/10: cross-tenant isolation ─────────────────────────────────────────
+  printSection(7, TOTAL_STEPS, '🛡️ ', "Cross-tenant: Acme's question, but tenant = Globex")
+  const crossHits = await runAs(GLOBEX, () => searchChunks(sql, acmeQueryVec, { k: 3, minSim: -1 }))
+  const leakedFromAcme = crossHits.filter((h) => acmeIds.has(h.id)).length
+  record(
+    'RLS isolation',
+    leakedFromAcme === 0,
+    `${crossHits.length} hits returned; ${leakedFromAcme} leaked from Acme`,
+  )
+  console.log()
+
+  // ── 8/10: search as Globex ───────────────────────────────────────────────
+  printSection(8, TOTAL_STEPS, '🔍', `Search as Globex: "${GLOBEX_QUERY}"`)
+  const globexQueryEmbed = await embeddings.embed([GLOBEX_QUERY])
+  const globexHits = await runAs(GLOBEX, () =>
+    searchChunks(sql, globexQueryEmbed.embeddings[0]!, { k: 3 }),
+  )
+  const globexInsertIds = new Set(
+    await runAs(GLOBEX, () =>
+      withTenant(sql, GLOBEX, async (tx) => {
+        const rows = await tx<{ id: string }[]>`
+          SELECT id FROM agent_vector.chunks WHERE tenant_id = ${GLOBEX}
+        `
+        return rows.map((r) => r.id)
+      }),
+    ),
+  )
+  for (let i = 0; i < globexHits.length; i++) {
+    const h = globexHits[i]!
+    console.log(
+      `   ${i + 1}.  ${bar(h.similarity)}  "${truncate(h.content.replace(/\n/g, ' '), 60)}"`,
+    )
+  }
+  const allGlobex = globexHits.every((h) => globexInsertIds.has(h.id))
+  record(
+    'search Globex',
+    globexHits.length >= 1 && allGlobex,
+    `${globexHits.length} hits · all owned by Globex: ${allGlobex}`,
+  )
+  console.log()
 } finally {
   await sql.end({ timeout: 2 })
 }
