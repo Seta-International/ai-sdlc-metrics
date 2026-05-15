@@ -37,7 +37,10 @@ export function TopBar({
         >
           <Search className="size-5 stroke-[1.5]" />
         </button>
-        <NotificationBell count={notificationCount} onClick={onNotificationsClick} />
+        <NotificationBell
+          count={notificationCount}
+          {...(onNotificationsClick !== undefined && { onClick: onNotificationsClick })}
+        />
         <button
           type="button"
           onClick={onAgentToggle}
