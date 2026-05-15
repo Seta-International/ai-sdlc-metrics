@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { createOpenAIEmbeddings, type EmbedResult } from '@seta/agent-embeddings'
-import { insertChunks, type NewChunk } from '@seta/agent-vector'
-import { createPool } from '@seta/db'
+import { findExistingHashes, insertChunks, type NewChunk } from '@seta/agent-vector'
+import { createPool, withTenant } from '@seta/db'
 import { tenantContext } from '@seta/tenant'
 
 /**
@@ -221,6 +221,40 @@ try {
   )
   await runAs(GLOBEX, () => insertChunks(sql, globexRows))
   record('inserted Globex', true, `${globexRows.length} rows`)
+  console.log()
+
+  // ── 5/10: dedup — re-ingest same rows; expect 0 new ───────────────────────
+  printSection(5, TOTAL_STEPS, '🔁', 'Re-ingest Acme corpus — content_hash dedup')
+  const acmeHashes = acmeRows.map((r) => r.contentHash)
+  const existing = await runAs(ACME, () => findExistingHashes(sql, ACME_SOURCE, acmeHashes))
+  record(
+    'findExistingHashes',
+    existing.size === acmeHashes.length,
+    `${existing.size}/${acmeHashes.length} hashes found`,
+  )
+
+  const countBefore = await runAs(ACME, () =>
+    withTenant(sql, ACME, async (tx) => {
+      const rows = await tx<{ n: string }[]>`
+        SELECT count(*)::text AS n FROM agent_vector.chunks WHERE tenant_id = ${ACME}
+      `
+      return Number(rows[0]?.n ?? 0)
+    }),
+  )
+  await runAs(ACME, () => insertChunks(sql, acmeRows))
+  const countAfter = await runAs(ACME, () =>
+    withTenant(sql, ACME, async (tx) => {
+      const rows = await tx<{ n: string }[]>`
+        SELECT count(*)::text AS n FROM agent_vector.chunks WHERE tenant_id = ${ACME}
+      `
+      return Number(rows[0]?.n ?? 0)
+    }),
+  )
+  record(
+    'insertChunks (retry)',
+    countAfter === countBefore,
+    `${countAfter - countBefore} new rows (ON CONFLICT DO NOTHING)`,
+  )
   console.log()
 } finally {
   await sql.end({ timeout: 2 })
