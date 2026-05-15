@@ -98,6 +98,9 @@ importers:
       '@seta/planner':
         specifier: workspace:*
         version: link:../../modules/products/planner
+      '@seta/sso':
+        specifier: workspace:*
+        version: link:../../platform/sso
       '@seta/tenant':
         specifier: workspace:*
         version: link:../../platform/tenant
@@ -117,6 +120,9 @@ importers:
       '@types/node':
         specifier: ^25.7.0
         version: 25.7.0
+      postgres:
+        specifier: 3.4.9
+        version: 3.4.9
       tsup:
         specifier: 8.5.1
         version: 8.5.1(postcss@8.5.14)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.4)

@@ -35,6 +35,7 @@
     "@seta/oauth": "workspace:*",
     "@seta/observability": "workspace:*",
     "@seta/planner": "workspace:*",
+    "@seta/sso": "workspace:*",
     "@seta/tenant": "workspace:*",
     "dotenv": "17.4.2",
     "hono": "4.12.18",
@@ -43,6 +44,7 @@
   "devDependencies": {
     "@seta/tsconfig": "workspace:*",
     "@types/node": "^25.7.0",
+    "postgres": "3.4.9",
     "tsup": "8.5.1",
     "tsx": "4.21.0",
     "typescript": "6.0.3",

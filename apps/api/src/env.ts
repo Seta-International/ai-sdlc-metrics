@@ -1,13 +1,18 @@
 import 'dotenv/config'
 import { z } from 'zod'
 
-const Env = z.object({
+export const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().default(8080),
   DATABASE_URL: z.string().url(),
   PUBLIC_BASE_URL: z.string().url(),
   ENTRA_CLIENT_ID: z.string().min(1),
   ENTRA_CLIENT_SECRET: z.string().min(1),
+  ENTRA_SSO_TENANT: z.string().min(1).default('common'),
+  GOOGLE_CLIENT_ID: z.string().min(1),
+  GOOGLE_CLIENT_SECRET: z.string().min(1),
+  SESSION_HMAC_KEY: z.string().min(32, 'must be ≥32 chars'),
+  SESSION_TTL_SEC: z.coerce.number().int().positive().default(86400),
   KMS_PROVIDER: z.enum(['aws', 'env']).default('env'),
   DEV_DEK_BASE64: z.string().optional(),
   AWS_REGION: z.string().optional(),
@@ -33,4 +38,4 @@ const Env = z.object({
   AGENT_EMBEDDINGS_PROVIDER: z.enum(['openai', 'azure-openai', 'none']).default('none'),
 })
 
-export const env = Env.parse(process.env)
+export const env = EnvSchema.parse(process.env)

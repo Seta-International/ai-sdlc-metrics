@@ -37,6 +37,7 @@ import {
   createTaskIndexer,
   PLANNER_PROFILE_SEED,
 } from '@seta/planner'
+import { createSsoRoutes, EntraSsoProvider, GoogleSsoProvider } from '@seta/sso'
 import {
   getActiveTenantIds,
   isConnectorConsented,
@@ -70,6 +71,30 @@ registry.register(directoryConnector)
 const entra = new EntraProvider({
   clientId: env.ENTRA_CLIENT_ID,
   clientSecret: env.ENTRA_CLIENT_SECRET,
+})
+
+// ── SSO providers + routes ────────────────────────────────────────────────────
+
+const entraSso = new EntraSsoProvider({
+  clientId: env.ENTRA_CLIENT_ID,
+  clientSecret: env.ENTRA_CLIENT_SECRET,
+  tenant: env.ENTRA_SSO_TENANT,
+})
+const googleSso = new GoogleSsoProvider({
+  clientId: env.GOOGLE_CLIENT_ID,
+  clientSecret: env.GOOGLE_CLIENT_SECRET,
+})
+
+const sso = createSsoRoutes({
+  providers: { entra: entraSso, google: googleSso },
+  sql,
+  sessionCookie: {
+    name: 'seta_sess',
+    hmacKey: env.SESSION_HMAC_KEY,
+    ttlSec: env.SESSION_TTL_SEC,
+    secure: env.NODE_ENV === 'production',
+  },
+  redirectBase: env.PUBLIC_BASE_URL,
 })
 
 // ── Tool registry ─────────────────────────────────────────────────────────────
@@ -176,6 +201,8 @@ const app = new Hono().onError(onError)
 
 app.get('/healthz', (c) => c.json({ ok: true }))
 
+app.route('/', sso)
+
 app.route(
   '/oauth',
   createOAuthRoutes({
@@ -240,16 +267,25 @@ async function boot() {
 
 // ── Server start ──────────────────────────────────────────────────────────────
 
-const server = serve({ fetch: app.fetch, port: env.PORT }, async (info) => {
-  logger.info({ port: info.port }, 'api listening')
-  await boot().catch((err) => logger.error({ err }, 'boot failed'))
-})
-
-const shutdown = (signal: string) => async () => {
-  logger.info({ signal }, 'shutting down')
-  await new Promise<void>((resolve) => server.close(() => resolve()))
-  await sql.end()
-  process.exit(0)
+export function buildApp() {
+  return app
 }
-process.on('SIGTERM', shutdown('SIGTERM'))
-process.on('SIGINT', shutdown('SIGINT'))
+
+export { sql, sso }
+
+const isMain = import.meta.url === `file://${process.argv[1]}`
+if (isMain) {
+  const server = serve({ fetch: app.fetch, port: env.PORT }, async (info) => {
+    logger.info({ port: info.port }, 'api listening')
+    await boot().catch((err) => logger.error({ err }, 'boot failed'))
+  })
+
+  const shutdown = (signal: string) => async () => {
+    logger.info({ signal }, 'shutting down')
+    await new Promise<void>((resolve) => server.close(() => resolve()))
+    await sql.end()
+    process.exit(0)
+  }
+  process.on('SIGTERM', shutdown('SIGTERM'))
+  process.on('SIGINT', shutdown('SIGINT'))
+}
