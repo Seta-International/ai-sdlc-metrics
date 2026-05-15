@@ -18,7 +18,7 @@
   git log --oneline --grep="PR-8" --grep="PR-3" --grep="PR-4" --all | head
   ```
 
-  Required: PR-3 (apps/studio kickoff, route stubs incl. `_authed/tenants.$id.agents.tsx` + `.agents.$agentId.tsx`; AppShell mounted WITHOUT `agentContext` — admin-only), PR-4 (`@seta/tenant` exports `requireTenantMembership`), PR-8 (`@seta/ui` exports `Tabs`, `KeyValueList`, `SectionCard`, `Searchbar`). PR-1 ships `@seta/sso` with `requireSession`. If any of those primitives is missing, stop and resolve before continuing.
+  Required: PR-3 (apps/studio kickoff, route stubs incl. `_authed/tenants.$id.agents.tsx` + `.agents.$agentId.tsx`; AppShell mounted WITHOUT `agentContext` — admin-only), PR-4 (`@seta/tenant` exports `requireTenantMembership`), PR-8 (`@seta/ui` exports `Tabs`, `KeyValueList`, `SectionCard`, `Searchbar`). PR-1 ships `@seta/identity` with `requireSession`. If any of those primitives is missing, stop and resolve before continuing.
 
 - [ ] **Step 0.2** — Read the existing agent profile shape.
 
@@ -119,7 +119,7 @@
 
   export const AgentProfile = z
     .object({
-      id: z.string().uuid().openapi({ example: '11111111-1111-1111-1111-111111111111' }),
+      id: z.uuid().openapi({ example: '11111111-1111-1111-1111-111111111111' }),
       name: z.string(),
       description: z.string().nullable(),
       model: z.string(),
@@ -609,7 +609,7 @@
 
   ```ts
   import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-  import { requireSession } from '@seta/sso'
+  import { requireSession } from '@seta/identity'
   import { requireTenantMembership, tenantContext } from '@seta/tenant'
   import { getAgent } from './get-agent'
   import { listAgents } from './list-agents'
@@ -635,7 +635,7 @@
   const detailRoute = createRoute({
     method: 'get',
     path: '/agents/{id}',
-    request: { params: z.object({ id: z.string().uuid() }) },
+    request: { params: z.object({ id: z.uuid() }) },
     responses: {
       200: {
         content: { 'application/json': { schema: AgentProfileDetail } },
@@ -812,7 +812,7 @@
   import { z } from 'zod'
 
   export const AgentProfile = z.object({
-    id: z.string().uuid(),
+    id: z.uuid(),
     name: z.string(),
     description: z.string().nullable(),
     model: z.string(),

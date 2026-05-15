@@ -4,7 +4,7 @@
 Hono router-level middleware: error handling (`DomainError` → RFC 7807
 `application/problem+json`), auth wrapper, tenant wrapper, OpenAPI router defaults, and
 rate limiting. Bridges HTTP transport to the platform primitives that own state
-(`@seta/auth` for identity, `@seta/observability` for logging, `@seta/tenant` for ALS).
+(`@seta/auth` for identity, `@seta/observability` for logging, `@seta/tenancy` for ALS).
 The package's `description` ("Hono middleware: auth + tenant + errors + openapi +
 rate-limit") names the full surface; only `errors` is implemented today.
 
@@ -19,7 +19,7 @@ rate-limit") names the full surface; only `errors` is implemented today.
     Unknown errors return a generic 500 (CLAUDE.md "never leak internals").
   - Planned (per setup.md §13 and §15 footguns):
     - Auth middleware (`requireUser`, `requireAdmin`, `requireApiKey`) that pulls from
-      `@seta/auth` sessions/API keys and enters `@seta/tenant`'s ALS frame.
+      `@seta/auth` sessions/API keys and enters `@seta/tenancy`'s ALS frame.
     - Tenant middleware (`withTenantContext`) — the seam where the request id +
       tenant id + user id frame is created and frozen.
     - Request-id middleware (UUID v7) that injects `c.var.log` (child of
@@ -33,8 +33,8 @@ rate-limit") names the full surface; only `errors` is implemented today.
   - **Identity / session / API key verification.** Lives in `@seta/auth` (`@node-rs/argon2`,
     `needsRehash` upgrade path — setup.md §4:245). Middleware only consumes the verified
     principal.
-  - **`AsyncLocalStorage` itself.** Lives in `@seta/tenant`. Middleware calls
-    `tenantContext.run({tenantId, userId, requestId}, fn)` — setter is in `@seta/tenant`
+  - **`AsyncLocalStorage` itself.** Lives in `@seta/tenancy`. Middleware calls
+    `tenantContext.run({tenantId, userId, requestId}, fn)` — setter is in `@seta/tenancy`
     (`07-request-context.md` punch list).
   - **Logger implementation.** Lives in `@seta/observability`. Middleware imports `logger`
     and creates child bindings.
@@ -89,7 +89,7 @@ Planned (per setup.md §13 + Phase-1 reports):
   `@seta/observability`'s deps; or pull `uuid` here). Sets `c.set('reqId', …)`.
 - `requestLogger()` Hono middleware — `c.set('log', logger.child({ req_id, tenant_id }))`.
 - `withTenantContext()` Hono middleware — wraps the downstream pipeline in
-  `tenantContext.run({...}, next)` (`@seta/tenant` API per `07-request-context.md`).
+  `tenantContext.run({...}, next)` (`@seta/tenancy` API per `07-request-context.md`).
 - `requireUser` / `requireAdmin` / `requireApiKey` — pull from `@seta/auth`; throw
   `Unauthorized` / `Forbidden` `DomainError`s.
 - `rateLimit({ keyFn, max, window })` — `hono-rate-limiter` wrapper with in-memory store,
@@ -103,11 +103,11 @@ Planned (per setup.md §13 + Phase-1 reports):
   - `@seta/auth` — for sessions / API key verification once the auth middlewares land.
   - `@seta/observability` — for `logger`.
 - **Forbidden:**
-  - `@seta/tenant` is **not** in current `package.json` deps but setup.md §13 lists it.
-    See Open Questions — middleware must depend on `@seta/tenant` to wire `tenantContext.
+  - `@seta/tenancy` is **not** in current `package.json` deps but setup.md §13 lists it.
+    See Open Questions — middleware must depend on `@seta/tenancy` to wire `tenantContext.
     run({...}, next)`.
   - `@seta/db` — middleware does not own queries. Tenant/auth lookups go through
-    `@seta/auth` and `@seta/tenant`; DB access from middleware would invert layers.
+    `@seta/auth` and `@seta/tenancy`; DB access from middleware would invert layers.
   - `modules/*` — CLAUDE.md "Boundaries": platform may not import modules.
   - Any concrete connector — CLAUDE.md: composition is in `apps/api`.
 - **External (pinned per setup.md §13 "HTTP middleware"):**
@@ -185,10 +185,10 @@ Planned (per setup.md §13 + Phase-1 reports):
   "Conventions". Root config owns coverage thresholds.
 
 ## Open questions
-- **Missing `@seta/tenant` dep.** Setup.md §13 lists `@seta/tenant@workspace:*` in this
+- **Missing `@seta/tenancy` dep.** Setup.md §13 lists `@seta/tenancy@workspace:*` in this
   package's deps; `package.json` does not yet have it. Tenant middleware cannot ship
   without that import. Resolution: `pnpm --filter @seta/middleware add
-  @seta/tenant@workspace:*` when implementing `withTenantContext`.
+  @seta/tenancy@workspace:*` when implementing `withTenantContext`.
 - **`logger` import-vs-handler.** `errors.ts` does not yet use `@seta/observability`'s
   `logger`, even though it is in deps. Decision: wire `c.var.log?.warn(...)` in `onError`
   once `requestLogger` middleware is added — current shape is correct (no `console`

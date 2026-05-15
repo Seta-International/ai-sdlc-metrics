@@ -1,5 +1,5 @@
 import { GraphNotFound, GraphUnavailable } from '@seta/ms-graph'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import { describe, expect, it, vi } from 'vitest'
 import { createPlannerCache } from './cache'
 

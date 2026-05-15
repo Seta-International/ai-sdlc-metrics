@@ -199,7 +199,7 @@ Streaming via `useAgentRun()` hook → `parseSseStream` from `@seta/agent-sdk`. 
 - React 19+ · Vite 7+ · TanStack Router · TanStack Query
 - `zod@4.4.3` (workspace catalog pin)
 - Tailwind CSS 4+ · `@seta/ui@workspace:*`
-- `@seta/agent-sdk@workspace:*` · `@seta/connector-registry@workspace:*` (type-only) · `@seta/sso@workspace:*` (type-only)
+- `@seta/agent-sdk@workspace:*` · `@seta/connector-registry@workspace:*` (type-only) · `@seta/identity@workspace:*` (type-only)
 - `lucide-react` (tree-shaken subset — pinned version via `pnpm view lucide-react version` at kickoff)
 - Recharts (run timeline + audit trend charts)
 - Vitest 4.1.5 · React Testing Library · MSW 2+ · Playwright
@@ -348,7 +348,7 @@ Touch targets: 36×36px desktop · 44×44px touch. All `DataTable` instances wra
 | Question | Decision |
 |---|---|
 | `@seta/ui` ownership | Co-develop with Studio in P2. No post-launch extraction. |
-| `@seta/sso` vs `@seta/auth` | Dedicated `@seta/sso` — keeps argon2/KMS separate from web-session lifecycle. |
+| `@seta/identity` vs `@seta/auth` | Dedicated `@seta/identity` — keeps argon2/KMS separate from web-session lifecycle. |
 | RAG corpus storage | Postgres-only P2 (bytea ≤100MB). Object storage P3. |
 | Light/dark theme | Deferred P3. Token layer is CSS-var ready. |
 | i18n | Deferred P3. |
@@ -376,7 +376,7 @@ Adapt, don't copy: Mastra uses a custom `useMutation()` and `mastra:` Tailwind n
 ## 11. Boundaries & Constraints
 
 - `@seta/ui` → `platform/ui/` — depends on nothing in `modules/` or `apps/`.
-- Studio imports: `@seta/agent-sdk`, `@seta/ui`, `@seta/connector-registry` (type-only), `@seta/sso` (type-only). No server-only packages.
+- Studio imports: `@seta/agent-sdk`, `@seta/ui`, `@seta/connector-registry` (type-only), `@seta/identity` (type-only). No server-only packages.
 - All API calls through `AgentClient` — no raw `fetch` URL strings.
 - `localStorage` for `seta:sidebar:collapsed` and `seta:agent-panel:open` only.
 - `window.location.href` for OAuth consent redirect only.

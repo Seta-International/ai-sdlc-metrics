@@ -14,7 +14,7 @@ Canonical "external identity ↔ canonical user" mapping. Owns the `directory` P
   - Drizzle schema authoring + `drizzle-kit generate` migrations for this schema (setup.md §3 "Schema-per-module (DDD)" `docs/setup.md:102-127`).
 - **Does NOT own:**
   - The `auth` schema. `auth.users` belongs to `@seta/auth` (setup.md §3 schema table `docs/setup.md:110`). The mapper reaches into `auth.users` via raw SQL — by design, since cross-schema FKs are forbidden but cross-schema *writes through the owner's API* are also a code-smell. The mapper is the single permitted bridge; rationale documented at setup.md §3 last paragraph and inline in `platform/directory/src/jit-mapper.ts:36-46`.
-  - OIDC token verification. `jose` lives in `modules/channels/teams` for Bot Framework and (P2) in `@seta/sso` for inbound OIDC (setup.md §7 `docs/setup.md:526-563`).
+  - OIDC token verification. `jose` lives in `modules/channels/teams` for Bot Framework and (P2) in `@seta/identity` for inbound OIDC (setup.md §7 `docs/setup.md:526-563`).
   - Per-connector user/group mirrors (`connector_ms365_directory.directory_users` is owned by `@seta/connector-ms365-directory`, setup.md §3 schema table `docs/setup.md:115`). Those reference `directory.external_identities` by external subject and `auth.users` by canonical id, both via plain UUID columns — no cross-schema FK.
   - Audit logging. Sign-in events go through `@seta/audit.recordAudit` upstream (e.g. in `modules/channels/teams` SSO handler), not from here. The package `dependsOn` `@seta/audit` because setup.md §13 (`docs/setup.md:1773-1774`) pre-allocated the dep, but no runtime call exists in Epic 1.
   - Session storage, RBAC, API keys — all `@seta/auth`.

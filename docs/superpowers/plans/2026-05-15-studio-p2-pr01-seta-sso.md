@@ -1,8 +1,8 @@
-# PR-1: @seta/sso Package Implementation Plan
+# PR-1: @seta/identity Package Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship the @seta/sso package that owns OIDC + PKCE login for Entra and Google, signed-cookie sessions in auth.sessions, requireSession + csrfMiddleware, and a createSsoRoutes factory.
+**Goal:** Ship the @seta/identity package that owns OIDC + PKCE login for Entra and Google, signed-cookie sessions in auth.sessions, requireSession + csrfMiddleware, and a createSsoRoutes factory.
 
 **Architecture:** Schema-per-module Drizzle in platform/sso/, opaque session-id cookie with HMAC envelope, single-flight handshake with PKCE state cookie, Zod-validated routes via @hono/zod-openapi. Returns empty tenants array on /me; PR-4 fills tenant_members.
 
@@ -31,13 +31,13 @@ Other pins (all verified against existing platform packages — `oauth`, `tenant
 | `tsup` | `8.5.1` | `platform/oauth/package.json` |
 | `dotenv` | `17.4.2` | `platform/oauth/package.json` |
 
-Pre-existing schema conflict to resolve in this PR: `@seta/auth`'s `auth.users` and `auth.sessions` schema (commit-shipped, **zero TS importers** — verified via `grep -r "from '@seta/auth'" --include="*.ts"`) is incompatible with SSO multi-tenant identity (its `auth.users.tenant_id NOT NULL` collides with SSO's tenant-spanning identity model). Per CLAUDE.md "No legacy, no backward compat. Pre-1.0. Change all callers + delete old shape in same PR" — PR-1 replaces `@seta/auth`'s `users`/`sessions` schema by transferring schema ownership to `@seta/sso` (the new `auth`-schema owner). `@seta/auth` keeps `api_keys` only (still unused, but out of PR-1 scope). `OWNER_ORDER` in `@seta/db` is updated so the `sso` package owns the `auth`-schema migrations.
+Pre-existing schema conflict to resolve in this PR: `@seta/auth`'s `auth.users` and `auth.sessions` schema (commit-shipped, **zero TS importers** — verified via `grep -r "from '@seta/auth'" --include="*.ts"`) is incompatible with SSO multi-tenant identity (its `auth.users.tenant_id NOT NULL` collides with SSO's tenant-spanning identity model). Per CLAUDE.md "No legacy, no backward compat. Pre-1.0. Change all callers + delete old shape in same PR" — PR-1 replaces `@seta/auth`'s `users`/`sessions` schema by transferring schema ownership to `@seta/identity` (the new `auth`-schema owner). `@seta/auth` keeps `api_keys` only (still unused, but out of PR-1 scope). `OWNER_ORDER` in `@seta/db` is updated so the `sso` package owns the `auth`-schema migrations.
 
 ---
 
 ## Phase 1 — Package scaffold
 
-### Task 1.1 — Scaffold the @seta/sso package via pnpm new:package
+### Task 1.1 — Scaffold the @seta/identity package via pnpm new:package
 
 - [ ] Run the scaffolder non-interactively:
 
@@ -48,7 +48,7 @@ pnpm new:package --kind platform --name sso --desc "OIDC + PKCE SSO for Entra an
 - [ ] Expected output line:
 
 ```
-✓ @seta/sso created at platform/sso
+✓ @seta/identity created at platform/sso
 ```
 
 - [ ] Verify the package directory exists:
@@ -59,13 +59,13 @@ ls platform/sso
 
 Expected output line (any order, must contain): `package.json  src  tsconfig.json  vitest.config.ts`
 
-- [ ] Verify the scaffolded `platform/sso/package.json` has `"name": "@seta/sso"`, `"version": "0.1.0"`, `"private": true`, `"type": "module"`, `scripts.build`, `scripts.test:unit`, `scripts.typecheck`. Do NOT hand-edit it.
+- [ ] Verify the scaffolded `platform/sso/package.json` has `"name": "@seta/identity"`, `"version": "0.1.0"`, `"private": true`, `"type": "module"`, `scripts.build`, `scripts.test:unit`, `scripts.typecheck`. Do NOT hand-edit it.
 
 Commit:
 
 ```sh
 git add platform/sso pnpm-lock.yaml pnpm-workspace.yaml package.json
-git commit -m "chore(sso): scaffold @seta/sso package"
+git commit -m "chore(sso): scaffold @seta/identity package"
 ```
 
 ---
@@ -85,7 +85,7 @@ Expected output line: `6.2.3` (or newer — if the registry has a newer version,
 - [ ] Install runtime deps via the CLI (one command — pnpm resolves the workspace links):
 
 ```sh
-pnpm --filter @seta/sso add \
+pnpm --filter @seta/identity add \
   jose@6.2.3 \
   postgres@3.4.9 \
   drizzle-orm@0.45.2 \
@@ -106,7 +106,7 @@ pnpm --filter @seta/sso add \
 - [ ] Install dev deps:
 
 ```sh
-pnpm --filter @seta/sso add -D \
+pnpm --filter @seta/identity add -D \
   vitest@4.1.6 \
   drizzle-kit@0.31.10 \
   tsup@8.5.1 \
@@ -262,7 +262,7 @@ export type NewSession = typeof sessions.$inferInsert
 
 ### Task 3.3 — Delete the @seta/auth users + sessions schema (transfer ownership)
 
-`@seta/auth` is unused (zero TS importers). PR-1 transfers `auth.users` + `auth.sessions` to `@seta/sso` cleanly per CLAUDE.md "delete old shape in same PR".
+`@seta/auth` is unused (zero TS importers). PR-1 transfers `auth.users` + `auth.sessions` to `@seta/identity` cleanly per CLAUDE.md "delete old shape in same PR".
 
 - [ ] Edit `platform/auth/src/schema.ts` to keep only the (still-unused) `api_keys` table:
 
@@ -298,12 +298,12 @@ Expected output line: `1 file created` and a new file at `platform/auth/migratio
 
 - [ ] Inspect the generated SQL. It must contain `CREATE TABLE "auth"."api_keys"` and **must not** contain `CREATE TABLE "auth"."users"` or `CREATE TABLE "auth"."sessions"`.
 
-### Task 3.4 — Generate the @seta/sso baseline migration
+### Task 3.4 — Generate the @seta/identity baseline migration
 
 - [ ] Generate the migration from the Drizzle schema:
 
 ```sh
-pnpm --filter @seta/sso exec drizzle-kit generate --name baseline
+pnpm --filter @seta/identity exec drizzle-kit generate --name baseline
 ```
 
 Expected output line: `1 file created` plus a new file `platform/sso/migrations/0000_baseline.sql`.
@@ -323,7 +323,7 @@ drizzle-kit 0.31.10 cannot emit `FORCE ROW LEVEL SECURITY` or `GRANT` from schem
 - [ ] Generate the custom-migration shell:
 
 ```sh
-pnpm --filter @seta/sso exec drizzle-kit generate --custom --name security_hardening
+pnpm --filter @seta/identity exec drizzle-kit generate --custom --name security_hardening
 ```
 
 Expected output line: `1 file created` plus a new file `platform/sso/migrations/0001_security_hardening.sql`.
@@ -493,7 +493,7 @@ describe('cookie HMAC', () => {
 - [ ] Run the test and expect it to FAIL (file does not exist yet):
 
 ```sh
-pnpm --filter @seta/sso test:unit
+pnpm --filter @seta/identity test:unit
 ```
 
 Expected output line: `FAIL  src/cookie.test.ts` and an `Error: Failed to load url ./cookie` (or similar resolution error).
@@ -541,7 +541,7 @@ export function verifyCookie(signed: string, hexKey: string): string | null {
 - [ ] Run the test and expect green:
 
 ```sh
-pnpm --filter @seta/sso test:unit -- cookie
+pnpm --filter @seta/identity test:unit -- cookie
 ```
 
 Expected output line: `Test Files  1 passed` and `Tests  6 passed`.
@@ -597,7 +597,7 @@ describe('PKCE generator', () => {
 - [ ] Run and expect FAIL:
 
 ```sh
-pnpm --filter @seta/sso test:unit -- pkce
+pnpm --filter @seta/identity test:unit -- pkce
 ```
 
 Expected output line: `FAIL  src/pkce.test.ts`.
@@ -623,7 +623,7 @@ export function generatePkce(): { verifier: string; challenge: string } {
 - [ ] Run and expect green:
 
 ```sh
-pnpm --filter @seta/sso test:unit -- pkce
+pnpm --filter @seta/identity test:unit -- pkce
 ```
 
 Expected output line: `Test Files  1 passed` and `Tests  4 passed`.
@@ -648,7 +648,7 @@ import { z } from '@hono/zod-openapi'
 
 export const SessionUser = z
   .object({
-    id: z.string().uuid(),
+    id: z.uuid(),
     email: z.string().email(),
     name: z.string().min(1),
     pictureUrl: z.string().url().nullable(),
@@ -664,7 +664,7 @@ export type SessionUser = z.infer<typeof SessionUser>
  */
 export const TenantSummary = z
   .object({
-    id: z.string().uuid(),
+    id: z.uuid(),
     name: z.string().min(1),
     role: z.enum(['owner', 'admin', 'member']),
   })
@@ -717,7 +717,7 @@ Create `platform/sso/src/provider.ts`:
 ```ts
 /**
  * Decoded id_token claims after JWS verification by jose. Only the claims
- * @seta/sso reads are typed; other claims are dropped. picture and name are
+ * @seta/identity reads are typed; other claims are dropped. picture and name are
  * optional in OIDC core; email is required by both Entra and Google for our
  * profile scope and is asserted here.
  */
@@ -788,7 +788,7 @@ describe('EntraSsoProvider.authorizeUrl', () => {
 - [ ] Run and expect FAIL:
 
 ```sh
-pnpm --filter @seta/sso test:unit -- entra
+pnpm --filter @seta/identity test:unit -- entra
 ```
 
 Expected output line: `FAIL  src/providers/entra.test.ts`.
@@ -905,7 +905,7 @@ export class EntraSsoProvider implements SsoProvider {
 - [ ] Run and expect green:
 
 ```sh
-pnpm --filter @seta/sso test:unit -- entra
+pnpm --filter @seta/identity test:unit -- entra
 ```
 
 Expected output line: `Test Files  1 passed` and `Tests  2 passed`.
@@ -1052,7 +1052,7 @@ export class GoogleSsoProvider implements SsoProvider {
 - [ ] Run and expect green:
 
 ```sh
-pnpm --filter @seta/sso test:unit -- google
+pnpm --filter @seta/identity test:unit -- google
 ```
 
 Expected output line: `Test Files  1 passed` and `Tests  1 passed`.
@@ -1104,7 +1104,7 @@ describe('deriveCsrfToken', () => {
 - [ ] Run and expect FAIL:
 
 ```sh
-pnpm --filter @seta/sso test:unit -- csrf
+pnpm --filter @seta/identity test:unit -- csrf
 ```
 
 Expected output line: `FAIL  src/csrf.test.ts`.
@@ -1131,7 +1131,7 @@ export function deriveCsrfToken(sessionId: string, hexKey: string): string {
 - [ ] Run and expect green:
 
 ```sh
-pnpm --filter @seta/sso test:unit -- csrf
+pnpm --filter @seta/identity test:unit -- csrf
 ```
 
 Expected output line: `Test Files  1 passed` and `Tests  4 passed`.
@@ -1400,7 +1400,7 @@ export function csrfMiddleware(opts: CsrfOpts): MiddlewareHandler<{ Variables: S
 - [ ] Run the unit tests and expect green:
 
 ```sh
-pnpm --filter @seta/sso test:unit -- middleware
+pnpm --filter @seta/identity test:unit -- middleware
 ```
 
 Expected output line: `Test Files  1 passed` and `Tests  9 passed`.
@@ -1764,7 +1764,7 @@ git commit -m "feat(sso): createSsoRoutes factory with login, callback, logout, 
 
 ## Phase 11 — Integration tests (Postgres-backed)
 
-These tests run against a real Postgres (`DATABASE_URL`) so the schema, RLS policies, and upsert logic are exercised end-to-end. They use a `MockSsoProvider` instead of hitting Entra/Google — `SsoProvider` is the seam (CLAUDE.md "fix the seam, never mock internal @seta/*" — `MockSsoProvider` is an in-package fake implementing the *public* interface, not a mock of `@seta/sso` internals).
+These tests run against a real Postgres (`DATABASE_URL`) so the schema, RLS policies, and upsert logic are exercised end-to-end. They use a `MockSsoProvider` instead of hitting Entra/Google — `SsoProvider` is the seam (CLAUDE.md "fix the seam, never mock internal @seta/*" — `MockSsoProvider` is an in-package fake implementing the *public* interface, not a mock of `@seta/identity` internals).
 
 ### Task 11.1 — Write the MockSsoProvider fixture
 
@@ -1811,7 +1811,7 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    name: '@seta/sso',
+    name: '@seta/identity',
     include: ['src/**/*.test.ts', 'tests/integration/**/*.test.ts'],
     // Integration tests truncate auth.* tables; serialise files so one
     // file's beforeEach does not wipe another file's in-flight data.
@@ -2034,7 +2034,7 @@ Expected output line includes a row for `auth | users | table | seta`, `auth | u
 ### Task 11.5 — Run the integration tests
 
 ```sh
-pnpm --filter @seta/sso test:unit
+pnpm --filter @seta/identity test:unit
 ```
 
 Expected output line: `Test Files  7 passed` (cookie, pkce, csrf, middleware, entra provider, google provider, routes integration) and `Tests  32 passed`.
@@ -2087,13 +2087,13 @@ rm platform/sso/src/index.test.ts
 Create `platform/sso/README.md`:
 
 ```markdown
-# @seta/sso
+# @seta/identity
 
 OIDC + PKCE single sign-on for Seta. Owns the `auth.users`, `auth.user_identities`, and `auth.sessions` tables; mints HMAC-signed opaque session cookies; exposes `requireSession`, `csrfMiddleware`, and the `createSsoRoutes` factory.
 
 ## Boundary
 
-`@seta/sso` is a `platform/*` package — framework primitives, vendor-neutral.
+`@seta/identity` is a `platform/*` package — framework primitives, vendor-neutral.
 
 - **Depends on:** `@seta/db`, `@seta/middleware`, `@seta/observability`, `@seta/tenant` (type-only — for the `TenantSummary` shape returned by `/me`).
 - **Does not depend on:** `@seta/auth` (argon2 / local credentials, separate package), `@seta/oauth` (vendor token vault, separate package), MSAL, model SDKs, any `modules/*`.
@@ -2109,7 +2109,7 @@ import {
   csrfMiddleware,
   type SessionUser,
   type TenantSummary,
-} from '@seta/sso'
+} from '@seta/identity'
 ```
 
 - `createSsoRoutes(opts)` returns a `Hono` app exposing `POST /sso/login/:provider`, `GET /sso/callback/:provider`, `POST /sso/logout`, `GET /me`.
@@ -2140,7 +2140,7 @@ import {
 - [ ] Run the build and expect exit code 0:
 
 ```sh
-pnpm --filter @seta/sso build
+pnpm --filter @seta/identity build
 ```
 
 Expected output line: `ESM dist/index.js` (or similar tsup output) followed by `Build success`.
@@ -2148,7 +2148,7 @@ Expected output line: `ESM dist/index.js` (or similar tsup output) followed by `
 - [ ] Run typecheck and expect exit code 0:
 
 ```sh
-pnpm --filter @seta/sso typecheck
+pnpm --filter @seta/identity typecheck
 ```
 
 Expected output line: no output on success, exit code 0.
@@ -2164,12 +2164,12 @@ git commit -m "feat(sso): public exports and package README"
 
 ## Phase 13 — Final verification
 
-### Task 13.1 — Run the full @seta/sso suite
+### Task 13.1 — Run the full @seta/identity suite
 
 - [ ] Run every test in the package:
 
 ```sh
-pnpm --filter @seta/sso test:unit
+pnpm --filter @seta/identity test:unit
 ```
 
 Expected output line: `Test Files  7 passed (7)` and `Tests  32 passed (32)`.
@@ -2192,7 +2192,7 @@ Expected output line: `Checked <N> files in <ms>ms. No fixes applied.` (Biome) w
 
 ### Task 13.3 — Verify boundary CI guard
 
-The `check-no-manual-pkg-edit.ts` CI guard fails non-whitelisted `package.json` diffs without a matching lockfile diff. Every dependency in this PR was added via `pnpm --filter @seta/sso add` (Tasks 2.1, 2.2). Confirm:
+The `check-no-manual-pkg-edit.ts` CI guard fails non-whitelisted `package.json` diffs without a matching lockfile diff. Every dependency in this PR was added via `pnpm --filter @seta/identity add` (Tasks 2.1, 2.2). Confirm:
 
 ```sh
 git diff --stat HEAD~12 -- platform/sso/package.json pnpm-lock.yaml
@@ -2205,7 +2205,7 @@ Expected output line includes both `platform/sso/package.json` AND `pnpm-lock.ya
 - [ ] No `apps/api` change in this PR — `createSsoRoutes` is not yet mounted (PR-2 does that). The demo state for PR-1 is:
 
 ```sh
-pnpm --filter @seta/sso test:unit
+pnpm --filter @seta/identity test:unit
 ```
 
 passes green with 7 test files and 32 tests, and the package exports `createSsoRoutes`, `EntraSsoProvider`, `GoogleSsoProvider`, `requireSession`, `csrfMiddleware`, `SessionUser`, `TenantSummary`.
@@ -2213,7 +2213,7 @@ passes green with 7 test files and 32 tests, and the package exports `createSsoR
 - [ ] Verify the public API surface by importing from a one-shot file:
 
 ```sh
-pnpm --filter @seta/sso exec node --input-type=module -e "import { createSsoRoutes, EntraSsoProvider, GoogleSsoProvider, requireSession, csrfMiddleware } from '@seta/sso'; console.log('exports ok', typeof createSsoRoutes, typeof EntraSsoProvider, typeof GoogleSsoProvider, typeof requireSession, typeof csrfMiddleware)"
+pnpm --filter @seta/identity exec node --input-type=module -e "import { createSsoRoutes, EntraSsoProvider, GoogleSsoProvider, requireSession, csrfMiddleware } from '@seta/identity'; console.log('exports ok', typeof createSsoRoutes, typeof EntraSsoProvider, typeof GoogleSsoProvider, typeof requireSession, typeof csrfMiddleware)"
 ```
 
 Expected output line: `exports ok function function function function function`.

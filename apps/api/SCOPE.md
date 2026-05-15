@@ -46,7 +46,7 @@ gracefully on SIGTERM/SIGINT.
     no application tables".
   - Auth verification, tenant extraction, error mapping, request-id, rate-limit
     middleware — those are factories from `@seta/middleware` / `@seta/auth` /
-    `@seta/tenant` / `@seta/observability` that the composition root installs,
+    `@seta/tenancy` / `@seta/observability` that the composition root installs,
     not implements.
   - Any logic conditional on `process.env.X` outside `env.ts` — CLAUDE.md
     "Never read `process.env.X` elsewhere".
@@ -97,13 +97,13 @@ gracefully on SIGTERM/SIGINT.
 Endpoints currently mounted:
 - `GET  /healthz`
 - `POST /sso/login/:provider`, `GET /sso/callback/:provider`, `POST /sso/logout`,
-  `GET /me` — surface owned by `@seta/sso` `createSsoRoutes`.
+  `GET /me` — surface owned by `@seta/identity` `createSsoRoutes`.
 - `GET  /oauth/*` and `POST /oauth/*` — surface owned by `@seta/oauth`
   `createOAuthRoutes`; covers admin-consent URL issuance and the OAuth
   callback per CLAUDE.md "Connector consent" + setup.md §4. The callback
   optionally redirects to `${PUBLIC_STUDIO_URL}/tenants/:id/connectors/:cid/consent`
   via the `onConsentRedirect` hook (PR-4 — wires Studio's consent landing).
-- `GET  /tenants` — surface owned by `@seta/tenant` `createTenantRoutes`;
+- `GET  /tenants` — surface owned by `@seta/tenancy` `createTenantRoutes`;
   returns the membership rows joined from `tenant.tenant_members`.
 - `GET  /tenants/:id/connectors`, `POST /tenants/:id/connectors/:cid/consent-url`
   — surface owned by `@seta/connector-registry` `createConnectorAdminRoutes`.
@@ -168,7 +168,7 @@ read by `@opentelemetry/sdk-node` itself, not by `env.ts` (setup.md §8).
   `@seta/connector-ms365-directory`, `@seta/connector-ms365-planner`,
   `@seta/connector-registry`, `@seta/db`, `@seta/directory`, `@seta/middleware`,
   `@seta/ms-graph`, `@seta/oauth`, `@seta/observability`, `@seta/teams`,
-  `@seta/tenant`.
+  `@seta/tenancy`.
 - **External (pinned per setup.md §13 `@seta/api` block):**
   - `hono@4.12.18` (router)
   - `@hono/node-server@2.0.2` (Node adapter — `serve`)

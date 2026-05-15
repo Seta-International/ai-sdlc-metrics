@@ -23,7 +23,6 @@
     "@seta/agent-server": "workspace:*",
     "@seta/analytics": "workspace:*",
     "@seta/audit": "workspace:*",
-    "@seta/auth": "workspace:*",
     "@seta/connector-ms365-directory": "workspace:*",
     "@seta/connector-ms365-planner": "workspace:*",
     "@seta/connector-registry": "workspace:*",
@@ -35,8 +34,8 @@
     "@seta/oauth": "workspace:*",
     "@seta/observability": "workspace:*",
     "@seta/planner": "workspace:*",
-    "@seta/sso": "workspace:*",
-    "@seta/tenant": "workspace:*",
+    "@seta/identity": "workspace:*",
+    "@seta/tenancy": "workspace:*",
     "dotenv": "17.4.2",
     "hono": "4.12.18",
     "zod": "4.4.3"

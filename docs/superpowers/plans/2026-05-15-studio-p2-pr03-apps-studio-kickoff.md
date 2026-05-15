@@ -131,10 +131,10 @@ Resolve concrete pins via `pnpm view <pkg> version` before any `pnpm add` call. 
     @seta/agent-sdk@workspace:*
   pnpm --filter @seta/studio add \
     @seta/connector-registry@workspace:* \
-    @seta/sso@workspace:*
+    @seta/identity@workspace:*
   ```
 
-  `@seta/connector-registry` and `@seta/sso` are **type-only consumers** per `apps/studio/SCOPE.md` § 6 Imports — Studio crosses to those packages only through `import type`. The dep is present so TypeScript can resolve type re-exports; never `import { … }` from them at runtime.
+  `@seta/connector-registry` and `@seta/identity` are **type-only consumers** per `apps/studio/SCOPE.md` § 6 Imports — Studio crosses to those packages only through `import type`. The dep is present so TypeScript can resolve type re-exports; never `import { … }` from them at runtime.
 
 - [ ] **Step 1.5** — Add dev dependencies (build, test, types).
 

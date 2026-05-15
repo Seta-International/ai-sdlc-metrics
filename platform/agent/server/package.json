@@ -22,7 +22,7 @@
     "@seta/agent-workflows": "workspace:*",
     "@seta/db": "workspace:*",
     "@seta/middleware": "workspace:*",
-    "@seta/tenant": "workspace:*",
+    "@seta/tenancy": "workspace:*",
     "drizzle-orm": "0.45.2",
     "hono": "4.12.18",
     "lru-cache": "11.3.6",

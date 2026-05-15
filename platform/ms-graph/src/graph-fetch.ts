@@ -1,7 +1,7 @@
 import { trace } from '@opentelemetry/api'
 import type { AuditEntry } from '@seta/audit'
 import { BadRequest } from '@seta/middleware'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import { normalizePath } from './audit-middleware'
 import {
   GraphNotFound,

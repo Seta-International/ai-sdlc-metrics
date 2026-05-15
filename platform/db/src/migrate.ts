@@ -5,9 +5,8 @@ import { migrate as drizzleMigrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres from 'postgres'
 
 export const OWNER_ORDER = [
-  'auth',
-  'sso',
-  'tenant',
+  'identity',
+  'tenancy',
   'directory',
   'oauth',
   'audit',
@@ -21,9 +20,8 @@ export const OWNER_ORDER = [
 export type Owner = (typeof OWNER_ORDER)[number]
 
 const OWNER_PACKAGE_PATH: Record<Owner, string> = {
-  auth: 'platform/auth/migrations',
-  sso: 'platform/sso/migrations',
-  tenant: 'platform/tenant/migrations',
+  identity: 'platform/identity/migrations',
+  tenancy: 'platform/tenancy/migrations',
   directory: 'platform/directory/migrations',
   oauth: 'platform/oauth/migrations',
   audit: 'platform/audit/migrations',

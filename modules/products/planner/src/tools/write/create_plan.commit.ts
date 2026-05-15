@@ -2,7 +2,7 @@ import type { Tool } from '@seta/agent-core'
 import type { GraphFetch } from '@seta/connector-ms365-planner'
 import { Unauthorized } from '@seta/middleware'
 import { logger } from '@seta/observability'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import { z } from 'zod'
 import { ContinuationConsumed } from './_errors'
 

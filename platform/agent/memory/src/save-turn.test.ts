@@ -11,7 +11,9 @@ describe('extractAutoTitle', () => {
 
   it('returns null when user message has no text content', () => {
     expect(
-      extractAutoTitle([{ role: 'user', content: [{ type: 'tool_result', toolCallId: 'x', result: null }] }]),
+      extractAutoTitle([
+        { role: 'user', content: [{ type: 'tool_result', toolCallId: 'x', result: null }] },
+      ]),
     ).toBeNull()
   })
 
@@ -23,9 +25,7 @@ describe('extractAutoTitle', () => {
 
   it('returns text as-is when 80 chars or fewer', () => {
     const text = 'What is the weather in Hanoi today?'
-    expect(
-      extractAutoTitle([{ role: 'user', content: [{ type: 'text', text }] }]),
-    ).toBe(text)
+    expect(extractAutoTitle([{ role: 'user', content: [{ type: 'text', text }] }])).toBe(text)
   })
 
   it('truncates text longer than 80 chars with ellipsis', () => {
@@ -37,9 +37,7 @@ describe('extractAutoTitle', () => {
 
   it('trims leading/trailing whitespace before checking length', () => {
     const text = '  hello  '
-    expect(
-      extractAutoTitle([{ role: 'user', content: [{ type: 'text', text }] }]),
-    ).toBe('hello')
+    expect(extractAutoTitle([{ role: 'user', content: [{ type: 'text', text }] }])).toBe('hello')
   })
 
   it('picks the first user message when multiple messages exist', () => {

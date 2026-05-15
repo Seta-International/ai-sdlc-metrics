@@ -1,12 +1,14 @@
 import { randomUUID } from 'node:crypto'
 import type { KernelMessage, KernelMessageContent } from '@seta/agent-core'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import type { TransactionSql } from 'postgres'
 
 export function extractAutoTitle(msgs: KernelMessage[]): string | null {
   const userMsg = msgs.find((m) => m.role === 'user')
   if (!userMsg) return null
-  const textPart = userMsg.content.find((c): c is Extract<KernelMessageContent, { type: 'text' }> => c.type === 'text')
+  const textPart = userMsg.content.find(
+    (c): c is Extract<KernelMessageContent, { type: 'text' }> => c.type === 'text',
+  )
   const text = textPart?.text.trim() ?? ''
   if (!text) return null
   return text.length <= 80 ? text : `${text.slice(0, 77)}...`

@@ -1,5 +1,5 @@
 import { type Span, SpanStatusCode, trace } from '@opentelemetry/api'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 
 const tracer = trace.getTracer('@seta/agent-core')
 

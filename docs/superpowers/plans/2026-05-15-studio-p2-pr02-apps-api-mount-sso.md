@@ -2,32 +2,32 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Wire @seta/sso into apps/api by adding env vars and a composition diff in main.ts that mounts createSsoRoutes.
+**Goal:** Wire @seta/identity into apps/api by adding env vars and a composition diff in main.ts that mounts createSsoRoutes.
 
 **Architecture:** apps/api stays composition-only. New env vars added to apps/api/src/env.ts Zod schema. main.ts imports createSsoRoutes + provider classes, builds them, mounts at root. Integration test covers a full callback round-trip with a mock provider.
 
-**Tech Stack:** Hono, @seta/sso@workspace:*, Zod 4.4.3, vitest 4.1.5.
+**Tech Stack:** Hono, @seta/identity@workspace:*, Zod 4.4.3, vitest 4.1.5.
 
 ---
 
 ## Phase 1 — Workspace dependency
 
-### Task 1.1 — Add @seta/sso workspace dependency to @seta/api
+### Task 1.1 — Add @seta/identity workspace dependency to @seta/api
 
 - [ ] Run the CLI (no hand-edit of package.json):
 
 ```sh
-pnpm --filter @seta/api add @seta/sso@workspace:*
+pnpm --filter @seta/api add @seta/identity@workspace:*
 ```
 
-- [ ] Confirm `apps/api/package.json` now lists `"@seta/sso": "workspace:*"` under `"dependencies"` (alphabetised between `@seta/oauth` and `@seta/observability` after re-sort, or wherever pnpm placed it — do NOT manually re-sort).
+- [ ] Confirm `apps/api/package.json` now lists `"@seta/identity": "workspace:*"` under `"dependencies"` (alphabetised between `@seta/oauth` and `@seta/observability` after re-sort, or wherever pnpm placed it — do NOT manually re-sort).
 - [ ] Confirm `pnpm-lock.yaml` updated.
 
 Commit:
 
 ```sh
 git add apps/api/package.json pnpm-lock.yaml
-git commit -m "chore(api): add @seta/sso workspace dependency"
+git commit -m "chore(api): add @seta/identity workspace dependency"
 ```
 
 ---
@@ -197,7 +197,7 @@ git commit -m "feat(api): add sso env vars (entra/google/session) to Zod env sch
 Add the import to the existing import block in `apps/api/src/main.ts`:
 
 ```ts
-import { createSsoRoutes, EntraSsoProvider, GoogleSsoProvider } from '@seta/sso'
+import { createSsoRoutes, EntraSsoProvider, GoogleSsoProvider } from '@seta/identity'
 ```
 
 Add the following block in `main.ts` immediately after the `EntraProvider` (line ~73) singleton construction and before the `// ── Tool registry ──` divider:
@@ -341,9 +341,9 @@ git add apps/api/src/main.ts
 git commit -m "refactor(api): expose buildApp() and guard serve() under import.meta.url"
 ```
 
-### Task 5.2 — Add devDependency on @seta/sso testkit (mock provider helper)
+### Task 5.2 — Add devDependency on @seta/identity testkit (mock provider helper)
 
-@seta/sso (per PR-1 §4.4) does not yet ship a `testkit` subpath — the integration test will construct an inline mock `SsoProvider` literal that returns a fixed `OidcIdToken`. No extra dep required.
+@seta/identity (per PR-1 §4.4) does not yet ship a `testkit` subpath — the integration test will construct an inline mock `SsoProvider` literal that returns a fixed `OidcIdToken`. No extra dep required.
 
 - [ ] Confirm — no `pnpm add` needed here. Skip if confirmed.
 
@@ -372,8 +372,8 @@ describe('GET /me without session', () => {
 ```
 
 - [ ] Set `DATABASE_URL` (e.g. via `.env.test`) before running, since `env.ts` requires it at module load. Use the pre-existing local-dev Postgres pool from `pnpm db:up`.
-- [ ] Run `pnpm --filter @seta/api vitest run tests/integration/sso.test.ts`. Confirm it fails (route not yet hit / fixture missing / @seta/sso missing — depends on PR-1 status).
-- [ ] Once @seta/sso lands and the route returns the RFC 7807 problem body, the test passes — GREEN.
+- [ ] Run `pnpm --filter @seta/api vitest run tests/integration/sso.test.ts`. Confirm it fails (route not yet hit / fixture missing / @seta/identity missing — depends on PR-1 status).
+- [ ] Once @seta/identity lands and the route returns the RFC 7807 problem body, the test passes — GREEN.
 
 Commit:
 
@@ -384,14 +384,14 @@ git commit -m "test(api): /me returns 401 RFC 7807 problem without session"
 
 ### Task 5.4 — Write failing integration test: full SSO callback round-trip with mock provider
 
-Add a second describe block to `apps/api/tests/integration/sso.test.ts`. The test builds an isolated Hono app via `createSsoRoutes(...)` directly (NOT `buildApp()`), injecting an inline mock `SsoProvider`. This keeps the test focused on the @seta/sso public contract and avoids requiring real Entra/Google credentials in CI.
+Add a second describe block to `apps/api/tests/integration/sso.test.ts`. The test builds an isolated Hono app via `createSsoRoutes(...)` directly (NOT `buildApp()`), injecting an inline mock `SsoProvider`. This keeps the test focused on the @seta/identity public contract and avoids requiring real Entra/Google credentials in CI.
 
 Append:
 
 ```ts
 import { Hono } from 'hono'
 import { onError } from '@seta/middleware'
-import { createSsoRoutes, type SsoProvider } from '@seta/sso'
+import { createSsoRoutes, type SsoProvider } from '@seta/identity'
 import { sql } from '../../src/db'
 
 const mockProvider = (id: 'entra' | 'google'): SsoProvider => ({
@@ -533,6 +533,6 @@ Demo state achieved per master plan §3.2 row PR-2: `/me` returns 401 unauth; OI
 - [ ] No DI containers, no plugin loaders, no runtime discovery — providers + router are literal singletons in `main.ts`.
 - [ ] No internal `@seta/*` mocking in integration tests — only the `SsoProvider` interface (an external boundary contract) is mocked.
 - [ ] Integration test uses real Postgres via `DATABASE_URL`.
-- [ ] `@hono/zod-openapi` not introduced in this PR — `/me` schemas belong to @seta/sso (PR-1). No `z` import collision here.
+- [ ] `@hono/zod-openapi` not introduced in this PR — `/me` schemas belong to @seta/identity (PR-1). No `z` import collision here.
 - [ ] All commit messages use Conventional Commits with `api` scope.
-- [ ] PR-1 dependency: this plan tolerates PR-1 not yet merged at planning time — `pnpm install` resolves `@seta/sso@workspace:*` once it exists. Sequencing belongs to PR ordering, not this plan's scope.
+- [ ] PR-1 dependency: this plan tolerates PR-1 not yet merged at planning time — `pnpm install` resolves `@seta/identity@workspace:*` once it exists. Sequencing belongs to PR ordering, not this plan's scope.

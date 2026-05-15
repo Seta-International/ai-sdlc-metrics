@@ -26,7 +26,7 @@ export const ConnectorAdminRow = z
 export type ConnectorAdminRow = z.infer<typeof ConnectorAdminRow>
 
 const ConsentUrlBody = z.object({
-  tenantId: z.string().uuid().optional(),
+  tenantId: z.uuid().optional(),
   tenantHint: z.string().optional(),
 })
 

@@ -9,8 +9,8 @@ import type {
   AgentConfig,
   KernelChunk,
   KernelMessage,
-  ModelStream,
   MemoryProvider,
+  ModelStream,
   RecallResult,
   RunCtx,
   RunInput,
@@ -160,7 +160,9 @@ describe('run()', () => {
     )
     expect(adapter.requests[0]?.messages[0]).toMatchObject({
       role: 'system',
-      content: [expect.objectContaining({ type: 'text', text: expect.stringContaining('- Name: Linh') })],
+      content: [
+        expect.objectContaining({ type: 'text', text: expect.stringContaining('- Name: Linh') }),
+      ],
     })
     expect(adapter.requests[0]?.tools?.map((t) => t.name)).toContain('updateWorkingMemory')
     expect(savedTurns).toHaveLength(1)
@@ -291,7 +293,9 @@ describe('run()', () => {
     expect(adapter.requests[1]?.messages[0]).toMatchObject({
       role: 'system',
       content: [
-        expect.objectContaining({ text: expect.stringContaining('- Name: Linh\n- Location: Hanoi') }),
+        expect.objectContaining({
+          text: expect.stringContaining('- Name: Linh\n- Location: Hanoi'),
+        }),
       ],
     })
   })
@@ -309,7 +313,12 @@ describe('run()', () => {
             content: [{ type: 'tool_use', toolCallId: 't1', name: 'echo', args: {} }],
           },
         },
-        { chunks: [{ type: 'text', delta: 'ok' }, { type: 'finish', reason: 'stop' }] },
+        {
+          chunks: [
+            { type: 'text', delta: 'ok' },
+            { type: 'finish', reason: 'stop' },
+          ],
+        },
       ]),
     )
     const echo: Tool = {
@@ -322,8 +331,11 @@ describe('run()', () => {
     const cfg: AgentConfig = { model: 'f/x', tools: [echo] }
     for await (const _c of run(cfg, baseInput, {
       adapters,
-      onIterationComplete: (steps) => { iterationSnapshots.push(steps.length) },
-    })) void _c
+      onIterationComplete: (steps) => {
+        iterationSnapshots.push(steps.length)
+      },
+    }))
+      void _c
 
     // onIterationComplete is called once per tool_calls iteration
     expect(iterationSnapshots).toHaveLength(1)

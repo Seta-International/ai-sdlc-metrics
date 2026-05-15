@@ -27,7 +27,7 @@
     "@seta/db": "workspace:*",
     "@seta/middleware": "workspace:*",
     "@seta/observability": "workspace:*",
-    "@seta/tenant": "workspace:*",
+    "@seta/tenancy": "workspace:*",
     "drizzle-orm": "0.45.2",
     "p-queue": "8.1.0",
     "zod": "4.4.3"

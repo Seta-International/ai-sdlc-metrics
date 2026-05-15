@@ -86,7 +86,7 @@ git commit -m "feat(audit): add (tenant_id, ts), (tenant_id, actor_id, ts), (ten
 ```sh
 pnpm --filter @seta/audit add hono@4.10.5
 pnpm --filter @seta/audit add @hono/zod-openapi@0.20.0
-pnpm --filter @seta/audit add @seta/sso@workspace:* @seta/tenant@workspace:* @seta/middleware@workspace:* @seta/observability@workspace:*
+pnpm --filter @seta/audit add @seta/identity@workspace:* @seta/tenant@workspace:* @seta/middleware@workspace:* @seta/observability@workspace:*
 ```
 
 (Confirm the pinned versions of `hono` and `@hono/zod-openapi` first via `pnpm view <pkg> version` and the lockfile of any sibling routes package such as `platform/oauth`; if those packages pin different versions, match them — never bifurcate.)
@@ -184,7 +184,7 @@ import { z } from '@hono/zod-openapi'
 export const AuditRow = z
   .object({
     id: z.number().int().nonnegative(),
-    tenantId: z.string().uuid(),
+    tenantId: z.uuid(),
     ts: z.string(),
     actorType: z.enum(['user', 'system']),
     actorId: z.string(),
@@ -750,7 +750,7 @@ export interface CreateAuditRoutesOpts {
 }
 
 const QueryParams = QueryAuditFilters.extend({
-  tenantId: z.string().uuid().openapi({ param: { name: 'tenantId', in: 'query' } }),
+  tenantId: z.uuid().openapi({ param: { name: 'tenantId', in: 'query' } }),
 })
 
 export function createAuditRoutes(opts: CreateAuditRoutesOpts): OpenAPIHono {
@@ -842,7 +842,7 @@ Diff (apply minimum surgical change — do not refactor unrelated lines):
 -import { createAuditWriter } from '@seta/audit'
 +import { createAuditRoutes, createAuditWriter } from '@seta/audit'
 @@
-+import { requireSession } from '@seta/sso'
++import { requireSession } from '@seta/identity'
 +import { requireTenantMembership, tenantMiddleware } from '@seta/tenant'
 @@
  app.route('/agent', agentRouter)
@@ -909,7 +909,7 @@ import { z } from 'zod'
 
 export const AuditRowSchema = z.object({
   id: z.number().int().nonnegative(),
-  tenantId: z.string().uuid(),
+  tenantId: z.uuid(),
   ts: z.string(),
   actorType: z.enum(['user', 'system']),
   actorId: z.string(),

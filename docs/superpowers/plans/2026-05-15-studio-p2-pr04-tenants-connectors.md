@@ -273,7 +273,7 @@ export type TenantMembership = { role: TenantMembershipRole }
 export type RequireTenantMembershipOpts = {
   /**
    * Resolve session user id from request context. Default reads
-   * `c.get('sessionUser')?.id` (set by @seta/sso requireSession) and falls
+   * `c.get('sessionUser')?.id` (set by @seta/identity requireSession) and falls
    * back to the `x-session-user` header (test seam).
    */
   sessionUser?: (c: Context) => string | undefined
@@ -568,7 +568,7 @@ export const ConnectorAdminRow = z.object({
 export type ConnectorAdminRow = z.infer<typeof ConnectorAdminRow>
 
 const ConsentUrlBody = z.object({
-  tenantId: z.string().uuid().optional(),
+  tenantId: z.uuid().optional(),
   tenantHint: z.string().optional(),
 })
 

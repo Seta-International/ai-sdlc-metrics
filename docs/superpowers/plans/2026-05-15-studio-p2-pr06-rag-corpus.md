@@ -107,7 +107,7 @@ export default defineConfig({
 
 ```sh
 pnpm --filter @seta/agent-rag add drizzle-orm@0.45.2
-pnpm --filter @seta/agent-rag add @seta/db@workspace:* @seta/tenant@workspace:* @seta/observability@workspace:* @seta/middleware@workspace:* @seta/sso@workspace:* @seta/agent-vector@workspace:* @seta/agent-embeddings@workspace:* @seta/agent-chunking@workspace:*
+pnpm --filter @seta/agent-rag add @seta/db@workspace:* @seta/tenant@workspace:* @seta/observability@workspace:* @seta/middleware@workspace:* @seta/identity@workspace:* @seta/agent-vector@workspace:* @seta/agent-embeddings@workspace:* @seta/agent-chunking@workspace:*
 pnpm --filter @seta/agent-rag add hono@4.10.0 @hono/zod-openapi@1.1.4 zod@4.4.3
 pnpm --filter @seta/agent-rag add -D drizzle-kit@0.31.10
 ```
@@ -226,7 +226,7 @@ export const IngestStatus = z.enum(['queued', 'indexing', 'indexed', 'failed']).
 
 export const RagSource = z
   .object({
-    id: z.string().uuid(),
+    id: z.uuid(),
     name: z.string().min(1).max(512),
     contentType: z.string().min(1).max(255),
     byteSize: z.number().int().nonnegative(),
@@ -269,8 +269,8 @@ export type UploadSourceMetadata = z.infer<typeof UploadSourceMetadata>
 
 export const SourceChunk = z
   .object({
-    id: z.string().uuid(),
-    sourceId: z.string().uuid(),
+    id: z.uuid(),
+    sourceId: z.uuid(),
     content: z.string(),
     charRange: z.object({ start: z.number().int(), end: z.number().int() }),
     metadata: z.record(z.string(), z.unknown()).nullable().optional(),
@@ -977,7 +977,7 @@ describe('createRagRoutes', () => {
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import type { Sql } from '@seta/db'
 import { onError, requireTenantMembership } from '@seta/middleware'
-import { requireSession } from '@seta/sso'
+import { requireSession } from '@seta/identity'
 import { tenantMiddleware, tenantContext } from '@seta/tenant'
 import { logger } from '@seta/observability'
 import {
@@ -1068,7 +1068,7 @@ export function createRagRoutes({ sql, ingest }: CreateRagRoutesArgs) {
     createRoute({
       method: 'post',
       path: '/rag/sources/{id}/reindex',
-      request: { params: z.object({ id: z.string().uuid() }) },
+      request: { params: z.object({ id: z.uuid() }) },
       responses: {
         200: { content: { 'application/json': { schema: RagSource } }, description: 'OK' },
         404: { description: 'not found' },
@@ -1101,7 +1101,7 @@ export function createRagRoutes({ sql, ingest }: CreateRagRoutesArgs) {
       method: 'get',
       path: '/rag/sources/{id}/chunks',
       request: {
-        params: z.object({ id: z.string().uuid() }),
+        params: z.object({ id: z.uuid() }),
         query: z.object({
           cursor: z.string().optional(),
           limit: z.coerce.number().int().min(1).max(200).default(50),
@@ -1356,7 +1356,7 @@ import { z } from 'zod'
 export const IngestStatus = z.enum(['queued', 'indexing', 'indexed', 'failed'])
 
 export const RagSource = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   name: z.string(),
   contentType: z.string(),
   byteSize: z.number().int().nonnegative(),
@@ -1391,8 +1391,8 @@ export const UploadSourceMetadata = z.object({
 export type UploadSourceMetadata = z.infer<typeof UploadSourceMetadata>
 
 export const SourceChunk = z.object({
-  id: z.string().uuid(),
-  sourceId: z.string().uuid(),
+  id: z.uuid(),
+  sourceId: z.uuid(),
   content: z.string(),
   charRange: z.object({ start: z.number().int(), end: z.number().int() }),
   metadata: z.record(z.string(), z.unknown()).nullable().optional(),

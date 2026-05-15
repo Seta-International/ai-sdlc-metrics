@@ -167,7 +167,12 @@ describe('deepMergeWorkingMemory', () => {
   describe('array handling', () => {
     it('replaces arrays entirely instead of merging', () => {
       const result = deepMergeWorkingMemory(
-        { people: [{ name: 'Alice', role: 'manager' }, { name: 'Bob', role: 'engineer' }] },
+        {
+          people: [
+            { name: 'Alice', role: 'manager' },
+            { name: 'Bob', role: 'engineer' },
+          ],
+        },
         { people: [{ name: 'Charlie', role: 'designer' }] },
       )
       expect(result).toEqual({ people: [{ name: 'Charlie', role: 'designer' }] })
@@ -186,12 +191,18 @@ describe('deepMergeWorkingMemory', () => {
 
   describe('type coercion edge cases', () => {
     it('replaces object with primitive', () => {
-      const result = deepMergeWorkingMemory({ data: { nested: 'value' } }, { data: 'simple string' })
+      const result = deepMergeWorkingMemory(
+        { data: { nested: 'value' } },
+        { data: 'simple string' },
+      )
       expect(result).toEqual({ data: 'simple string' })
     })
 
     it('replaces primitive with object', () => {
-      const result = deepMergeWorkingMemory({ data: 'simple string' }, { data: { nested: 'value' } })
+      const result = deepMergeWorkingMemory(
+        { data: 'simple string' },
+        { data: { nested: 'value' } },
+      )
       expect(result).toEqual({ data: { nested: 'value' } })
     })
 

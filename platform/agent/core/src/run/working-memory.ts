@@ -81,7 +81,11 @@ function workingMemoryEnabled(cfg: AgentConfig): boolean {
   return cfg.workingMemory?.enabled !== false && cfg.workingMemory !== undefined
 }
 
-export function makeMemoryContext(cfg: AgentConfig, input: { threadId?: string; conversationId?: string }, runId: string): MemoryContext {
+export function makeMemoryContext(
+  cfg: AgentConfig,
+  input: { threadId?: string; conversationId?: string },
+  runId: string,
+): MemoryContext {
   return {
     threadId: input.threadId ?? runId,
     ...(input.conversationId !== undefined ? { conversationId: input.conversationId } : {}),
@@ -153,7 +157,8 @@ export function buildWorkingMemoryTools(
         const mergedData = deepMergeWorkingMemory(existingData, newData as Record<string, unknown>)
         await memory.updateWorkingMemory(memCtx, JSON.stringify(mergedData))
       } else {
-        const nextMemory = typeof input.memory === 'string' ? input.memory : (JSON.stringify(input.memory) ?? '')
+        const nextMemory =
+          typeof input.memory === 'string' ? input.memory : (JSON.stringify(input.memory) ?? '')
         await memory.updateWorkingMemory(memCtx, nextMemory)
       }
       return { ok: true, value: { success: true } }
@@ -188,7 +193,9 @@ export function filterWorkingMemoryToolMessages(messages: KernelMessage[]): Kern
   })
 }
 
-export function resolveWorkingMemoryTemplate(cfg: WorkingMemoryConfig | undefined): WorkingMemoryTemplate {
+export function resolveWorkingMemoryTemplate(
+  cfg: WorkingMemoryConfig | undefined,
+): WorkingMemoryTemplate {
   if (cfg?.schema !== undefined) {
     return { format: 'json', content: normalizeWorkingMemorySchema(cfg.schema) }
   }
@@ -215,7 +222,8 @@ export function mergeWorkingMemoryConfig(
 
 function normalizeWorkingMemorySchema(schema: WorkingMemorySchema): string | JsonObject {
   if (typeof schema === 'string') return schema
-  if (isJsonObject(schema) && '_zod' in schema) return z.toJSONSchema(schema as z.ZodTypeAny) as JsonObject
+  if (isJsonObject(schema) && '_zod' in schema)
+    return z.toJSONSchema(schema as z.ZodTypeAny) as JsonObject
   if (isJsonObject(schema) && looksLikeJsonSchema(schema)) return schema
   try {
     return z.toJSONSchema(schema as z.ZodTypeAny) as JsonObject
@@ -260,12 +268,14 @@ function emptyValueForSchema(schema: unknown): unknown {
   if (union !== undefined) return emptyValueForSchema(union)
 
   const type = Array.isArray(schema.type)
-    ? schema.type.find((t) => t !== 'null') ?? schema.type[0]
+    ? (schema.type.find((t) => t !== 'null') ?? schema.type[0])
     : schema.type
 
   if (type === 'object' || schema.properties !== undefined) {
     const properties = isJsonObject(schema.properties) ? schema.properties : {}
-    return Object.fromEntries(Object.entries(properties).map(([key, value]) => [key, emptyValueForSchema(value)]))
+    return Object.fromEntries(
+      Object.entries(properties).map(([key, value]) => [key, emptyValueForSchema(value)]),
+    )
   }
   if (type === 'array') return []
   if (type === 'number' || type === 'integer') return 0
@@ -339,9 +349,13 @@ Notes:
 - Preserve the template structure while updating the content.`
 }
 
-function updateJsonInstruction(template: Extract<WorkingMemoryTemplate, { format: 'json' }>, data: string | null): string {
+function updateJsonInstruction(
+  template: Extract<WorkingMemoryTemplate, { format: 'json' }>,
+  data: string | null,
+): string {
   const templateObject = emptyValueForSchema(parseJsonTemplate(template.content))
-  const rawTemplate = typeof template.content === 'string' ? template.content : JSON.stringify(template.content)
+  const rawTemplate =
+    typeof template.content === 'string' ? template.content : JSON.stringify(template.content)
   return `WORKING_MEMORY_SYSTEM_INSTRUCTION:
 Store and update any conversation-relevant information by calling the updateWorkingMemory tool. If information might be referenced again, store it.
 
@@ -375,7 +389,8 @@ function updateJsonInstructionVNext(
   data: string | null,
 ): string {
   const templateObject = emptyValueForSchema(parseJsonTemplate(template.content))
-  const rawTemplate = typeof template.content === 'string' ? template.content : JSON.stringify(template.content)
+  const rawTemplate =
+    typeof template.content === 'string' ? template.content : JSON.stringify(template.content)
   return `WORKING_MEMORY_SYSTEM_INSTRUCTION:
 Store and update conversation-relevant information by calling the updateWorkingMemory tool.
 

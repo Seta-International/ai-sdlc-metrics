@@ -2,7 +2,7 @@ import type { Tool } from '@seta/agent-core'
 import type { EmbeddingsClient } from '@seta/agent-embeddings'
 import type { VectorChunk, VectorStore, VectorUpsertInput } from '@seta/agent-vector'
 import { logger } from '@seta/observability'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import { z } from 'zod'
 import type { ReadToolDeps } from './list_my_tasks'
 

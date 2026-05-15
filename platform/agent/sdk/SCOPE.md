@@ -37,7 +37,7 @@ adapter, no tool loop, no testkit here.
     `@seta/auth` or `@seta/oauth`.
   - Tenant context — there is no ALS on the client side; the tenant id is conveyed via
     the request (header or implied by the auth token). Client code does not import
-    `@seta/tenant`.
+    `@seta/tenancy`.
   - HTTP transport polyfills — node-fetch shims, undici tuning, retry policy. P1 targets
     Node 22+ where `fetch` is built-in (setup.md §1).
   - Streaming **production** — the producer side is `@seta/agent-core`'s
@@ -98,7 +98,7 @@ Runtime imports of `@seta/agent-core` are forbidden (see "Imports" below).
   - `@seta/agent-core` runtime imports — would pull `openai` + `@anthropic-ai/sdk` +
     `js-tiktoken` + `msw` into every consumer of the SDK. The SDK must remain a
     dependency-light, browser-friendly-ish (P2 Studio) client. Type-only is the seam.
-  - `@seta/db`, `@seta/auth`, `@seta/oauth`, `@seta/tenant`, `@seta/ms-graph`, `@seta/
+  - `@seta/db`, `@seta/auth`, `@seta/oauth`, `@seta/tenancy`, `@seta/ms-graph`, `@seta/
     middleware` — none of these belong on the consumer side. The client just speaks HTTP.
   - Any `modules/*` package — CLAUDE.md `platform/*` boundary rule.
   - `openai` / `@anthropic-ai/sdk` — not a client concern; never installed here.
@@ -193,7 +193,7 @@ Runtime imports of `@seta/agent-core` are forbidden (see "Imports" below).
 - **Browser-safe shim.** Studio (P2) will consume this SDK from the browser. Node 22
   `fetch` works in both, but `ReadableStream` byte-iteration and `TextDecoderStream`
   details differ — verify when Studio lands (`07-request-context.md:46` calls out the
-  general browser-shim issue for `@seta/tenant`; same class of decision here).
+  general browser-shim issue for `@seta/tenancy`; same class of decision here).
 - **`Run` lifecycle endpoints.** Beyond `run()`, do we expose `getRun(id)` / `cancelRun(id)`
   / `listRuns()` in P1? The `Run`/`RunStatus` types are reserved in the kernel
   (`05-workflows.md:36`) but a P1 lifecycle endpoint set is not yet specced.

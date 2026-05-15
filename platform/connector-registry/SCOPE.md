@@ -13,7 +13,7 @@ Vendor-neutral runtime registry of `ConnectorDefinition` manifests + a consent g
   - The consent-gate seam: `requireConsent(tenantId, connectorId)` throws `ConnectorNotConsented` (HTTP 403 via `DomainError`); unknown ids throw `ConnectorUnknown` (HTTP 400).
   - `DomainError` subclasses for the two failure modes so the `@seta/middleware` RFC 7807 mapper renders consistent responses.
 - **Does NOT own:**
-  - The `tenant_connectors` table — that's owned by `@seta/tenant` (setup.md §3 schema list, `docs/setup.md:111`). The composition root passes a `RequireConsentFn` that queries it.
+  - The `tenant_connectors` table — that's owned by `@seta/tenancy` (setup.md §3 schema list, `docs/setup.md:111`). The composition root passes a `RequireConsentFn` that queries it.
   - Vendor-specific manifests or scopes — each connector exports its own `ConnectorDefinition` (`modules/connectors/<vendor>/src/manifest.ts`); registry only stores them.
   - Admin-consent URL construction — `@seta/oauth` builds `https://login.microsoftonline.com/<…>/v2.0/adminconsent?…&scope=https://graph.microsoft.com/.default…` (setup.md §4 `docs/setup.md:201`). Registry only supplies the scope union as a sanity-check input.
   - Token acquisition, KMS, or any OAuth state. Those are `@seta/oauth`.
@@ -50,7 +50,7 @@ Implemented and unit-tested. Cite files:
 
 - **Allowed internal:** `@seta/middleware` (for `DomainError` — CLAUDE.md "Errors" rule mandates this base class for RFC 7807 mapping).
 - **Forbidden:**
-  - `@seta/db`, `@seta/tenant` — registry stays vendor-neutral; the consent-check function is injected, not imported. Pulling `@seta/db` here would force every test to mock or use a real Postgres pool.
+  - `@seta/db`, `@seta/tenancy` — registry stays vendor-neutral; the consent-check function is injected, not imported. Pulling `@seta/db` here would force every test to mock or use a real Postgres pool.
   - `@seta/oauth` — wrong direction; `@seta/oauth` *depends on* `@seta/connector-registry` (setup.md §13 `docs/setup.md:1790`).
   - `@seta/ms-graph`, any `@seta/connector-*` — same direction.
   - `modules/*`, `apps/*` — CLAUDE.md "platform/* depends on nothing in modules/ or apps/".
@@ -61,14 +61,14 @@ Implemented and unit-tested. Cite files:
 
 - **Single explicit registry, no plugin loader.** Each connector exports a `connector: ConnectorDefinition`; `apps/api/src/main.ts` calls `registry.register(plannerConnector); registry.register(directoryConnector)`. CLAUDE.md "Every `modules/*` package … `apps/api/src/main.ts` owns mount prefixes and the connector registration list — it's the only registry. No DI containers, plugin loaders, or runtime discovery."
 - **Consent gate before any external call.** CLAUDE.md "Connector consent: every Graph call path must first satisfy `connectorRegistry.requireConsent(tenantId, '<connector-id>')`." The connector module makes the call; this package only supplies the gate.
-- **Injection for tenant-aware queries.** `createConnectorRegistry(consentCheck)` keeps `@seta/db` and `@seta/tenant` out of this package — see `platform/connector-registry/src/runtime.ts` factory comment ("the composition root wires a fn that queries tenant_connectors").
+- **Injection for tenant-aware queries.** `createConnectorRegistry(consentCheck)` keeps `@seta/db` and `@seta/tenancy` out of this package — see `platform/connector-registry/src/runtime.ts` factory comment ("the composition root wires a fn that queries tenant_connectors").
 - **Error subclasses extend `DomainError`.** CLAUDE.md "Errors: throw `DomainError` subclasses from `@seta/middleware/errors`; mapped to RFC 7807." See `ConnectorNotConsented` / `ConnectorUnknown` in `runtime.ts`.
 - **Scope union via `Set` dedup.** `runtime.ts.scopeUnion` already does this — same pattern any future "all-scopes for tenant X" UI helper should use.
 - **`ConnectorDefinition.capabilities` flags drive higher-layer behavior** (e.g. only `syncable` connectors get a sync worker; only `writes` connectors expose `.commit` tools). Phase-1 `04-tools-mcp.md` Punch List notes that MCP annotation propagation (`readOnlyHint` / `destructiveHint`) should derive from these flags in the eventual MCP layer (P2-deferred).
 
 ## Patterns to avoid
 
-- **Do not import `@seta/db` or `@seta/tenant` here.** Phase-1 `07-request-context.md` Delta: "DI/RequestContext conflation — Mastra uses RequestContext as a DI bag. Don't." Keep the registry strictly about manifests + a callable consent seam.
+- **Do not import `@seta/db` or `@seta/tenancy` here.** Phase-1 `07-request-context.md` Delta: "DI/RequestContext conflation — Mastra uses RequestContext as a DI bag. Don't." Keep the registry strictly about manifests + a callable consent seam.
 - **Do not auto-discover connectors via filesystem globs or plugin loaders.** CLAUDE.md "No DI containers, plugin loaders, or runtime discovery." The setup.md "one registry in `main.ts`" rule is mirrored in `04-tools-mcp.md` "Avoid: agent-as-tool and workflow-as-tool auto-conversion — too clever; explicit registration in `apps/api/src/main.ts`."
 - **Do not expose the registry over MCP in P1.** `04-tools-mcp.md` P2-defer: "MCP server exposure of seta tools. Reason: P1 surface is Teams + REST only (`setup.md:1012`); MCP would force JSON-Schema generation, annotation curation, and auth-bridge work without a P1 consumer."
 - **Do not build the admin-consent URL here.** Setup.md §4 (`docs/setup.md:201`): the dedicated `/adminconsent` URL plus `scope=https://graph.microsoft.com/.default` lives in `@seta/oauth`. The registry only supplies the scope-union as a sanity check.

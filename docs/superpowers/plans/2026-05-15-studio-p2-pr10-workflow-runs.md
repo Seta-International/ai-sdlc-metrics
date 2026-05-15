@@ -215,7 +215,7 @@ For runs in `running`/`suspended` state, subscribe to the runner's event bus (ad
 
 ```ts
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { requireSession, csrfMiddleware } from '@seta/sso'
+import { requireSession, csrfMiddleware } from '@seta/identity'
 import { tenantMiddleware, tenantContext, requireTenantMembership } from '@seta/tenant'
 import { streamKernelSSE } from '@seta/agent-core'
 import type { Sql } from 'postgres'

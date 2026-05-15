@@ -1,4 +1,4 @@
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 
 type DbSql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>
 

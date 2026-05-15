@@ -2,7 +2,7 @@ import type { Tool } from '@seta/agent-core'
 import { queryDisplayNames } from '@seta/connector-ms365-directory'
 import { queryPlanTitle, queryVisiblePlanIds } from '@seta/connector-ms365-planner'
 import { logger } from '@seta/observability'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import { z } from 'zod'
 
 const log = logger.child({ component: 'analytics.workload_by_assignee' })

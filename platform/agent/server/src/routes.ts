@@ -1,7 +1,7 @@
 import type { AdapterRegistry, MemoryProvider } from '@seta/agent-core'
 import { run, streamKernelSSE } from '@seta/agent-core'
 import { DomainError } from '@seta/middleware'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { buildActionTool } from './actions/build-action-tool'

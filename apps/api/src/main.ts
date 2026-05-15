@@ -20,7 +20,15 @@ import {
   plannerConnector,
 } from '@seta/connector-ms365-planner'
 import { createConnectorAdminRoutes, createConnectorRegistry } from '@seta/connector-registry'
-import { onError, Unauthorized } from '@seta/middleware'
+import {
+  createSessionStore,
+  createSsoRoutes,
+  EntraSsoProvider,
+  GoogleSsoProvider,
+  isSuperadmin,
+  requireSession,
+} from '@seta/identity'
+import { onError, rateLimit, Unauthorized } from '@seta/middleware'
 import { createGraphFetch } from '@seta/ms-graph'
 import { mockTeamsHandler, routes as teamsRoutes } from '@seta/ms-teams'
 import {
@@ -37,19 +45,23 @@ import {
   createTaskIndexer,
   PLANNER_PROFILE_SEED,
 } from '@seta/planner'
-import { createSsoRoutes, EntraSsoProvider, GoogleSsoProvider } from '@seta/sso'
 import {
-  createTenantRoutes,
+  createMeContextProvider,
+  createTenancyRoutes,
+  findOrAttachUser,
   getActiveTenantIds,
   isConnectorConsented,
-  listTenantsForUser,
   recordConsent,
+  type TenantMembershipRole,
   tenantContext,
-} from '@seta/tenant'
+} from '@seta/tenancy'
+import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { agentMemory, agentRegistry } from './agent'
 import { sql } from './db'
-import { env } from './env'
+import { deployedApps, enabledSsoProviders, env, superadminEmails } from './env'
+import { lastAppMiddleware, verifyLastApp } from './last-app-middleware'
+import { runSeed } from './seed'
 
 // ── Infrastructure ────────────────────────────────────────────────────────────
 
@@ -87,8 +99,14 @@ const googleSso = new GoogleSsoProvider({
   clientSecret: env.GOOGLE_CLIENT_SECRET,
 })
 
+const meContext = createMeContextProvider({
+  sql: sql as never,
+  deployedApps: deployedApps(),
+})
+
 const sso = createSsoRoutes({
   providers: { entra: entraSso, google: googleSso },
+  enabledProviders: enabledSsoProviders(),
   sql,
   sessionCookie: {
     name: 'seta_sess',
@@ -97,6 +115,34 @@ const sso = createSsoRoutes({
     secure: env.NODE_ENV === 'production',
   },
   redirectBase: env.PUBLIC_BASE_URL,
+  meContext,
+  tenancy: { findOrAttachUser: (uid) => findOrAttachUser(sql as never, uid) },
+  verifyLastApp: (raw) => verifyLastApp(raw, env.SESSION_HMAC_KEY),
+})
+
+// ── Tenancy routes ────────────────────────────────────────────────────────────
+
+const sessionStore = createSessionStore(sql)
+const requireSessionMiddleware = requireSession({
+  cookieName: 'seta_sess',
+  hmacKey: env.SESSION_HMAC_KEY,
+  sessionStore,
+})
+
+const tenancyRoutes = createTenancyRoutes({
+  sql: sql as never,
+  requireSession: requireSessionMiddleware,
+  membershipLookup: async (userId: string) => {
+    const rows = (await sql`
+      SELECT role FROM tenant.tenant_members
+      WHERE user_id = ${userId} AND tenant_id = ${tenantContext.getTenantId()}
+      LIMIT 1
+    `) as Array<{ role: TenantMembershipRole }>
+    return rows[0] ?? null
+  },
+  invalidateUserSessions: (uid: string) => sessionStore.deleteByUserId(uid),
+  isSuperadmin: (uid: string) => isSuperadmin(sql as never, uid),
+  audit,
 })
 
 // ── Tool registry ─────────────────────────────────────────────────────────────
@@ -201,7 +247,48 @@ const agentRouter = createAgentRouter({
 
 const app = new Hono().onError(onError)
 
+app.use(
+  '*',
+  lastAppMiddleware({ hmacKey: env.SESSION_HMAC_KEY, secure: env.NODE_ENV === 'production' }),
+)
+
+if (env.NODE_ENV === 'development') {
+  app.get('/', (c) => c.redirect('/console/'))
+
+  const FRONTEND_PORTS: Record<string, number> = {
+    console: 5174,
+    studio: 5180,
+  }
+  for (const [prefix, port] of Object.entries(FRONTEND_PORTS)) {
+    app.all(`/${prefix}/*`, async (c) => {
+      const target = `http://localhost:${port}${c.req.path}${c.req.url.includes('?') ? `?${c.req.url.split('?')[1]}` : ''}`
+      const init: RequestInit = {
+        method: c.req.method,
+        headers: c.req.raw.headers,
+      }
+      if (c.req.method !== 'GET' && c.req.method !== 'HEAD') {
+        init.body = c.req.raw.body
+        ;(init as { duplex?: string }).duplex = 'half'
+      }
+      const upstream = await fetch(target, init)
+      return upstream
+    })
+    app.all(`/${prefix}`, async (c) => {
+      const target = `http://localhost:${port}/${prefix}`
+      return fetch(target, { method: c.req.method, headers: c.req.raw.headers })
+    })
+  }
+}
+
 app.get('/healthz', (c) => c.json({ ok: true }))
+
+const ipKey = (c: Context) => c.req.header('x-forwarded-for') ?? 'anon'
+const userKey = (c: Context) => (c.get('userId') as string | undefined) ?? 'anon'
+
+app.use('/sso/login/*', rateLimit({ rps: 5, burst: 20, key: ipKey }))
+app.use('/sso/callback/*', rateLimit({ rps: 5, burst: 30, key: ipKey }))
+app.use('/members*', rateLimit({ rps: 10, burst: 30, key: userKey }))
+app.use('/admin/*', rateLimit({ rps: 10, burst: 30, key: userKey }))
 
 app.route('/', sso)
 
@@ -216,11 +303,11 @@ app.route(
     redirectBase: env.PUBLIC_BASE_URL,
     onConsented: async ({ tenantId, connectorIds, scopesGranted }) =>
       recordConsent(sql as never, { tenantId, connectorIds, scopesGranted }),
-    onConsentRedirect: ({ tenantId, connectorIds, ok, error }) => {
+    onConsentRedirect: ({ connectorIds, ok, error }) => {
       const cid = connectorIds[0] ?? 'unknown'
       const params = new URLSearchParams({ ok: ok ? '1' : '0' })
       if (error) params.set('error', error)
-      return `${env.PUBLIC_STUDIO_URL}/tenants/${tenantId}/connectors/${cid}/consent?${params.toString()}`
+      return `${env.PUBLIC_STUDIO_URL}/studio/connectors/${cid}/consent?${params.toString()}`
     },
   }),
 )
@@ -244,13 +331,6 @@ const buildConsentUrl: Parameters<typeof createConnectorAdminRoutes>[0]['buildCo
 
 app.route(
   '/',
-  createTenantRoutes({
-    listTenants: async ({ userId }) => listTenantsForUser(sql as never, userId),
-  }),
-)
-
-app.route(
-  '/',
   createConnectorAdminRoutes({
     registry,
     isConsented: async (tenantId, connectorId) =>
@@ -267,6 +347,8 @@ app.route(
   }),
 )
 
+app.route('/', tenancyRoutes)
+
 app.route('/agent', agentRouter)
 
 app.route(
@@ -282,6 +364,17 @@ app.route(
 // ── Boot: seed agent profiles ─────────────────────────────────────────────────
 
 async function boot() {
+  await runSeed({
+    sql: sql as never,
+    tenant: {
+      id: env.SETA_SEED_TENANT_ID,
+      slug: env.SETA_SEED_TENANT_SLUG,
+      name: env.SETA_SEED_TENANT_NAME,
+    },
+    superadminEmails: superadminEmails(),
+  })
+  logger.info({ tenantId: env.SETA_SEED_TENANT_ID }, 'tenant seed applied')
+
   await seedAgentProfiles(sql as never, [PLANNER_PROFILE_SEED, ANALYTICS_PROFILE_SEED])
   logger.info('agent profiles seeded')
 

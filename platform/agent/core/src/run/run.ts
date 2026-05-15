@@ -1,10 +1,10 @@
 import { AgentError, kernelErrorOf } from '../errors'
 import { isAbortError } from '../errors/classify'
 import { NullMemoryProvider } from '../memory/null-provider'
-import type { AgentConfig, RunLoopOptions } from '../types/config'
 import type { KernelChunk } from '../types/chunk'
-import type { KernelMessage } from '../types/message'
+import type { AgentConfig, RunLoopOptions } from '../types/config'
 import type { MemoryContext } from '../types/memory'
+import type { KernelMessage } from '../types/message'
 import type { Processor, ProcessorContext } from '../types/processor'
 import type { RunCtx, RunInput } from '../types/run'
 import { createRunCtx } from './make-run-ctx'
@@ -64,7 +64,11 @@ export async function* run(
       }
     }
 
-    const initialMessages = [...workingMemoryMessages, ...recalled.messages, ...workingInput.messages]
+    const initialMessages = [
+      ...workingMemoryMessages,
+      ...recalled.messages,
+      ...workingInput.messages,
+    ]
     const configuredTools = cfg.tools ?? []
     const memoryTools = configuredTools.some((tool) => tool.id === 'updateWorkingMemory')
       ? []
