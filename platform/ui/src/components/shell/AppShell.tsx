@@ -13,24 +13,76 @@ import { Sidebar } from './Sidebar'
 import { TenantSwitcher } from './TenantSwitcher'
 import { TopBar } from './TopBar'
 
-interface Props {
-  nav: readonly NavItem[]
-  currentPath: string
-  breadcrumb?: readonly Crumb[]
-  agentContext: AgentContext
+interface TenantSwitcherBundle {
   tenants: readonly Tenant[]
   currentTenantId: string
   onTenantSelect: (id: string) => void
+}
+
+interface AppSwitcherBundle {
   appTiles: readonly AppTile[]
   activeAppId: string
+}
+
+interface AgentPanelBundle {
+  agentContext: AgentContext
   agentMessages: readonly SetaUIMessage[]
+  onAgentSubmit: (text: string, context: AgentContext) => void
   agentStreaming?: boolean
   agentPending?: boolean
-  onAgentSubmit: (text: string, context: AgentContext) => void
+}
+
+interface Props
+  extends Partial<TenantSwitcherBundle>,
+    Partial<AppSwitcherBundle>,
+    Partial<AgentPanelBundle> {
+  nav: readonly NavItem[]
+  currentPath: string
+  breadcrumb?: readonly Crumb[]
   notificationCount?: number
   userMenu?: ReactNode
   logo?: ReactNode
   children: ReactNode
+}
+
+function pickTenantSwitcher(p: Props): TenantSwitcherBundle | null {
+  if (
+    p.tenants !== undefined &&
+    p.currentTenantId !== undefined &&
+    p.onTenantSelect !== undefined
+  ) {
+    return {
+      tenants: p.tenants,
+      currentTenantId: p.currentTenantId,
+      onTenantSelect: p.onTenantSelect,
+    }
+  }
+  return null
+}
+
+function pickAppSwitcher(p: Props): AppSwitcherBundle | null {
+  if (p.appTiles !== undefined && p.activeAppId !== undefined) {
+    return { appTiles: p.appTiles, activeAppId: p.activeAppId }
+  }
+  return null
+}
+
+function pickAgentPanel(p: Props): AgentPanelBundle | null {
+  if (
+    p.agentContext !== undefined &&
+    p.agentMessages !== undefined &&
+    p.onAgentSubmit !== undefined
+  ) {
+    const out: AgentPanelBundle = {
+      agentContext: p.agentContext,
+      agentMessages: p.agentMessages,
+      onAgentSubmit: p.onAgentSubmit,
+    }
+    if (p.agentStreaming !== undefined) out.agentStreaming = p.agentStreaming
+    if (p.agentPending !== undefined) out.agentPending = p.agentPending
+    return out
+  }
+  return null
 }
 
 export function AppShell(props: Props) {
@@ -38,11 +90,45 @@ export function AppShell(props: Props) {
   const panel = useAgentPanel()
   const isDesktop = useMediaQuery('(min-width: 768px)')
 
+  const ts = pickTenantSwitcher(props)
+  const as = pickAppSwitcher(props)
+  const ap = pickAgentPanel(props)
+
+  const tenantSwitcher = (collapsed: boolean) =>
+    ts ? (
+      <TenantSwitcher
+        tenants={ts.tenants}
+        currentId={ts.currentTenantId}
+        onSelect={ts.onTenantSelect}
+        collapsed={collapsed}
+      />
+    ) : undefined
+
+  const appSwitcher = (collapsed: boolean) =>
+    as ? (
+      <AppSwitcher tiles={as.appTiles} activeId={as.activeAppId} collapsed={collapsed} />
+    ) : undefined
+
+  const renderAgentPanel = () =>
+    ap && (
+      <AgentPanel
+        agentContext={ap.agentContext}
+        messages={ap.agentMessages}
+        {...(ap.agentStreaming !== undefined ? { streaming: ap.agentStreaming } : {})}
+        {...(ap.agentPending !== undefined ? { pending: ap.agentPending } : {})}
+        onClose={() => panel.set(false)}
+        onSubmit={ap.onAgentSubmit}
+      />
+    )
+
   if (!isDesktop) {
+    const ts0 = tenantSwitcher(false)
+    const as0 = appSwitcher(false)
     return (
       <div className="flex h-screen flex-col bg-canvas">
         <TopBar
           {...(props.breadcrumb !== undefined ? { breadcrumb: props.breadcrumb } : {})}
+          hasAgentPanel={ap !== null}
           agentPanelOpen={panel.open}
           onAgentToggle={panel.toggle}
           onSearch={() => sidebar.toggle()}
@@ -61,42 +147,26 @@ export function AppShell(props: Props) {
               collapsed={false}
               onToggleCollapse={() => sidebar.set(true)}
               {...(props.logo !== undefined ? { logo: props.logo } : {})}
-              tenantSwitcher={
-                <TenantSwitcher
-                  tenants={props.tenants}
-                  currentId={props.currentTenantId}
-                  onSelect={props.onTenantSelect}
-                  collapsed={false}
-                />
-              }
-              appSwitcher={
-                <AppSwitcher
-                  tiles={props.appTiles}
-                  activeId={props.activeAppId}
-                  collapsed={false}
-                />
-              }
+              {...(ts0 !== undefined ? { tenantSwitcher: ts0 } : {})}
+              {...(as0 !== undefined ? { appSwitcher: as0 } : {})}
               {...(props.userMenu !== undefined ? { userMenu: props.userMenu } : {})}
             />
           </Dialog.Content>
         </Dialog.Root>
 
-        <Dialog.Root open={panel.open} onOpenChange={panel.set}>
-          <Dialog.Content className="!right-0 !left-auto !top-0 !translate-x-0 !translate-y-0 h-full w-[85vw] max-w-[360px] rounded-none p-0">
-            <AgentPanel
-              agentContext={props.agentContext}
-              messages={props.agentMessages}
-              {...(props.agentStreaming !== undefined ? { streaming: props.agentStreaming } : {})}
-              {...(props.agentPending !== undefined ? { pending: props.agentPending } : {})}
-              onClose={() => panel.set(false)}
-              onSubmit={props.onAgentSubmit}
-            />
-          </Dialog.Content>
-        </Dialog.Root>
+        {ap && (
+          <Dialog.Root open={panel.open} onOpenChange={panel.set}>
+            <Dialog.Content className="!right-0 !left-auto !top-0 !translate-x-0 !translate-y-0 h-full w-[85vw] max-w-[360px] rounded-none p-0">
+              {renderAgentPanel()}
+            </Dialog.Content>
+          </Dialog.Root>
+        )}
       </div>
     )
   }
 
+  const tsD = tenantSwitcher(sidebar.collapsed)
+  const asD = appSwitcher(sidebar.collapsed)
   return (
     <div className="flex h-screen overflow-hidden bg-canvas">
       <Sidebar
@@ -105,26 +175,14 @@ export function AppShell(props: Props) {
         collapsed={sidebar.collapsed}
         onToggleCollapse={sidebar.toggle}
         {...(props.logo !== undefined ? { logo: props.logo } : {})}
-        tenantSwitcher={
-          <TenantSwitcher
-            tenants={props.tenants}
-            currentId={props.currentTenantId}
-            onSelect={props.onTenantSelect}
-            collapsed={sidebar.collapsed}
-          />
-        }
-        appSwitcher={
-          <AppSwitcher
-            tiles={props.appTiles}
-            activeId={props.activeAppId}
-            collapsed={sidebar.collapsed}
-          />
-        }
+        {...(tsD !== undefined ? { tenantSwitcher: tsD } : {})}
+        {...(asD !== undefined ? { appSwitcher: asD } : {})}
         {...(props.userMenu !== undefined ? { userMenu: props.userMenu } : {})}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
           {...(props.breadcrumb !== undefined ? { breadcrumb: props.breadcrumb } : {})}
+          hasAgentPanel={ap !== null}
           agentPanelOpen={panel.open}
           onAgentToggle={panel.toggle}
           {...(props.notificationCount !== undefined
@@ -134,20 +192,16 @@ export function AppShell(props: Props) {
         />
         <main className="flex-1 overflow-y-auto p-6">{props.children}</main>
       </div>
-      <div
-        className={cn('shrink-0 transition-[width] duration-200', panel.open ? 'w-[360px]' : 'w-0')}
-      >
-        {panel.open && (
-          <AgentPanel
-            agentContext={props.agentContext}
-            messages={props.agentMessages}
-            {...(props.agentStreaming !== undefined ? { streaming: props.agentStreaming } : {})}
-            {...(props.agentPending !== undefined ? { pending: props.agentPending } : {})}
-            onClose={() => panel.set(false)}
-            onSubmit={props.onAgentSubmit}
-          />
-        )}
-      </div>
+      {ap && (
+        <div
+          className={cn(
+            'shrink-0 transition-[width] duration-200',
+            panel.open ? 'w-[360px]' : 'w-0',
+          )}
+        >
+          {panel.open && renderAgentPanel()}
+        </div>
+      )}
     </div>
   )
 }

@@ -6,10 +6,9 @@ import { SetaProvider } from '../provider/SetaProvider'
 import { useSession } from './useSession'
 
 const me: Me = {
-  id: 'u1',
-  email: 'a@b.com',
-  name: 'A',
+  user: { id: 'u1', email: 'a@b.com', name: 'A', pictureUrl: null },
   tenants: [{ id: 't1', name: 'Acme', role: 'admin' }],
+  csrfToken: 'csrf-xyz',
 }
 
 function makeClient(): AgentClient {

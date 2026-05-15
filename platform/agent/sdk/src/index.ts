@@ -1,4 +1,12 @@
-export { AgentClient, type Me, MeSchema } from './client/AgentClient'
+export {
+  AgentClient,
+  type Me,
+  MeSchema,
+  type SessionUser,
+  SessionUserSchema,
+  type TenantSummary,
+  TenantSummarySchema,
+} from './client/AgentClient'
 export {
   AbortChunk,
   ErrorChunk,

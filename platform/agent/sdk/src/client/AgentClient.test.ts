@@ -11,16 +11,15 @@ describe('AgentClient.getMe', () => {
     server.use(
       http.get('https://api.test/me', () =>
         HttpResponse.json({
-          id: 'u1',
-          email: 'a@b.com',
-          name: 'A B',
+          user: { id: 'u1', email: 'a@b.com', name: 'A B', pictureUrl: null },
           tenants: [{ id: 't1', name: 'Acme', role: 'admin' }],
+          csrfToken: 'csrf-xyz',
         }),
       ),
     )
     const c = new AgentClient({ baseUrl })
     const me = await c.getMe()
-    expect(me).toMatchObject({ id: 'u1', tenants: [{ id: 't1', role: 'admin' }] })
+    expect(me).toMatchObject({ user: { id: 'u1' }, tenants: [{ id: 't1', role: 'admin' }] })
   })
 
   it('throws kind=http on 401', async () => {
