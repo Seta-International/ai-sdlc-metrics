@@ -9,14 +9,6 @@ import { MemoryPersistFailedError, WorkingMemoryTooLargeError } from './errors'
 import { fetchRecallPage, trimToTokenBudget } from './recall'
 import { ensureThread, saveMessages } from './save-turn'
 import type { Thread } from './schema'
-import {
-  createThread,
-  deleteThread,
-  getThreadById,
-  listThreads,
-  saveThread,
-  updateThread,
-} from './thread-crud'
 import type {
   CreateThreadInput,
   DeleteThreadInput,
@@ -27,6 +19,14 @@ import type {
   SaveThreadInput,
   ThreadPatch,
   UpdateThreadInput,
+} from './thread-crud'
+import {
+  createThread,
+  deleteThread,
+  getThreadById,
+  listThreads,
+  saveThread,
+  updateThread,
 } from './thread-crud'
 import {
   readWorkingMemory,
@@ -179,7 +179,10 @@ export class AgentMemoryProvider implements MemoryProvider {
               result: 'failure',
               metadata: { scope: 'resource', reason: 'no_user_id' },
             })
-            logger.warn({ threadId: ctx.threadId }, 'memory.update_working_memory.skipped: no_user_id')
+            logger.warn(
+              { threadId: ctx.threadId },
+              'memory.update_working_memory.skipped: no_user_id',
+            )
             return
           }
           await upsertWorkingMemoryByResource(tx, tenantId, userId, text)
@@ -191,7 +194,10 @@ export class AgentMemoryProvider implements MemoryProvider {
             result: 'ok',
             metadata: { scope: 'resource', bytes: Buffer.byteLength(text, 'utf8') },
           })
-          logger.debug({ resourceId: userId, bytes: Buffer.byteLength(text, 'utf8') }, 'memory.update_working_memory')
+          logger.debug(
+            { resourceId: userId, bytes: Buffer.byteLength(text, 'utf8') },
+            'memory.update_working_memory',
+          )
           return
         }
 
@@ -205,7 +211,10 @@ export class AgentMemoryProvider implements MemoryProvider {
             result: 'failure',
             metadata: { scope: 'thread', reason: r.reason },
           })
-          logger.warn({ threadId: ctx.threadId, reason: r.reason }, 'memory.update_working_memory.skipped')
+          logger.warn(
+            { threadId: ctx.threadId, reason: r.reason },
+            'memory.update_working_memory.skipped',
+          )
           return
         }
 
@@ -217,7 +226,10 @@ export class AgentMemoryProvider implements MemoryProvider {
           result: 'ok',
           metadata: { scope: 'thread', bytes: Buffer.byteLength(text, 'utf8') },
         })
-        logger.debug({ resourceId: r.resourceId, bytes: Buffer.byteLength(text, 'utf8') }, 'memory.update_working_memory')
+        logger.debug(
+          { resourceId: r.resourceId, bytes: Buffer.byteLength(text, 'utf8') },
+          'memory.update_working_memory',
+        )
       })
     } catch (err) {
       // USER-class errors (cap exceeded) must reach the caller; only wrap SYSTEM failures.
@@ -268,7 +280,10 @@ export class AgentMemoryProvider implements MemoryProvider {
 
   async updateThread(input: UpdateThreadInput): Promise<Thread | null>
   async updateThread(threadId: string, patch: ThreadPatch): Promise<Thread | null>
-  async updateThread(inputOrThreadId: UpdateThreadInput | string, patch?: ThreadPatch): Promise<Thread | null> {
+  async updateThread(
+    inputOrThreadId: UpdateThreadInput | string,
+    patch?: ThreadPatch,
+  ): Promise<Thread | null> {
     let input: UpdateThreadInput
     if (typeof inputOrThreadId === 'string') {
       if (!patch) {

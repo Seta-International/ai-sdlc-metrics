@@ -37,8 +37,8 @@ describe('mockTeamsHandler', () => {
     const result = await mockTeamsHandler(makeActivity({ text: 'create a task' }), runCtx)
     const card = (result?.attachments?.[0] as { content: { actions: Array<{ type: string }> } })
       .content
-    expect(card.actions[0]!.type).toBe('Action.Execute')
-    expect(card.actions[1]!.type).toBe('Action.Execute')
+    expect(card.actions[0]?.type).toBe('Action.Execute')
+    expect(card.actions[1]?.type).toBe('Action.Execute')
   })
 
   test('unknown text returns fallback message', async () => {

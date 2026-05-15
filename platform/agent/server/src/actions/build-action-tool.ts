@@ -63,7 +63,7 @@ async function executeAction(
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
 
   if (auth?.type === 'bearer' && auth.token) {
-    headers['Authorization'] = `Bearer ${auth.token}`
+    headers.Authorization = `Bearer ${auth.token}`
   } else if (auth?.type === 'api_key' && auth.header && auth.token) {
     headers[auth.header] = auth.token
   }

@@ -129,7 +129,12 @@ describe('working memory', () => {
       await tenantContext.run({ tenantId: TENANT, userId: 'alice' }, async () => {
         await withTenant(testSql(), TENANT, async (tx) => {
           await expect(
-            upsertWorkingMemoryByResource(tx, TENANT, 'alice', 'a'.repeat(WORKING_MEMORY_BYTE_CAP + 1)),
+            upsertWorkingMemoryByResource(
+              tx,
+              TENANT,
+              'alice',
+              'a'.repeat(WORKING_MEMORY_BYTE_CAP + 1),
+            ),
           ).rejects.toBeInstanceOf(WorkingMemoryTooLargeError)
         })
       })
