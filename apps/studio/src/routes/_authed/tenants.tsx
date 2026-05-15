@@ -1,17 +1,18 @@
 import { TenantsPage } from '@seta/portal'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { meQueryOptions } from '../../api/queries'
+import { tenantsQueryOptions } from '../../api/queries'
 
 export const Route = createFileRoute('/_authed/tenants')({
+  loader: ({ context }) => context.queryClient.ensureQueryData(tenantsQueryOptions),
   component: TenantsRoute,
 })
 
 function TenantsRoute() {
-  const { data: me } = useSuspenseQuery(meQueryOptions)
+  const { data: tenants } = useSuspenseQuery(tenantsQueryOptions)
   return (
     <TenantsPage
-      tenants={me?.tenants ?? []}
+      tenants={tenants}
       renderTenantLink={(t) => (
         <Link
           to="/tenants/$id/connectors"
