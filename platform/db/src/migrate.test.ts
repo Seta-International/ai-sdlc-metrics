@@ -14,6 +14,7 @@ describe('migration runner', () => {
       'agent',
       'agent_memory',
       'agent_workflows',
+      'agent_vector',
     ])
   })
 
@@ -36,5 +37,12 @@ describe('migration runner', () => {
     const wfIdx = OWNER_ORDER.indexOf('agent_workflows')
     expect(memIdx).toBeGreaterThanOrEqual(0)
     expect(wfIdx).toBeGreaterThan(memIdx)
+  })
+
+  it('places agent_vector after agent_workflows', () => {
+    const wfIdx = OWNER_ORDER.indexOf('agent_workflows')
+    const vecIdx = OWNER_ORDER.indexOf('agent_vector')
+    expect(wfIdx).toBeGreaterThanOrEqual(0)
+    expect(vecIdx).toBeGreaterThan(wfIdx)
   })
 })
