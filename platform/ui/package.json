@@ -1,0 +1,66 @@
+{
+  "name": "@seta/ui",
+  "version": "0.1.0",
+  "description": "Seta Workspace design system — tokens, AppShell, components, hooks",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "license": "Apache-2.0",
+  "type": "module",
+  "private": true,
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src/tokens/tokens.css"
+  ],
+  "dependencies": {
+    "@ai-sdk/react": "^3.0.184",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-popover": "^1.1.15",
+    "@radix-ui/react-select": "^2.2.6",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "@seta/agent-sdk": "workspace:*",
+    "@tanstack/react-query": "^5.100.10",
+    "ai": "6.0.182",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.14.0",
+    "shiki": "^4.0.2",
+    "tailwind-merge": "^3.6.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "jsdom": "^29.1.1",
+    "msw": "^2.14.6",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "tailwindcss": "^4.3.0",
+    "tsup": "8.5.1",
+    "vitest": "^4.1.6"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./tokens": {
+      "types": "./dist/tokens/preset.d.ts",
+      "import": "./dist/tokens/preset.js"
+    },
+    "./tokens.css": "./src/tokens/tokens.css"
+  }
+}

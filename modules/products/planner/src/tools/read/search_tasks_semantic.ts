@@ -1,5 +1,5 @@
 import type { Tool } from '@seta/agent-core'
-import type { EmbeddingProvider } from '@seta/agent-embeddings'
+import type { EmbeddingsClient } from '@seta/agent-embeddings'
 import type { VectorChunk, VectorStore, VectorUpsertInput } from '@seta/agent-vector'
 import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
@@ -8,10 +8,10 @@ import type { ReadToolDeps } from './list_my_tasks'
 
 const log = logger.child({ component: 'planner.search_tasks_semantic' })
 
-export type { EmbeddingProvider, VectorChunk, VectorStore, VectorUpsertInput }
+export type { EmbeddingsClient, VectorChunk, VectorStore, VectorUpsertInput }
 
 export interface SemanticSearchDeps extends ReadToolDeps {
-  embeddings: EmbeddingProvider
+  embeddings: EmbeddingsClient
   vector: VectorStore
 }
 
@@ -51,7 +51,10 @@ export function searchTasksSemanticTool(
         )
 
         const tenantId = tenantContext.getTenantId()
-        const vec = await deps.embeddings.embed(input.query)
+        const {
+          embeddings: [vec],
+        } = await deps.embeddings.embed([input.query])
+        if (!vec) return { ok: true, value: { results: [] } }
 
         const chunks = await deps.vector.search({
           tenantId,

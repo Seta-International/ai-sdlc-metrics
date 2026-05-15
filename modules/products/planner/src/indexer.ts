@@ -1,14 +1,14 @@
-import type { EmbeddingProvider } from '@seta/agent-embeddings'
+import type { EmbeddingsClient } from '@seta/agent-embeddings'
 import type { VectorStore } from '@seta/agent-vector'
 import PQueue from 'p-queue'
 
-export type { EmbeddingProvider, VectorStore }
+export type { EmbeddingsClient, VectorStore }
 
 type DbSql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>
 
 export interface TaskIndexerDeps {
   sql: DbSql
-  embeddings: EmbeddingProvider
+  embeddings: EmbeddingsClient
   vector: VectorStore
   concurrency?: number
 }
@@ -41,7 +41,10 @@ export function createTaskIndexer(deps: TaskIndexerDeps) {
           if (!task) return
 
           const content = [task.title, task.description ?? ''].join('\n').slice(0, 2000)
-          const embedding = await deps.embeddings.embed(content)
+          const {
+            embeddings: [embedding],
+          } = await deps.embeddings.embed([content])
+          if (!embedding) return
 
           await deps.vector.upsert({
             sourceId: task.graph_task_id,
