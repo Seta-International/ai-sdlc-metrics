@@ -20,7 +20,8 @@ export type CreateTenantRoutesOpts = {
   sessionUser?: (c: Context) => string | undefined
 }
 
-const defaultSessionUser = (c: Context) => (c.get('sessionUser') as { id?: string } | undefined)?.id
+const defaultSessionUser = (c: Context) =>
+  (c.get('sessionUser') as { id?: string } | undefined)?.id ?? c.req.header('x-session-user')
 
 export function createTenantRoutes(opts: CreateTenantRoutesOpts) {
   const app = new OpenAPIHono()

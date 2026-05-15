@@ -19,7 +19,7 @@ import {
   createPlannerSyncWorker,
   plannerConnector,
 } from '@seta/connector-ms365-planner'
-import { createConnectorRegistry } from '@seta/connector-registry'
+import { createConnectorAdminRoutes, createConnectorRegistry } from '@seta/connector-registry'
 import { onError, Unauthorized } from '@seta/middleware'
 import { createGraphFetch } from '@seta/ms-graph'
 import { mockTeamsHandler, routes as teamsRoutes } from '@seta/ms-teams'
@@ -39,8 +39,10 @@ import {
 } from '@seta/planner'
 import { createSsoRoutes, EntraSsoProvider, GoogleSsoProvider } from '@seta/sso'
 import {
+  createTenantRoutes,
   getActiveTenantIds,
   isConnectorConsented,
+  listTenantsForUser,
   recordConsent,
   tenantContext,
 } from '@seta/tenant'
@@ -214,6 +216,48 @@ app.route(
     redirectBase: env.PUBLIC_BASE_URL,
     onConsented: async ({ tenantId, connectorIds, scopesGranted }) =>
       recordConsent(sql as never, { tenantId, connectorIds, scopesGranted }),
+  }),
+)
+
+// Shared with createOAuthRoutes — same provider, same state store, same union.
+const buildConsentUrl: Parameters<typeof createConnectorAdminRoutes>[0]['buildConsentUrl'] =
+  async ({ tenantId, providerId, connectorIds, tenantHint }) => {
+    const providers: Record<string, typeof entra> = { entra }
+    const provider = providers[providerId]
+    if (!provider) throw new Error(`unknown provider '${providerId}'`)
+    const union = registry.scopeUnion(connectorIds)
+    const state = await stateStore.mint({ providerId, connectorIds })
+    const url = provider.buildAdminConsentUrl({
+      scopes: union.application.concat(union.delegated),
+      redirectUri: `${env.PUBLIC_BASE_URL}/oauth/${providerId}/callback`,
+      state,
+      tenantHint: tenantHint ?? tenantId,
+    })
+    return { url, state }
+  }
+
+app.route(
+  '/',
+  createTenantRoutes({
+    listTenants: async ({ userId }) => listTenantsForUser(sql as never, userId),
+  }),
+)
+
+app.route(
+  '/',
+  createConnectorAdminRoutes({
+    registry,
+    isConsented: async (tenantId, connectorId) =>
+      isConnectorConsented(sql as never, tenantId, connectorId),
+    lookupMembership: async ({ userId, tenantId }) => {
+      const rows = (await sql`
+        SELECT role FROM tenant.tenant_members
+        WHERE user_id = ${userId} AND tenant_id = ${tenantId}
+        LIMIT 1
+      `) as Array<{ role: 'owner' | 'admin' | 'member' }>
+      return rows[0] ?? null
+    },
+    buildConsentUrl,
   }),
 )
 

@@ -62,7 +62,8 @@ export type CreateConnectorAdminRoutesOpts = {
   }) => Promise<{ url: string; state: string }>
 }
 
-const defaultSessionUser = (c: Context) => (c.get('sessionUser') as { id?: string } | undefined)?.id
+const defaultSessionUser = (c: Context) =>
+  (c.get('sessionUser') as { id?: string } | undefined)?.id ?? c.req.header('x-session-user')
 
 export function createConnectorAdminRoutes(opts: CreateConnectorAdminRoutesOpts) {
   const app = new OpenAPIHono()
