@@ -267,16 +267,25 @@ async function boot() {
 
 // ── Server start ──────────────────────────────────────────────────────────────
 
-const server = serve({ fetch: app.fetch, port: env.PORT }, async (info) => {
-  logger.info({ port: info.port }, 'api listening')
-  await boot().catch((err) => logger.error({ err }, 'boot failed'))
-})
-
-const shutdown = (signal: string) => async () => {
-  logger.info({ signal }, 'shutting down')
-  await new Promise<void>((resolve) => server.close(() => resolve()))
-  await sql.end()
-  process.exit(0)
+export function buildApp() {
+  return app
 }
-process.on('SIGTERM', shutdown('SIGTERM'))
-process.on('SIGINT', shutdown('SIGINT'))
+
+export { sql, sso }
+
+const isMain = import.meta.url === `file://${process.argv[1]}`
+if (isMain) {
+  const server = serve({ fetch: app.fetch, port: env.PORT }, async (info) => {
+    logger.info({ port: info.port }, 'api listening')
+    await boot().catch((err) => logger.error({ err }, 'boot failed'))
+  })
+
+  const shutdown = (signal: string) => async () => {
+    logger.info({ signal }, 'shutting down')
+    await new Promise<void>((resolve) => server.close(() => resolve()))
+    await sql.end()
+    process.exit(0)
+  }
+  process.on('SIGTERM', shutdown('SIGTERM'))
+  process.on('SIGINT', shutdown('SIGINT'))
+}
