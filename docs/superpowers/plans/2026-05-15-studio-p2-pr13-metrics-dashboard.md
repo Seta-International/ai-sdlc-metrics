@@ -854,7 +854,7 @@ export interface MetricsRoutesDeps {
 }
 
 const Query = z.object({
-  tenantId: z.string().uuid().openapi({ param: { name: 'tenantId', in: 'query' } }),
+  tenantId: z.uuid().openapi({ param: { name: 'tenantId', in: 'query' } }),
   range: MetricsRange.openapi({ param: { name: 'range', in: 'query' } }),
 })
 

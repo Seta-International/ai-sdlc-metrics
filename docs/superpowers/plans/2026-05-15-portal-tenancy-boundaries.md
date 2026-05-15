@@ -1009,7 +1009,7 @@ git commit -m "feat(tenancy): findOrAttachUser resolution"
 import { z } from '@hono/zod-openapi'
 
 export const TenantSummary = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   slug: z.string(),
   name: z.string(),
   isAdmin: z.boolean(),
@@ -1111,7 +1111,7 @@ In `platform/identity/src/schemas.ts`:
 import { TenantSummary } from './me/me-context-provider'
 
 export const SessionUser = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   email: z.string().email(),
   name: z.string(),
   pictureUrl: z.string().nullable(),
@@ -1372,7 +1372,7 @@ git commit -m "feat(identity): session rotation on member role change"
 - [ ] **Step 1: Add the new env vars**
 
 ```ts
-SETA_SEED_TENANT_ID: z.string().uuid(),
+SETA_SEED_TENANT_ID: z.uuid(),
 SETA_SEED_TENANT_SLUG: z.string().min(1),
 SETA_SEED_TENANT_NAME: z.string().min(1),
 SETA_SEED_SUPERADMIN_EMAILS: z.string().default(''),

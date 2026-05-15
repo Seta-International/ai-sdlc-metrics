@@ -5,7 +5,7 @@ export { TenantSummary }
 
 export const SessionUser = z
   .object({
-    id: z.string().uuid(),
+    id: z.uuid(),
     email: z.string().email(),
     name: z.string().min(1),
     pictureUrl: z.string().url().nullable(),

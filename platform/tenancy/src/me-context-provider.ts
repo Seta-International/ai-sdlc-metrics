@@ -2,7 +2,7 @@ import { z } from '@hono/zod-openapi'
 
 export const TenantSummary = z
   .object({
-    id: z.string().uuid(),
+    id: z.uuid(),
     slug: z.string(),
     name: z.string(),
     isAdmin: z.boolean(),

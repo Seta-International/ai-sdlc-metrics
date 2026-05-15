@@ -37,7 +37,7 @@ export const EnvSchema = z.object({
   PLANNER_SYNC_INTERVAL_MS: z.coerce.number().int().positive().default(180_000),
   OPENAI_EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
   AGENT_EMBEDDINGS_PROVIDER: z.enum(['openai', 'azure-openai', 'none']).default('none'),
-  SETA_SEED_TENANT_ID: z.string().uuid(),
+  SETA_SEED_TENANT_ID: z.uuid(),
   SETA_SEED_TENANT_SLUG: z.string().min(1),
   SETA_SEED_TENANT_NAME: z.string().min(1),
   SETA_SEED_SUPERADMIN_EMAILS: z.string().default(''),

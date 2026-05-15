@@ -3010,7 +3010,7 @@ describe("POST /oauth/:provider/exchange-obo", () => {
     if (!provider) throw new BadRequest(`unknown provider '${providerId}'`)
 
     const { tenantId, partitionKey } = z.object({
-      tenantId:     z.string().uuid(),
+      tenantId:     z.uuid(),
       partitionKey: z.string().min(1),
     }).parse(await c.req.json())
 
@@ -3029,7 +3029,7 @@ describe("POST /oauth/:provider/exchange-obo", () => {
     if (!provider) throw new BadRequest(`unknown provider '${providerId}'`)
 
     const body = z.object({
-      tenantId:     z.string().uuid(),
+      tenantId:     z.uuid(),
       userAssertion: z.string().min(1),
       scopes:       z.array(z.string()).min(1),
     }).parse(await c.req.json())

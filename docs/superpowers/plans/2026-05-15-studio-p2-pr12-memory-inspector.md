@@ -118,7 +118,7 @@ export const WorkingMemorySnapshot = z.object({
 export type WorkingMemorySnapshot = z.infer<typeof WorkingMemorySnapshot>
 
 export const ThreadListQuery = z.object({
-  tenantId: z.string().uuid(),
+  tenantId: z.uuid(),
   userId: z.string().optional(),
   agentId: z.string().optional(),
   cursor: z.string().optional(),

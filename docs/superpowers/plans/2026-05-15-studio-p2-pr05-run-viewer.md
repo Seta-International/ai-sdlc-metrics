@@ -271,10 +271,10 @@ The run loop must record into the new storage so the viewer has data. Add an opt
 
   export const RunSummary = z
     .object({
-      id: z.string().uuid(),
+      id: z.uuid(),
       status: RunStatus,
       agentId: z.string().nullable(),
-      threadId: z.string().uuid().nullable(),
+      threadId: z.uuid().nullable(),
       startedAt: z.string().datetime(),
       finishedAt: z.string().datetime().nullable(),
       durationMs: z.number().int().nonnegative().nullable(),
@@ -284,7 +284,7 @@ The run loop must record into the new storage so the viewer has data. Add an opt
     .openapi('RunSummary')
 
   export const RunDetail = RunSummary.extend({
-    tenantId: z.string().uuid(),
+    tenantId: z.uuid(),
     chunks: z.array(z.unknown()),
     toolsUsed: z.array(z.string()),
   }).openapi('RunDetail')
@@ -429,7 +429,7 @@ The run loop must record into the new storage so the viewer has data. Add an opt
       createRoute({
         method: 'get',
         path: '/runs/{runId}',
-        request: { params: z.object({ runId: z.string().uuid() }) },
+        request: { params: z.object({ runId: z.uuid() }) },
         responses: { 200: { content: { 'application/json': { schema: RunDetail } }, description: 'run detail' } },
       }),
       async (c) => {

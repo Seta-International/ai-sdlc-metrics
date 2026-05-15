@@ -648,7 +648,7 @@ import { z } from '@hono/zod-openapi'
 
 export const SessionUser = z
   .object({
-    id: z.string().uuid(),
+    id: z.uuid(),
     email: z.string().email(),
     name: z.string().min(1),
     pictureUrl: z.string().url().nullable(),
@@ -664,7 +664,7 @@ export type SessionUser = z.infer<typeof SessionUser>
  */
 export const TenantSummary = z
   .object({
-    id: z.string().uuid(),
+    id: z.uuid(),
     name: z.string().min(1),
     role: z.enum(['owner', 'admin', 'member']),
   })

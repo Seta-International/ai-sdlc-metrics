@@ -226,7 +226,7 @@ export const IngestStatus = z.enum(['queued', 'indexing', 'indexed', 'failed']).
 
 export const RagSource = z
   .object({
-    id: z.string().uuid(),
+    id: z.uuid(),
     name: z.string().min(1).max(512),
     contentType: z.string().min(1).max(255),
     byteSize: z.number().int().nonnegative(),
@@ -269,8 +269,8 @@ export type UploadSourceMetadata = z.infer<typeof UploadSourceMetadata>
 
 export const SourceChunk = z
   .object({
-    id: z.string().uuid(),
-    sourceId: z.string().uuid(),
+    id: z.uuid(),
+    sourceId: z.uuid(),
     content: z.string(),
     charRange: z.object({ start: z.number().int(), end: z.number().int() }),
     metadata: z.record(z.string(), z.unknown()).nullable().optional(),
@@ -1068,7 +1068,7 @@ export function createRagRoutes({ sql, ingest }: CreateRagRoutesArgs) {
     createRoute({
       method: 'post',
       path: '/rag/sources/{id}/reindex',
-      request: { params: z.object({ id: z.string().uuid() }) },
+      request: { params: z.object({ id: z.uuid() }) },
       responses: {
         200: { content: { 'application/json': { schema: RagSource } }, description: 'OK' },
         404: { description: 'not found' },
@@ -1101,7 +1101,7 @@ export function createRagRoutes({ sql, ingest }: CreateRagRoutesArgs) {
       method: 'get',
       path: '/rag/sources/{id}/chunks',
       request: {
-        params: z.object({ id: z.string().uuid() }),
+        params: z.object({ id: z.uuid() }),
         query: z.object({
           cursor: z.string().optional(),
           limit: z.coerce.number().int().min(1).max(200).default(50),
@@ -1356,7 +1356,7 @@ import { z } from 'zod'
 export const IngestStatus = z.enum(['queued', 'indexing', 'indexed', 'failed'])
 
 export const RagSource = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   name: z.string(),
   contentType: z.string(),
   byteSize: z.number().int().nonnegative(),
@@ -1391,8 +1391,8 @@ export const UploadSourceMetadata = z.object({
 export type UploadSourceMetadata = z.infer<typeof UploadSourceMetadata>
 
 export const SourceChunk = z.object({
-  id: z.string().uuid(),
-  sourceId: z.string().uuid(),
+  id: z.uuid(),
+  sourceId: z.uuid(),
   content: z.string(),
   charRange: z.object({ start: z.number().int(), end: z.number().int() }),
   metadata: z.record(z.string(), z.unknown()).nullable().optional(),

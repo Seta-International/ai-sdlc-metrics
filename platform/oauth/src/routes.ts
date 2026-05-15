@@ -150,7 +150,7 @@ export function createOAuthRoutes(deps: OAuthRoutesDeps) {
 
     const { tenantId, partitionKey } = z
       .object({
-        tenantId: z.string().uuid(),
+        tenantId: z.uuid(),
         partitionKey: z.string().min(1),
       })
       .parse(await c.req.json())
@@ -174,7 +174,7 @@ export function createOAuthRoutes(deps: OAuthRoutesDeps) {
 
     const body = z
       .object({
-        tenantId: z.string().uuid(),
+        tenantId: z.uuid(),
         userAssertion: z.string().min(1),
         scopes: z.array(z.string()).min(1),
       })

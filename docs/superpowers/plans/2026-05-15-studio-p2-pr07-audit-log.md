@@ -184,7 +184,7 @@ import { z } from '@hono/zod-openapi'
 export const AuditRow = z
   .object({
     id: z.number().int().nonnegative(),
-    tenantId: z.string().uuid(),
+    tenantId: z.uuid(),
     ts: z.string(),
     actorType: z.enum(['user', 'system']),
     actorId: z.string(),
@@ -750,7 +750,7 @@ export interface CreateAuditRoutesOpts {
 }
 
 const QueryParams = QueryAuditFilters.extend({
-  tenantId: z.string().uuid().openapi({ param: { name: 'tenantId', in: 'query' } }),
+  tenantId: z.uuid().openapi({ param: { name: 'tenantId', in: 'query' } }),
 })
 
 export function createAuditRoutes(opts: CreateAuditRoutesOpts): OpenAPIHono {
@@ -909,7 +909,7 @@ import { z } from 'zod'
 
 export const AuditRowSchema = z.object({
   id: z.number().int().nonnegative(),
-  tenantId: z.string().uuid(),
+  tenantId: z.uuid(),
   ts: z.string(),
   actorType: z.enum(['user', 'system']),
   actorId: z.string(),

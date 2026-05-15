@@ -119,7 +119,7 @@
 
   export const AgentProfile = z
     .object({
-      id: z.string().uuid().openapi({ example: '11111111-1111-1111-1111-111111111111' }),
+      id: z.uuid().openapi({ example: '11111111-1111-1111-1111-111111111111' }),
       name: z.string(),
       description: z.string().nullable(),
       model: z.string(),
@@ -635,7 +635,7 @@
   const detailRoute = createRoute({
     method: 'get',
     path: '/agents/{id}',
-    request: { params: z.object({ id: z.string().uuid() }) },
+    request: { params: z.object({ id: z.uuid() }) },
     responses: {
       200: {
         content: { 'application/json': { schema: AgentProfileDetail } },
@@ -812,7 +812,7 @@
   import { z } from 'zod'
 
   export const AgentProfile = z.object({
-    id: z.string().uuid(),
+    id: z.uuid(),
     name: z.string(),
     description: z.string().nullable(),
     model: z.string(),
