@@ -1096,6 +1096,8 @@ importers:
 
   platform/tsconfig: {}
 
+  platform/ui: {}
+
   tests/e2e:
     devDependencies:
       '@seta/tsconfig':
