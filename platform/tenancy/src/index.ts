@@ -7,6 +7,8 @@ export { requireTenantMembership } from './membership'
 export { tenantMiddleware } from './middleware'
 export type { RequireTenantAdminOpts } from './middleware/require-tenant-admin'
 export { requireTenantAdmin } from './middleware/require-tenant-admin'
+export type { CreateTenancyRoutesOpts } from './routes'
+export { createTenancyRoutes } from './routes'
 export * from './schema'
 export type {
   AttachStatus,

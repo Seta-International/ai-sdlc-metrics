@@ -20,7 +20,14 @@ import {
   plannerConnector,
 } from '@seta/connector-ms365-planner'
 import { createConnectorAdminRoutes, createConnectorRegistry } from '@seta/connector-registry'
-import { createSsoRoutes, EntraSsoProvider, GoogleSsoProvider } from '@seta/identity'
+import {
+  createSessionStore,
+  createSsoRoutes,
+  EntraSsoProvider,
+  GoogleSsoProvider,
+  isSuperadmin,
+  requireSession,
+} from '@seta/identity'
 import { onError, Unauthorized } from '@seta/middleware'
 import { createGraphFetch } from '@seta/ms-graph'
 import { mockTeamsHandler, routes as teamsRoutes } from '@seta/ms-teams'
@@ -40,10 +47,12 @@ import {
 } from '@seta/planner'
 import {
   createMeContextProvider,
+  createTenancyRoutes,
   findOrAttachUser,
   getActiveTenantIds,
   isConnectorConsented,
   recordConsent,
+  type TenantMembershipRole,
   tenantContext,
 } from '@seta/tenancy'
 import { Hono } from 'hono'
@@ -104,6 +113,30 @@ const sso = createSsoRoutes({
   redirectBase: env.PUBLIC_BASE_URL,
   meContext,
   tenancy: { findOrAttachUser: (uid) => findOrAttachUser(sql as never, uid) },
+})
+
+// ── Tenancy routes ────────────────────────────────────────────────────────────
+
+const sessionStore = createSessionStore(sql)
+const requireSessionMiddleware = requireSession({
+  cookieName: 'seta_sess',
+  hmacKey: env.SESSION_HMAC_KEY,
+  sessionStore,
+})
+
+const tenancyRoutes = createTenancyRoutes({
+  sql: sql as never,
+  requireSession: requireSessionMiddleware,
+  membershipLookup: async (userId: string) => {
+    const rows = (await sql`
+      SELECT role FROM tenant.tenant_members
+      WHERE user_id = ${userId} AND tenant_id = ${tenantContext.getTenantId()}
+      LIMIT 1
+    `) as Array<{ role: TenantMembershipRole }>
+    return rows[0] ?? null
+  },
+  invalidateUserSessions: async () => {}, // wired in Task 4.9
+  isSuperadmin: (uid: string) => isSuperadmin(sql as never, uid),
 })
 
 // ── Tool registry ─────────────────────────────────────────────────────────────
@@ -266,6 +299,8 @@ app.route(
     buildConsentUrl,
   }),
 )
+
+app.route('/', tenancyRoutes)
 
 app.route('/agent', agentRouter)
 
