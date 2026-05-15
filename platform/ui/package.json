@@ -14,7 +14,8 @@
   "private": true,
   "types": "./dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "src/tokens/tokens.css"
   ],
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -48,5 +49,16 @@
     "tailwindcss": "^4.3.0",
     "tsup": "8.5.1",
     "vitest": "^4.1.6"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./tokens": {
+      "types": "./dist/tokens/preset.d.ts",
+      "import": "./dist/tokens/preset.js"
+    },
+    "./tokens.css": "./src/tokens/tokens.css"
   }
 }
