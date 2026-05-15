@@ -1,9 +1,9 @@
-import { ConsentLandingPage } from '@seta/identity-client'
 import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { z } from 'zod'
 import { qk } from '../../api/queries'
+import { ConsentLandingPage } from '../../pages/ConsentLandingPage'
 
 const ConsentSearch = z.object({
   ok: z.enum(['0', '1']).optional(),

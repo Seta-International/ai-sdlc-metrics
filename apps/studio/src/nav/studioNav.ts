@@ -3,7 +3,6 @@ import {
   Activity,
   Bot,
   BrainCircuit,
-  Building2,
   FileText,
   GaugeCircle,
   Hammer,
@@ -14,11 +13,10 @@ import {
 
 export function studioNav(tenantId: string | null): NavItem[] {
   if (!tenantId) {
-    return [{ id: 'tenants', label: 'Tenants', icon: Building2, to: '/tenants' }]
+    return []
   }
   const base = `/tenants/${tenantId}`
   return [
-    { id: 'tenants', label: 'Tenants', icon: Building2, to: '/tenants' },
     { id: 'connectors', label: 'Connectors', icon: PlugZap, to: `${base}/connectors` },
     { id: 'runs', label: 'Runs', icon: Activity, to: `${base}/runs` },
     { id: 'corpus', label: 'Corpus', icon: FileText, to: `${base}/corpus` },

@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedRouteImport } from './routes/_authed'
-import { Route as AuthedTenantsRouteImport } from './routes/_authed/tenants'
 import { Route as AuthedMeRouteImport } from './routes/_authed/me'
 import { Route as LoginProviderCallbackRouteImport } from './routes/login.$provider.callback'
 import { Route as AuthedTenantsIdRouteImport } from './routes/_authed/tenants.$id'
@@ -36,11 +35,6 @@ const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthedTenantsRoute = AuthedTenantsRouteImport.update({
-  id: '/tenants',
-  path: '/tenants',
-  getParentRoute: () => AuthedRoute,
-} as any)
 const AuthedMeRoute = AuthedMeRouteImport.update({
   id: '/me',
   path: '/me',
@@ -52,9 +46,9 @@ const LoginProviderCallbackRoute = LoginProviderCallbackRouteImport.update({
   getParentRoute: () => LoginRoute,
 } as any)
 const AuthedTenantsIdRoute = AuthedTenantsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AuthedTenantsRoute,
+  id: '/tenants/$id',
+  path: '/tenants/$id',
+  getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedTenantsIdWorkflowsRoute =
   AuthedTenantsIdWorkflowsRouteImport.update({
@@ -119,7 +113,6 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthedRouteWithChildren
   '/login': typeof LoginRouteWithChildren
   '/me': typeof AuthedMeRoute
-  '/tenants': typeof AuthedTenantsRouteWithChildren
   '/tenants/$id': typeof AuthedTenantsIdRouteWithChildren
   '/login/$provider/callback': typeof LoginProviderCallbackRoute
   '/tenants/$id/agents': typeof AuthedTenantsIdAgentsRoute
@@ -138,7 +131,6 @@ export interface FileRoutesByTo {
   '/': typeof AuthedRouteWithChildren
   '/login': typeof LoginRouteWithChildren
   '/me': typeof AuthedMeRoute
-  '/tenants': typeof AuthedTenantsRouteWithChildren
   '/tenants/$id': typeof AuthedTenantsIdRouteWithChildren
   '/login/$provider/callback': typeof LoginProviderCallbackRoute
   '/tenants/$id/agents': typeof AuthedTenantsIdAgentsRoute
@@ -158,7 +150,6 @@ export interface FileRoutesById {
   '/_authed': typeof AuthedRouteWithChildren
   '/login': typeof LoginRouteWithChildren
   '/_authed/me': typeof AuthedMeRoute
-  '/_authed/tenants': typeof AuthedTenantsRouteWithChildren
   '/_authed/tenants/$id': typeof AuthedTenantsIdRouteWithChildren
   '/login/$provider/callback': typeof LoginProviderCallbackRoute
   '/_authed/tenants/$id/agents': typeof AuthedTenantsIdAgentsRoute
@@ -179,7 +170,6 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/me'
-    | '/tenants'
     | '/tenants/$id'
     | '/login/$provider/callback'
     | '/tenants/$id/agents'
@@ -198,7 +188,6 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/me'
-    | '/tenants'
     | '/tenants/$id'
     | '/login/$provider/callback'
     | '/tenants/$id/agents'
@@ -217,7 +206,6 @@ export interface FileRouteTypes {
     | '/_authed'
     | '/login'
     | '/_authed/me'
-    | '/_authed/tenants'
     | '/_authed/tenants/$id'
     | '/login/$provider/callback'
     | '/_authed/tenants/$id/agents'
@@ -254,13 +242,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authed/tenants': {
-      id: '/_authed/tenants'
-      path: '/tenants'
-      fullPath: '/tenants'
-      preLoaderRoute: typeof AuthedTenantsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
     '/_authed/me': {
       id: '/_authed/me'
       path: '/me'
@@ -277,10 +258,10 @@ declare module '@tanstack/react-router' {
     }
     '/_authed/tenants/$id': {
       id: '/_authed/tenants/$id'
-      path: '/$id'
+      path: '/tenants/$id'
       fullPath: '/tenants/$id'
       preLoaderRoute: typeof AuthedTenantsIdRouteImport
-      parentRoute: typeof AuthedTenantsRoute
+      parentRoute: typeof AuthedRoute
     }
     '/_authed/tenants/$id/workflows': {
       id: '/_authed/tenants/$id/workflows'
@@ -407,26 +388,14 @@ const AuthedTenantsIdRouteWithChildren = AuthedTenantsIdRoute._addFileChildren(
   AuthedTenantsIdRouteChildren,
 )
 
-interface AuthedTenantsRouteChildren {
-  AuthedTenantsIdRoute: typeof AuthedTenantsIdRouteWithChildren
-}
-
-const AuthedTenantsRouteChildren: AuthedTenantsRouteChildren = {
-  AuthedTenantsIdRoute: AuthedTenantsIdRouteWithChildren,
-}
-
-const AuthedTenantsRouteWithChildren = AuthedTenantsRoute._addFileChildren(
-  AuthedTenantsRouteChildren,
-)
-
 interface AuthedRouteChildren {
   AuthedMeRoute: typeof AuthedMeRoute
-  AuthedTenantsRoute: typeof AuthedTenantsRouteWithChildren
+  AuthedTenantsIdRoute: typeof AuthedTenantsIdRouteWithChildren
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedMeRoute: AuthedMeRoute,
-  AuthedTenantsRoute: AuthedTenantsRouteWithChildren,
+  AuthedTenantsIdRoute: AuthedTenantsIdRouteWithChildren,
 }
 
 const AuthedRouteWithChildren =
