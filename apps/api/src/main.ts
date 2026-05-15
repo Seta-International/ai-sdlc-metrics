@@ -37,6 +37,7 @@ import {
   createTaskIndexer,
   PLANNER_PROFILE_SEED,
 } from '@seta/planner'
+import { createSsoRoutes, EntraSsoProvider, GoogleSsoProvider } from '@seta/sso'
 import {
   getActiveTenantIds,
   isConnectorConsented,
@@ -70,6 +71,30 @@ registry.register(directoryConnector)
 const entra = new EntraProvider({
   clientId: env.ENTRA_CLIENT_ID,
   clientSecret: env.ENTRA_CLIENT_SECRET,
+})
+
+// ── SSO providers + routes ────────────────────────────────────────────────────
+
+const entraSso = new EntraSsoProvider({
+  clientId: env.ENTRA_CLIENT_ID,
+  clientSecret: env.ENTRA_CLIENT_SECRET,
+  tenant: env.ENTRA_SSO_TENANT,
+})
+const googleSso = new GoogleSsoProvider({
+  clientId: env.GOOGLE_CLIENT_ID,
+  clientSecret: env.GOOGLE_CLIENT_SECRET,
+})
+
+const sso = createSsoRoutes({
+  providers: { entra: entraSso, google: googleSso },
+  sql,
+  sessionCookie: {
+    name: 'seta_sess',
+    hmacKey: env.SESSION_HMAC_KEY,
+    ttlSec: env.SESSION_TTL_SEC,
+    secure: env.NODE_ENV === 'production',
+  },
+  redirectBase: env.PUBLIC_BASE_URL,
 })
 
 // ── Tool registry ─────────────────────────────────────────────────────────────
@@ -175,6 +200,8 @@ const agentRouter = createAgentRouter({
 const app = new Hono().onError(onError)
 
 app.get('/healthz', (c) => c.json({ ok: true }))
+
+app.route('/', sso)
 
 app.route(
   '/oauth',

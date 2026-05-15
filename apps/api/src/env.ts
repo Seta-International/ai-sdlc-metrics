@@ -8,6 +8,7 @@ export const EnvSchema = z.object({
   PUBLIC_BASE_URL: z.string().url(),
   ENTRA_CLIENT_ID: z.string().min(1),
   ENTRA_CLIENT_SECRET: z.string().min(1),
+  ENTRA_SSO_TENANT: z.string().min(1).default('common'),
   GOOGLE_CLIENT_ID: z.string().min(1),
   GOOGLE_CLIENT_SECRET: z.string().min(1),
   SESSION_HMAC_KEY: z.string().min(32, 'must be ≥32 chars'),
