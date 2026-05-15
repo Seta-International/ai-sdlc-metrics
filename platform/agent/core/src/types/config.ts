@@ -3,6 +3,7 @@ import type { MemoryProvider } from './memory'
 import type { KernelMessage } from './message'
 import type { Processor } from './processor'
 import type { StepResult } from './run'
+import type { StandardSchemaV1 } from './schema'
 import type { JsonSchemaTool, Tool } from './tool'
 
 export interface AgentConfig {
@@ -12,7 +13,28 @@ export interface AgentConfig {
   cacheTtl?: '5m' | '1h' | null
   tools?: Tool[]
   fallback?: string[]
+  workingMemory?: WorkingMemoryConfig
 }
+
+export type JsonObject = Record<string, unknown>
+
+export type WorkingMemorySchema = JsonObject | string | StandardSchemaV1 | { _zod?: unknown }
+
+export type WorkingMemoryTemplate =
+  | { format: 'markdown'; content: string }
+  | { format: 'json'; content: string | JsonObject }
+
+interface WorkingMemoryBaseConfig {
+  enabled?: boolean
+  scope?: 'thread' | 'resource'
+  readOnly?: boolean
+  version?: 'vnext'
+}
+
+export type WorkingMemoryConfig =
+  | (WorkingMemoryBaseConfig & { template: string; schema?: never })
+  | (WorkingMemoryBaseConfig & { schema: WorkingMemorySchema; template?: never })
+  | (WorkingMemoryBaseConfig & { template?: never; schema?: never })
 
 /**
  * Evaluated after each iteration (one model call + its tool executions).

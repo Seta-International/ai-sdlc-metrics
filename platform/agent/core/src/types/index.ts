@@ -1,5 +1,14 @@
 export type { KernelChunk, TokenUsage } from './chunk'
-export type { AdapterRequest, AgentConfig, RunLoopOptions, StopCondition } from './config'
+export type {
+  AdapterRequest,
+  AgentConfig,
+  JsonObject,
+  RunLoopOptions,
+  StopCondition,
+  WorkingMemoryConfig,
+  WorkingMemorySchema,
+  WorkingMemoryTemplate,
+} from './config'
 export type { MemoryContext, MemoryProvider, RecallResult } from './memory'
 export type { KernelMessage, KernelMessageContent, KernelRole } from './message'
 export type { Processor, ProcessorContext } from './processor'
