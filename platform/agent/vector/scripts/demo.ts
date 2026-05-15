@@ -1,3 +1,7 @@
+import { createHash, randomUUID } from 'node:crypto'
+import { createPool } from '@seta/db'
+import { tenantContext } from '@seta/tenant'
+
 /**
  * Demo script — @seta/agent-vector
  *
@@ -107,4 +111,47 @@ function truncate(s: string, n: number): string {
 
 function faqToContent(item: FaqItem): string {
   return `Q: ${item.question}\nA: ${item.answer}`
+}
+
+// ─── main ────────────────────────────────────────────────────────────────────
+
+const TOTAL_STEPS = 10
+const ACME = randomUUID()
+const GLOBEX = randomUUID()
+const ACME_SOURCE = randomUUID()
+const GLOBEX_SOURCE = randomUUID()
+
+const results: Array<{ name: string; ok: boolean; detail: string }> = []
+function record(name: string, ok: boolean, detail = ''): void {
+  results.push({ name, ok, detail })
+  printResult(name, ok, detail)
+}
+
+function hashContent(text: string): string {
+  return createHash('sha256').update(text, 'utf8').digest('hex')
+}
+
+function runAs<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
+  return tenantContext.run({ tenantId }, fn)
+}
+
+const sql = createPool(databaseUrl)
+
+try {
+  // ── 1/10: setup ───────────────────────────────────────────────────────────
+  printSection(1, TOTAL_STEPS, '⚙️ ', 'Setup — connect to Postgres and probe migration')
+  try {
+    await sql`SELECT 1 FROM agent_vector.chunks LIMIT 0`
+    record(
+      'migrations present',
+      true,
+      `tenants Acme=${ACME.slice(0, 8)}… Globex=${GLOBEX.slice(0, 8)}…`,
+    )
+  } catch (err) {
+    record('migrations present', false, `run pnpm migrate; underlying: ${(err as Error).message}`)
+    throw err
+  }
+  console.log()
+} finally {
+  await sql.end({ timeout: 2 })
 }
