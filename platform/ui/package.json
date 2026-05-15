@@ -4,8 +4,8 @@
   "description": "Seta Workspace design system — tokens, AppShell, components, hooks",
   "main": "./dist/index.js",
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --sourcemap",
-    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "build": "tsup",
+    "dev": "tsup --watch",
     "test:unit": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
