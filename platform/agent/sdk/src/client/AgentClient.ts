@@ -2,17 +2,25 @@ import { z } from 'zod'
 import { request } from '../transport/request'
 import type { AgentClientOptions } from '../types'
 
-export const MeSchema = z.object({
+export const SessionUserSchema = z.object({
   id: z.string(),
   email: z.email(),
   name: z.string(),
-  tenants: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string(),
-      role: z.enum(['admin', 'member', 'viewer']),
-    }),
-  ),
+  pictureUrl: z.url().nullable(),
+})
+export type SessionUser = z.infer<typeof SessionUserSchema>
+
+export const TenantSummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  role: z.enum(['owner', 'admin', 'member']),
+})
+export type TenantSummary = z.infer<typeof TenantSummarySchema>
+
+export const MeSchema = z.object({
+  user: SessionUserSchema,
+  tenants: z.array(TenantSummarySchema),
+  csrfToken: z.string(),
 })
 export type Me = z.infer<typeof MeSchema>
 

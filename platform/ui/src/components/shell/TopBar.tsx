@@ -6,6 +6,7 @@ import { NotificationBell } from './NotificationBell'
 
 interface Props {
   breadcrumb?: readonly Crumb[]
+  hasAgentPanel?: boolean
   agentPanelOpen: boolean
   onAgentToggle?: () => void
   onSearch?: () => void
@@ -16,6 +17,7 @@ interface Props {
 
 export function TopBar({
   breadcrumb = [],
+  hasAgentPanel = true,
   agentPanelOpen,
   onAgentToggle,
   onSearch,
@@ -41,20 +43,22 @@ export function TopBar({
           count={notificationCount}
           {...(onNotificationsClick !== undefined && { onClick: onNotificationsClick })}
         />
-        <button
-          type="button"
-          onClick={onAgentToggle}
-          aria-label="Agent panel"
-          aria-pressed={agentPanelOpen}
-          className={cn(
-            'inline-flex size-9 items-center justify-center rounded-md transition-colors',
-            agentPanelOpen
-              ? 'bg-primary-subtle text-primary'
-              : 'text-ink-mute hover:bg-canvas-subtle',
-          )}
-        >
-          <Bot className="size-5 stroke-[1.5]" />
-        </button>
+        {hasAgentPanel && (
+          <button
+            type="button"
+            onClick={onAgentToggle}
+            aria-label="Agent panel"
+            aria-pressed={agentPanelOpen}
+            className={cn(
+              'inline-flex size-9 items-center justify-center rounded-md transition-colors',
+              agentPanelOpen
+                ? 'bg-primary-subtle text-primary'
+                : 'text-ink-mute hover:bg-canvas-subtle',
+            )}
+          >
+            <Bot className="size-5 stroke-[1.5]" />
+          </button>
+        )}
         {userMenu}
       </div>
     </header>
