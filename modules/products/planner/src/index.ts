@@ -9,7 +9,7 @@ import { listMyTasksTool } from './tools/read/list_my_tasks'
 import { listPlanTasksTool } from './tools/read/list_plan_tasks'
 import { listPlansTool } from './tools/read/list_plans'
 import type {
-  EmbeddingProvider,
+  EmbeddingsClient,
   SemanticSearchDeps,
   VectorStore,
 } from './tools/read/search_tasks_semantic'
@@ -44,7 +44,7 @@ export interface PlannerToolsDeps {
     markConsumed(token: string, card: Record<string, unknown>): Promise<void>
   }
   etagStore: { get(taskId: string): Promise<string | null> }
-  embeddings: EmbeddingProvider
+  embeddings: EmbeddingsClient
   vector: VectorStore
   ttlMinutes?: number
   batchConcurrency?: number
@@ -129,7 +129,7 @@ export {
   PLANNER_WORKING_MEMORY_TEMPLATE,
 } from './seeds/planner'
 export type {
-  EmbeddingProvider,
+  EmbeddingsClient,
   VectorChunk,
   VectorStore,
   VectorUpsertInput,
