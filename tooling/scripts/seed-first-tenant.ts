@@ -85,17 +85,25 @@ async function main(): Promise<void> {
       `
     }
 
+    const users = await tx<Array<{ id: string }>>`
+      INSERT INTO auth.users (email, name, primary_provider)
+      VALUES (${env.BOOTSTRAP_ADMIN_EMAIL}, ${env.BOOTSTRAP_ADMIN_EMAIL}, 'entra')
+      ON CONFLICT (email) DO UPDATE SET name = excluded.name
+      RETURNING id
+    `
+    const user = users[0]
+    if (!user) throw new Error('user insert returned no row')
+
     await tx`
-      INSERT INTO auth.users (tenant_id, external_provider, external_subject, email, display_name, status)
-      VALUES (
-        ${id},
-        'entra',
-        ${`bootstrap:${env.BOOTSTRAP_ENTRA_CLIENT_ID}`},
-        ${env.BOOTSTRAP_ADMIN_EMAIL},
-        ${env.BOOTSTRAP_ADMIN_EMAIL},
-        'active'
-      )
-      ON CONFLICT (external_provider, external_subject) DO NOTHING
+      INSERT INTO auth.user_identities (provider, subject, user_id)
+      VALUES ('entra', ${`bootstrap:${env.BOOTSTRAP_ENTRA_CLIENT_ID}`}, ${user.id})
+      ON CONFLICT (provider, subject) DO NOTHING
+    `
+
+    await tx`
+      INSERT INTO tenant.tenant_members (user_id, tenant_id, role, source)
+      VALUES (${user.id}, ${id}, 'owner', 'bootstrap')
+      ON CONFLICT DO NOTHING
     `
 
     return id

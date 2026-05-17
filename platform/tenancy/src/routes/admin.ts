@@ -19,8 +19,8 @@ type TenantRow = {
 
 export function createAdminRoutes(deps: AdminRoutesDeps) {
   const app = new OpenAPIHono()
-  app.use('*', deps.requireSession)
-  app.use('*', requireSuperadmin({ lookup: deps.isSuperadmin }))
+  app.use('/admin/*', deps.requireSession)
+  app.use('/admin/*', requireSuperadmin({ lookup: deps.isSuperadmin }))
 
   app.get('/admin/tenants', async (c) => {
     const rows = (await deps.sql`

@@ -21,8 +21,10 @@ const RoleBody = z.object({ role: z.enum(['owner', 'admin', 'member']) })
 
 export function createMembersRoutes(deps: MembersRoutesDeps) {
   const app = new OpenAPIHono()
-  app.use('*', deps.requireSession)
-  app.use('*', requireTenantAdmin({ lookup: deps.membershipLookup }))
+  app.use('/members', deps.requireSession)
+  app.use('/members/*', deps.requireSession)
+  app.use('/members', requireTenantAdmin({ lookup: deps.membershipLookup }))
+  app.use('/members/*', requireTenantAdmin({ lookup: deps.membershipLookup }))
 
   app.get('/members', async (c) => {
     const tenantId = tenantContext.getTenantId()
