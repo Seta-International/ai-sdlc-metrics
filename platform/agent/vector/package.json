@@ -6,8 +6,9 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --sourcemap",
     "dev": "tsup src/index.ts --format esm --dts --watch",
-    "test:unit": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "test:unit": "vitest run src/",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:integration": "vitest run tests/"
   },
   "license": "Apache-2.0",
   "type": "module",
@@ -19,6 +20,20 @@
   "devDependencies": {
     "@seta/tsconfig": "workspace:*",
     "@types/node": "^25.7.0",
-    "tsup": "8.5.1"
+    "dotenv": "17.4.2",
+    "drizzle-kit": "0.31.10",
+    "tsup": "8.5.1",
+    "typescript": "6.0.3"
+  },
+  "dependencies": {
+    "@seta/agent-core": "workspace:*",
+    "@seta/agent-embeddings": "workspace:*",
+    "@seta/db": "workspace:*",
+    "@seta/middleware": "workspace:*",
+    "@seta/observability": "workspace:*",
+    "@seta/tenancy": "workspace:*",
+    "drizzle-orm": "0.45.2",
+    "postgres": "3.4.9",
+    "zod": "4.4.3"
   }
 }

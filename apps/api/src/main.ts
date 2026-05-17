@@ -39,12 +39,7 @@ import {
   EntraProvider,
 } from '@seta/oauth'
 import { logger } from '@seta/observability'
-import {
-  createContinuationStore,
-  createPlannerTools,
-  createTaskIndexer,
-  PLANNER_PROFILE_SEED,
-} from '@seta/planner'
+import { createContinuationStore, createPlannerTools, PLANNER_PROFILE_SEED } from '@seta/planner'
 import {
   createMeContextProvider,
   createTenancyRoutes,
@@ -147,12 +142,6 @@ const tenancyRoutes = createTenancyRoutes({
 
 // ── Tool registry ─────────────────────────────────────────────────────────────
 
-const embeddingsStub = {
-  embed: async (): Promise<never> => {
-    throw new Error('No embeddings provider configured')
-  },
-} as never
-
 const continuationStore = createContinuationStore({
   sql: sql as never,
   hmacKey: env.CONTINUATION_HMAC_KEY,
@@ -194,8 +183,6 @@ const plannerTools = createPlannerTools({
   buildGraph: () => graph,
   continuationStore,
   etagStore,
-  embeddings: embeddingsStub,
-  vector: embeddingsStub,
   ttlMinutes: env.CONTINUATION_TTL_MIN,
   batchConcurrency: env.PLANNER_BATCH_CONCURRENCY,
 })
@@ -378,12 +365,6 @@ async function boot() {
   await seedAgentProfiles(sql as never, [PLANNER_PROFILE_SEED, ANALYTICS_PROFILE_SEED])
   logger.info('agent profiles seeded')
 
-  const taskIndexer = createTaskIndexer({
-    sql: sql as never,
-    embeddings: embeddingsStub,
-    vector: embeddingsStub,
-  })
-
   const getAppToken = async (tenantId: string): Promise<string> => {
     const bundle = await entra.acquireAppOnly(tenantId, ['https://graph.microsoft.com/.default'])
     return bundle.accessToken
@@ -394,11 +375,7 @@ async function boot() {
     graph,
     getAppToken,
     intervalMs: env.PLANNER_SYNC_INTERVAL_MS,
-    afterSync: async (changedTaskIds) => {
-      const tenantId = tenantContext.getTenantId()
-      if (changedTaskIds.length > 0) {
-        await taskIndexer.indexTasks(tenantId, changedTaskIds)
-      }
+    afterSync: async (_changedTaskIds) => {
       await refreshAnalyticsViews(sql as never)
     },
   })
