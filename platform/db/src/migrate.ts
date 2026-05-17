@@ -15,6 +15,7 @@ export const OWNER_ORDER = [
   'agent',
   'agent_memory',
   'agent_workflows',
+  'agent_vector',
 ] as const
 
 export type Owner = (typeof OWNER_ORDER)[number]
@@ -30,6 +31,7 @@ const OWNER_PACKAGE_PATH: Record<Owner, string> = {
   agent: 'modules/products/agent/migrations',
   agent_memory: 'platform/agent/memory/migrations',
   agent_workflows: 'platform/agent/workflows/migrations',
+  agent_vector: 'platform/agent/vector/migrations',
 }
 
 export type RunMigrationsOpts = {
