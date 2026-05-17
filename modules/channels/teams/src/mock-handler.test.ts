@@ -57,4 +57,24 @@ describe('mockTeamsHandler', () => {
     const result = await mockTeamsHandler(makeActivity({ type: 'invoke' }), runCtx)
     expect(result).toEqual({ type: 'invokeResponse', value: { status: 200 } })
   })
+
+  test('"show chart" returns a Chart.Donut adaptive card', async () => {
+    const result = await mockTeamsHandler(makeActivity({ text: 'show chart' }), runCtx)
+    expect(result?.type).toBe('message')
+    expect(result?.attachments).toHaveLength(1)
+    const card = (result?.attachments?.[0] as { content: { body: Array<{ type: string }> } })
+      .content
+    expect(card.body.some((el) => el.type === 'Chart.Donut')).toBe(true)
+  })
+
+  test('"show project chart" also matches', async () => {
+    const result = await mockTeamsHandler(makeActivity({ text: 'show project chart' }), runCtx)
+    expect(result?.type).toBe('message')
+    expect(result?.attachments).toHaveLength(1)
+  })
+
+  test('fallback message mentions show chart', async () => {
+    const result = await mockTeamsHandler(makeActivity({ text: 'hello' }), runCtx)
+    expect(result?.text).toContain('show chart')
+  })
 })

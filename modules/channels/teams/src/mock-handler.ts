@@ -1,4 +1,5 @@
 import type { Activity } from './activity.js'
+import { buildMockChartCard } from './cards/mock-chart.js'
 import { buildMockCreatePreviewCard } from './cards/mock-create-preview.js'
 import { buildMockTaskListCard } from './cards/mock-task-list.js'
 import type { OutboundActivity, TeamsHandler } from './handler.js'
@@ -16,9 +17,10 @@ export const mockTeamsHandler: TeamsHandler = async (
 
   if (/show.*tasks?/.test(text)) return buildMockTaskListCard()
   if (/create.*task/.test(text)) return buildMockCreatePreviewCard()
+  if (/show.*chart|chart.*progress/.test(text)) return buildMockChartCard()
 
   return {
     type: 'message',
-    text: "Not wired up yet — try: 'show my tasks' or 'create a task'",
+    text: "Not wired up yet — try: 'show my tasks', 'create a task', or 'show chart'",
   }
 }
