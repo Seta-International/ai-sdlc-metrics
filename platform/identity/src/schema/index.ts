@@ -1,4 +1,5 @@
 export * from './api-keys'
+export * from './jwks-cache'
 export * from './sessions'
 export * from './superadmins'
 export * from './user-identities'
