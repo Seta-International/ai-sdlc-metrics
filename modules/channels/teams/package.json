@@ -37,6 +37,7 @@
     "@types/adm-zip": "^0.5.8",
     "@types/node": "^25.7.0",
     "msw": "2.7.0",
+    "postgres": "3.4.9",
     "tsup": "8.5.1",
     "typescript": "6.0.3",
     "vitest": "4.1.6"

@@ -3,15 +3,23 @@ import { onError } from '@seta/middleware'
 import { logger } from '@seta/observability'
 import { Hono } from 'hono'
 import { type Activity, ActivitySchema } from './activity.js'
-import { BotFrameworkJwtInvalid } from './errors.js'
 import type { OutboundActivity, RunContext, TeamsHandler } from './handler.js'
+import { verifyBotFrameworkJwt } from './jwt.js'
 import { replyToActivity } from './reply.js'
+
+type Sql = {
+  <T extends Record<string, unknown>>(
+    strings: TemplateStringsArray,
+    ...values: unknown[]
+  ): Promise<T[]>
+  json: (value: object) => unknown
+}
 
 export interface TeamsRouterOpts {
   botId: string
   botSecret: string
   botTenantId: string
-  skipJwtVerify?: boolean // dev-only gate; removed in 13.3
+  sql: Sql
 }
 
 const tracer = trace.getTracer('@seta/ms-teams')
@@ -20,11 +28,9 @@ export function routes(handler: TeamsHandler, opts: TeamsRouterOpts): Hono {
   const app = new Hono().onError(onError) // maps DomainError subclasses to correct HTTP status
 
   app.post('/messages', async (c) => {
-    if (!opts.skipJwtVerify) {
-      throw new BotFrameworkJwtInvalid(
-        'JWT verification not yet implemented — set TEAMS_SKIP_JWT_VERIFY=true',
-      )
-    }
+    const auth = c.req.header('authorization') ?? ''
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : auth
+    await verifyBotFrameworkJwt(token, opts.botId, opts.sql)
 
     const body = await c.req.json()
     const activity = ActivitySchema.parse(body)

@@ -1,14 +1,37 @@
+import * as jose from 'jose'
 import { HttpResponse, http } from 'msw'
 import { setupServer } from 'msw/node'
 import { afterAll, afterEach, beforeAll, describe, expect, test, vi } from 'vitest'
 import type { TeamsHandler } from './index.js'
-import { routes } from './index.js'
 
 const SERVICE_URL = 'https://test-service-url.invalid'
 const CONV_ID = 'conv-test-1'
+const BOT_ID = 'bot-id'
+const BOT_TENANT_ID = 'test-tenant-id'
 const capturedReplies: unknown[] = []
 
-const BOT_TENANT_ID = 'test-tenant-id'
+const { privateKey, publicKey } = await jose.generateKeyPair('RS256')
+
+async function buildJwks(): Promise<jose.JSONWebKeySet> {
+  const pub = await jose.exportJWK(publicKey)
+  return { keys: [{ ...pub, kid: 'test-key', use: 'sig' }] }
+}
+
+async function signJwt(): Promise<string> {
+  return new jose.SignJWT({ aud: BOT_ID })
+    .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
+    .setIssuer('https://api.botframework.com')
+    .setIssuedAt()
+    .setExpirationTime('1h')
+    .sign(privateKey)
+}
+
+function makeSqlStub() {
+  return Object.assign(
+    (_strings: TemplateStringsArray, ..._values: unknown[]) => Promise.resolve([]),
+    { json: (v: object) => v },
+  )
+}
 
 const server = setupServer(
   // Bot Framework token endpoint — getBotToken() calls this with the bot's tenant ID
@@ -27,6 +50,7 @@ afterEach(() => {
   server.resetHandlers()
   capturedReplies.length = 0
   vi.restoreAllMocks()
+  vi.resetModules()
 })
 afterAll(() => server.close())
 
@@ -49,18 +73,24 @@ const echoHandler: TeamsHandler = async (activity) => ({
 })
 
 describe('routes', () => {
-  test('POST /messages with skipJwtVerify returns 200 and fires outbound reply', async () => {
-    const app = routes(echoHandler, {
-      botId: 'bot-id',
+  test('POST /messages with valid JWT returns 200 and fires outbound reply', async () => {
+    const jwks = await buildJwks()
+    server.use(
+      http.get('https://login.botframework.com/v1/.well-known/keys', () => HttpResponse.json(jwks)),
+    )
+    const { routes: freshRoutes } = await import('./routes.js')
+    const app = freshRoutes(echoHandler, {
+      botId: BOT_ID,
       botSecret: 'bot-secret',
       botTenantId: BOT_TENANT_ID,
-      skipJwtVerify: true,
+      sql: makeSqlStub() as never,
     })
 
+    const token = await signJwt()
     const res = await app.request('/messages', {
       method: 'POST',
       body: JSON.stringify(buildActivity('ping')),
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
     })
 
     expect(res.status).toBe(200)
@@ -71,33 +101,45 @@ describe('routes', () => {
     expect((capturedReplies[0] as { text: string }).text).toBe('echo: ping')
   })
 
-  test('POST /messages without skipJwtVerify returns 401', async () => {
-    const app = routes(echoHandler, {
-      botId: 'bot-id',
+  test('POST /messages with forged token returns 401', async () => {
+    const jwks = await buildJwks()
+    server.use(
+      http.get('https://login.botframework.com/v1/.well-known/keys', () => HttpResponse.json(jwks)),
+    )
+    const { routes: freshRoutes } = await import('./routes.js')
+    const app = freshRoutes(echoHandler, {
+      botId: BOT_ID,
       botSecret: 'bot-secret',
       botTenantId: BOT_TENANT_ID,
+      sql: makeSqlStub() as never,
     })
     const res = await app.request('/messages', {
       method: 'POST',
       body: JSON.stringify(buildActivity('hi')),
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', authorization: 'Bearer forged.token.here' },
     })
     expect(res.status).toBe(401)
   })
 
   test('handler returning null does not fire outbound reply', async () => {
+    const jwks = await buildJwks()
+    server.use(
+      http.get('https://login.botframework.com/v1/.well-known/keys', () => HttpResponse.json(jwks)),
+    )
     const noReplyHandler: TeamsHandler = async () => null
-    const app = routes(noReplyHandler, {
-      botId: 'bot-id',
+    const { routes: freshRoutes } = await import('./routes.js')
+    const app = freshRoutes(noReplyHandler, {
+      botId: BOT_ID,
       botSecret: 'bot-secret',
       botTenantId: BOT_TENANT_ID,
-      skipJwtVerify: true,
+      sql: makeSqlStub() as never,
     })
 
+    const token = await signJwt()
     await app.request('/messages', {
       method: 'POST',
       body: JSON.stringify({ ...buildActivity(''), type: 'conversationUpdate' }),
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
     })
 
     await new Promise((r) => setTimeout(r, 100))
