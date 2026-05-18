@@ -100,6 +100,13 @@ describe('sso-admin API client', () => {
 
   it('throws on non-ok responses', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response('nope', { status: 500 }))
-    await expect(listSsoTenants({ fetch: fetchImpl as never })).rejects.toThrow(/500/)
+    let caught: Error | undefined
+    try {
+      await listSsoTenants({ fetch: fetchImpl as never })
+    } catch (e) {
+      caught = e as Error
+    }
+    expect(caught).toBeDefined()
+    expect(caught?.message).toMatch(/500/)
   })
 })
