@@ -18,12 +18,14 @@ function resolveScript(): string {
 }
 
 describe('seed-first-tenant.ts', () => {
-  const sql = postgres(URL, { max: 1, prepare: false })
+  const sql = postgres(URL, { max: 1, prepare: false, onnotice: () => {} })
 
   beforeAll(async () => {
     await sql`DELETE FROM oauth.oauth_tokens WHERE tenant_id IN (SELECT id FROM tenant.tenants WHERE slug = 'seed-test')`
+    await sql`DELETE FROM auth.sso_email_domains WHERE tenant_id IN (SELECT id FROM tenant.tenants WHERE slug = 'seed-test')`
+    await sql`DELETE FROM auth.sso_configs WHERE tenant_id IN (SELECT id FROM tenant.tenants WHERE slug = 'seed-test')`
+    await sql`DELETE FROM tenant.tenant_members WHERE tenant_id IN (SELECT id FROM tenant.tenants WHERE slug = 'seed-test')`
     await sql`DELETE FROM tenant.tenant_connectors WHERE tenant_id IN (SELECT id FROM tenant.tenants WHERE slug = 'seed-test')`
-    await sql`DELETE FROM auth.users WHERE tenant_id IN (SELECT id FROM tenant.tenants WHERE slug = 'seed-test')`
     await sql`DELETE FROM audit.audit_log WHERE tenant_id IN (SELECT id FROM tenant.tenants WHERE slug = 'seed-test')`
     await sql`DELETE FROM tenant.tenants WHERE slug = 'seed-test'`
   })
@@ -34,12 +36,15 @@ describe('seed-first-tenant.ts', () => {
     const env = {
       ...process.env,
       DATABASE_URL: URL,
+      PLATFORM_CONNECTOR_CLIENT_ID: 'connector-client-seed',
+      PLATFORM_CONNECTOR_CLIENT_SECRET: 'connector-secret-seed',
       BOOTSTRAP_TENANT_SLUG: 'seed-test',
       BOOTSTRAP_TENANT_NAME: 'Seed Test Tenant',
-      BOOTSTRAP_ENTRA_TENANT_ID: 'tid-seed',
-      BOOTSTRAP_ENTRA_CLIENT_ID: 'client-seed',
-      BOOTSTRAP_ENTRA_CLIENT_SECRET: 'secret-seed',
-      BOOTSTRAP_ADMIN_EMAIL: 'admin@seed.example',
+      BOOTSTRAP_ENTRA_DIRECTORY_ID: 'tid-seed',
+      BOOTSTRAP_SSO_CLIENT_ID: 'sso-client-seed',
+      BOOTSTRAP_SSO_CLIENT_SECRET: 'sso-secret-seed',
+      BOOTSTRAP_SSO_EMAIL_DOMAINS: 'seed.example',
+      BOOTSTRAP_SUPERADMIN_EMAILS: 'admin@seed.example',
       BOOTSTRAP_CONNECTORS: 'ms365-planner,ms365-directory',
       BOOTSTRAP_OFFLINE: '1',
       KMS_PROVIDER: 'env',
@@ -61,6 +66,16 @@ describe('seed-first-tenant.ts', () => {
       SELECT connector_id FROM tenant.tenant_connectors WHERE tenant_id = ${firstId as string}
     `
     expect(tcs1.map((t) => t.connector_id).sort()).toEqual(['ms365-directory', 'ms365-planner'])
+
+    const ssoRows = await sql<Array<{ provider: string }>>`
+      SELECT provider FROM auth.sso_configs WHERE tenant_id = ${firstId as string}
+    `
+    expect(ssoRows.map((r) => r.provider)).toEqual(['entra'])
+
+    const domainRows = await sql<Array<{ domain: string }>>`
+      SELECT domain FROM auth.sso_email_domains WHERE tenant_id = ${firstId as string}
+    `
+    expect(domainRows.map((r) => r.domain)).toEqual(['seed.example'])
 
     execSync(`pnpm tsx ${script}`, { env, stdio: 'pipe', cwd: tooling })
     const after2 = await sql<
