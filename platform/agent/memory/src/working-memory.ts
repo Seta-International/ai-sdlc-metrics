@@ -10,28 +10,47 @@ export function validateWorkingMemoryText(text: string): void {
   }
 }
 
+/** Thread-scoped read: reads working memory from threads.metadata->>'workingMemory'. */
 export async function readWorkingMemory(
   tx: TransactionSql,
   _tenantId: string,
   threadId: string,
-): Promise<{ resourceId: string | null; workingMemory: string | null }> {
-  const trows = await tx<Array<{ resource_id: string | null }>>`
-    SELECT resource_id FROM agent_memory.threads WHERE id = ${threadId} LIMIT 1
+): Promise<{ workingMemory: string | null }> {
+  const rows = await tx<Array<{ working_memory: string | null }>>`
+    SELECT metadata->>'workingMemory' AS working_memory
+    FROM agent_memory.threads
+    WHERE id = ${threadId}
+    LIMIT 1
   `
-  const t = trows[0]
-  if (!t?.resource_id) return { resourceId: null, workingMemory: null }
-
-  const rrows = await tx<Array<{ working_memory: string | null }>>`
-    SELECT working_memory FROM agent_memory.resources WHERE id = ${t.resource_id} LIMIT 1
-  `
-  return { resourceId: t.resource_id, workingMemory: rrows[0]?.working_memory ?? null }
+  return { workingMemory: rows[0]?.working_memory ?? null }
 }
 
 export type UpsertWorkingMemoryResult =
-  | { skipped: false; resourceId: string }
-  | { skipped: true; reason: 'no_resource_id' | 'no_user_id' }
+  | { skipped: false; threadId: string }
+  | { skipped: true; reason: 'thread_not_found' | 'no_user_id' }
 
-/** Resource-scoped read: bypasses the threads JOIN, looks up by resourceId directly. */
+/** Thread-scoped upsert: merges working memory into threads.metadata. 8KB cap enforced. */
+export async function upsertWorkingMemory(
+  tx: TransactionSql,
+  _tenantId: string,
+  threadId: string,
+  text: string,
+): Promise<UpsertWorkingMemoryResult> {
+  validateWorkingMemoryText(text)
+  const rows = await tx<Array<{ id: string }>>`
+    UPDATE agent_memory.threads
+    SET metadata   = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('workingMemory', ${text}::text),
+        updated_at = now()
+    WHERE id = ${threadId}
+    RETURNING id
+  `
+  if (!rows[0]) {
+    return { skipped: true, reason: 'thread_not_found' }
+  }
+  return { skipped: false, threadId }
+}
+
+/** Resource-scoped read: looks up working memory by resourceId directly. */
 export async function readWorkingMemoryByResource(
   tx: TransactionSql,
   _tenantId: string,
@@ -43,7 +62,7 @@ export async function readWorkingMemoryByResource(
   return rows[0]?.working_memory ?? null
 }
 
-/** Resource-scoped upsert: writes directly to resources by resourceId, no thread required. */
+/** Resource-scoped upsert: writes to resources.working_memory with 8KB cap enforced. */
 export async function upsertWorkingMemoryByResource(
   tx: TransactionSql,
   tenantId: string,
@@ -58,31 +77,4 @@ export async function upsertWorkingMemoryByResource(
       SET working_memory = EXCLUDED.working_memory,
           updated_at     = now()
   `
-}
-
-export async function upsertWorkingMemory(
-  tx: TransactionSql,
-  tenantId: string,
-  threadId: string,
-  text: string,
-): Promise<UpsertWorkingMemoryResult> {
-  validateWorkingMemoryText(text)
-
-  const trows = await tx<Array<{ resource_id: string | null }>>`
-    SELECT resource_id FROM agent_memory.threads WHERE id = ${threadId} LIMIT 1
-  `
-  const t = trows[0]
-  if (!t?.resource_id) {
-    return { skipped: true, reason: 'no_resource_id' }
-  }
-
-  await tx`
-    INSERT INTO agent_memory.resources (id, tenant_id, working_memory, updated_at)
-    VALUES (${t.resource_id}, ${tenantId}, ${text}, now())
-    ON CONFLICT (id) DO UPDATE
-      SET working_memory = EXCLUDED.working_memory,
-          updated_at = now()
-  `
-
-  return { skipped: false, resourceId: t.resource_id }
 }

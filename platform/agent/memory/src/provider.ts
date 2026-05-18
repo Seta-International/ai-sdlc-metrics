@@ -149,12 +149,12 @@ export class AgentMemoryProvider implements MemoryProvider {
           return workingMemory
         }
 
-        const { resourceId, workingMemory } = await readWorkingMemory(tx, tenantId, ctx.threadId)
+        const { workingMemory } = await readWorkingMemory(tx, tenantId, ctx.threadId)
         await recordAudit(tx as unknown as Sql, {
           tenantId,
           actor: actorFromContext(),
           operation: 'memory.get_working_memory',
-          ...(resourceId ? { resource: { type: 'resource', ids: [resourceId] } } : {}),
+          resource: { type: 'thread', ids: [ctx.threadId] },
           result: 'ok',
           metadata: { scope: 'thread', threadId: ctx.threadId, hit: workingMemory != null },
         })
@@ -222,12 +222,12 @@ export class AgentMemoryProvider implements MemoryProvider {
           tenantId,
           actor: actorFromContext(),
           operation: 'memory.update_working_memory',
-          resource: { type: 'resource', ids: [r.resourceId] },
+          resource: { type: 'thread', ids: [r.threadId] },
           result: 'ok',
           metadata: { scope: 'thread', bytes: Buffer.byteLength(text, 'utf8') },
         })
         logger.debug(
-          { resourceId: r.resourceId, bytes: Buffer.byteLength(text, 'utf8') },
+          { threadId: r.threadId, bytes: Buffer.byteLength(text, 'utf8') },
           'memory.update_working_memory',
         )
       })

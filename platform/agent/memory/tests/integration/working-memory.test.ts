@@ -36,23 +36,22 @@ afterAll(async () => {
 
 describe('working memory', () => {
   it('read on missing thread returns null', async () => {
-    await tenantContext.run({ tenantId: TENANT, userId: 'alice' }, async () => {
+    await tenantContext.run({ tenantId: TENANT }, async () => {
       await withTenant(testSql(), TENANT, async (tx) => {
         const out = await readWorkingMemory(tx, TENANT, randomUUID())
-        expect(out).toEqual({ resourceId: null, workingMemory: null })
+        expect(out).toEqual({ workingMemory: null })
       })
     })
   })
 
-  it('write then read round-trips for the same resource', async () => {
+  it('write then read round-trips within the same thread', async () => {
     const threadId = randomUUID()
-    await tenantContext.run({ tenantId: TENANT, userId: 'alice' }, async () => {
+    await tenantContext.run({ tenantId: TENANT }, async () => {
       await withTenant(testSql(), TENANT, async (tx) => {
         await ensureThread(tx, TENANT, threadId)
         const r = await upsertWorkingMemory(tx, TENANT, threadId, 'remember: pizza')
         expect(r.skipped).toBe(false)
         const got = await readWorkingMemory(tx, TENANT, threadId)
-        expect(got.resourceId).toBe('alice')
         expect(got.workingMemory).toBe('remember: pizza')
       })
     })
@@ -60,7 +59,7 @@ describe('working memory', () => {
 
   it('second write overwrites first', async () => {
     const threadId = randomUUID()
-    await tenantContext.run({ tenantId: TENANT, userId: 'alice' }, async () => {
+    await tenantContext.run({ tenantId: TENANT }, async () => {
       await withTenant(testSql(), TENANT, async (tx) => {
         await ensureThread(tx, TENANT, threadId)
         await upsertWorkingMemory(tx, TENANT, threadId, 'first')
@@ -71,20 +70,34 @@ describe('working memory', () => {
     })
   })
 
-  it('returns skipped:true when thread has no resource_id', async () => {
-    const threadId = randomUUID()
+  it('returns skipped:true when thread does not exist', async () => {
     await tenantContext.run({ tenantId: TENANT }, async () => {
       await withTenant(testSql(), TENANT, async (tx) => {
-        await ensureThread(tx, TENANT, threadId)
-        const r = await upsertWorkingMemory(tx, TENANT, threadId, 'anything')
-        expect(r).toEqual({ skipped: true, reason: 'no_resource_id' })
+        const r = await upsertWorkingMemory(tx, TENANT, randomUUID(), 'anything')
+        expect(r).toEqual({ skipped: true, reason: 'thread_not_found' })
+      })
+    })
+  })
+
+  it('thread-scoped memory is isolated per thread', async () => {
+    const thread1 = randomUUID()
+    const thread2 = randomUUID()
+    await tenantContext.run({ tenantId: TENANT }, async () => {
+      await withTenant(testSql(), TENANT, async (tx) => {
+        await ensureThread(tx, TENANT, thread1)
+        await ensureThread(tx, TENANT, thread2)
+        await upsertWorkingMemory(tx, TENANT, thread1, 'thread1 memory')
+        const got1 = await readWorkingMemory(tx, TENANT, thread1)
+        const got2 = await readWorkingMemory(tx, TENANT, thread2)
+        expect(got1.workingMemory).toBe('thread1 memory')
+        expect(got2.workingMemory).toBeNull()
       })
     })
   })
 
   it('rejects 8193 bytes with WorkingMemoryTooLargeError', async () => {
     const threadId = randomUUID()
-    await tenantContext.run({ tenantId: TENANT, userId: 'alice' }, async () => {
+    await tenantContext.run({ tenantId: TENANT }, async () => {
       await withTenant(testSql(), TENANT, async (tx) => {
         await ensureThread(tx, TENANT, threadId)
         await expect(
@@ -147,7 +160,7 @@ describe('working memory', () => {
     })
   })
 
-  it('CHECK constraint backstops the cap when bypassed', async () => {
+  it('CHECK constraint backstops the cap on resources when bypassed', async () => {
     // Direct write as platform_admin (RLS bypass) — must still hit the CHECK.
     const admin = postgres(TEST_DATABASE_URL, { max: 1, prepare: false })
     try {
@@ -158,6 +171,27 @@ describe('working memory', () => {
           VALUES ('rogue', ${TENANT}, ${'b'.repeat(8193)})
         `,
       ).rejects.toThrow(/working_memory_8k|check constraint/i)
+    } finally {
+      await admin.end()
+    }
+  })
+
+  it('CHECK constraint backstops the cap on threads when bypassed', async () => {
+    const threadId = randomUUID()
+    const admin = postgres(TEST_DATABASE_URL, { max: 1, prepare: false })
+    try {
+      await admin.unsafe('SET ROLE platform_admin')
+      await admin`
+        INSERT INTO agent_memory.threads (id, tenant_id)
+        VALUES (${threadId}, ${TENANT})
+      `
+      await expect(
+        admin`
+          UPDATE agent_memory.threads
+          SET metadata = jsonb_build_object('workingMemory', ${'c'.repeat(8193)}::text)
+          WHERE id = ${threadId}
+        `,
+      ).rejects.toThrow(/thread_working_memory_8k|check constraint/i)
     } finally {
       await admin.end()
     }

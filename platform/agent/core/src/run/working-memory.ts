@@ -159,6 +159,20 @@ export function buildWorkingMemoryTools(
       } else {
         const nextMemory =
           typeof input.memory === 'string' ? input.memory : (JSON.stringify(input.memory) ?? '')
+
+        const existingRaw = await memory.getWorkingMemory(memCtx)
+        if (existingRaw) {
+          const template = resolveWorkingMemoryTemplate(cfg.workingMemory)
+          if (template.format === 'markdown' && typeof template.content === 'string') {
+            const normalizedNew      = nextMemory.replace(/\s+/g, ' ').trim()
+            const normalizedTemplate = (template.content as string).replace(/\s+/g, ' ').trim()
+            const normalizedExisting = existingRaw.replace(/\s+/g, ' ').trim()
+            if (normalizedNew === normalizedTemplate && normalizedExisting !== normalizedTemplate) {
+              return { ok: true, value: { success: true } }
+            }
+          }
+        }
+
         await memory.updateWorkingMemory(memCtx, nextMemory)
       }
       return { ok: true, value: { success: true } }

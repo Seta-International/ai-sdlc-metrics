@@ -28,6 +28,7 @@ export const threads = agentMemorySchema.table(
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
+    check('thread_working_memory_8k', sql`octet_length(${t.metadata}->>'workingMemory') <= 8192`),
     index('threads_tenant_resource_updated_idx').on(t.tenantId, t.resourceId, t.updatedAt.desc()),
     pgPolicy('tenant_isolation_threads', {
       as: 'permissive',

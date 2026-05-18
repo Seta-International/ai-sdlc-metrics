@@ -1,0 +1,1 @@
+ALTER TABLE "agent_memory"."threads" ADD CONSTRAINT "thread_working_memory_8k" CHECK (octet_length("agent_memory"."threads"."metadata"->>'workingMemory') <= 8192);
