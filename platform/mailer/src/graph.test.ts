@@ -24,7 +24,8 @@ describe('createGraphMailer', () => {
     expect(captured?.url).toBe('/users/noreply@acme.com/sendMail')
     expect(captured?.token).toBe('TOK')
     expect(captured?.method).toBe('POST')
-    const parsed = JSON.parse(captured!.body) as {
+    expect(captured).toBeDefined()
+    const parsed = JSON.parse(captured?.body ?? '{}') as {
       message: {
         subject: string
         toRecipients: Array<{ emailAddress: { address: string } }>

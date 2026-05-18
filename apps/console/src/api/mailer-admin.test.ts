@@ -29,7 +29,9 @@ describe('mailer-admin API client', () => {
       },
       { fetch: fetchImpl as never },
     )
-    const [, init] = fetchImpl.mock.calls[0]!
+    const firstCall = fetchImpl.mock.calls[0]
+    expect(firstCall).toBeDefined()
+    const init = firstCall?.[1] as RequestInit
     expect(init.method).toBe('PUT')
     expect(JSON.parse(init.body as string)).toMatchObject({ provider: 'graph', enabled: true })
   })

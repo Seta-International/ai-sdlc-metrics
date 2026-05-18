@@ -8,7 +8,9 @@ describe('createConsoleMailer', () => {
     const m = createConsoleMailer({ logger: logger as never })
     await m.send({ to: 'a@b.com', subject: 'Hi', text: 'body' })
     expect(info).toHaveBeenCalled()
-    const [payload] = info.mock.calls[0]!
+    const firstCall = info.mock.calls[0]
+    expect(firstCall).toBeDefined()
+    const [payload] = firstCall ?? []
     expect(payload).toMatchObject({ event: 'mailer.console_send', to: 'a@b.com', subject: 'Hi' })
   })
 })
