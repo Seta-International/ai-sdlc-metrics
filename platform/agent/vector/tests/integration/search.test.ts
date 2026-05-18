@@ -10,6 +10,7 @@ import {
   hashContent,
   seedEmbedding,
   TEST_DATABASE_URL,
+  testSql,
   truncateVectorTables,
 } from './_helpers'
 
