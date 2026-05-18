@@ -109,4 +109,43 @@ describe('@seta/agent-rag — ingest (integration)', () => {
       expect((caught as { code?: string }).code).toBe('VECTOR_QUERY_FAILED')
     })
   })
+
+  it.skipIf(!shouldRun('ingest-fresh-3-chunks'))(
+    'case 1: fresh ingest produces N chunks, one embed call, N rows with non-null span',
+    async () => {
+      recording = setupLLMRecording({
+        name: 'ingest-fresh-3-chunks',
+        recordingsDir: RECORDINGS_DIR,
+      })
+      recording.start()
+      const tenantId = randomUUID()
+      const sourceId = randomUUID()
+      const rag = createAgentRag({ sql: testSql(), embeddings: buildEmbeddings() })
+      const content = Array.from(
+        { length: 80 },
+        (_, i) => `Paragraph ${i}: lorem ipsum dolor sit amet, consectetur adipiscing elit.`,
+      ).join('\n\n')
+      await tenantContext.run({ tenantId }, async () => {
+        await rag.ingest(sourceId, content)
+      })
+      const rows = await withTenant(testSql(), tenantId, async (tx) => {
+        return tx<
+          {
+            content_hash: string
+            span: { startChar: number; endChar: number } | null
+          }[]
+        >`
+          SELECT content_hash, span
+          FROM agent_vector.chunks
+          WHERE source_id = ${sourceId}
+        `
+      })
+      expect(rows.length).toBeGreaterThanOrEqual(1)
+      for (const r of rows) {
+        expect(r.content_hash).toMatch(/^[0-9a-f]{64}$/)
+        expect(r.span).not.toBeNull()
+        expect(r.span!.endChar).toBeGreaterThan(r.span!.startChar)
+      }
+    },
+  )
 })
