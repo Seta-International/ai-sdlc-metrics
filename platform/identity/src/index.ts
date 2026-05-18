@@ -10,6 +10,8 @@ export {
   readLastLoginHint,
   signLastLoginHint,
 } from './last-login'
+export type { MagicLinkRoutesDeps } from './magic-link-routes'
+export { createMagicLinkRoutes } from './magic-link-routes'
 export {
   deleteMailerConfig,
   getMailerConfigByTenant,

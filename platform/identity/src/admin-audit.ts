@@ -17,6 +17,8 @@ export type SsoAuditEvent =
   | 'sso.domain_added'
   | 'sso.domain_removed'
   | 'sso.test_run'
+  | 'sso.magic_link_issued'
+  | 'sso.magic_link_consumed'
   | 'mailer.config_updated'
   | 'mailer.config_deleted'
 
