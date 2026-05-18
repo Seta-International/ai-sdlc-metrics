@@ -7,7 +7,13 @@ import { insertChunks } from '@seta/agent-vector'
 import { tenantContext } from '@seta/tenancy'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createAgentRag } from '../../src/factory.js'
-import { buildEmbeddings, ensureMigrations, testSql, truncateVectorTables } from './_helpers.js'
+import {
+  buildEmbeddings,
+  ensureMigrations,
+  tenantUserSql,
+  testSql,
+  truncateVectorTables,
+} from './_helpers.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const RECORDINGS_DIR = path.resolve(__dirname, '__recordings__')
@@ -131,5 +137,48 @@ describe('@seta/agent-rag — retrieve (integration)', () => {
       rag.retrieve('something unrelated'),
     )
     expect(hits).toEqual([])
+  })
+
+  it('case 9: retrieve under tenant B returns [] for chunks inserted under tenant A (RLS)', async () => {
+    const tenantA = randomUUID()
+    const tenantB = randomUUID()
+    const sourceId = randomUUID()
+
+    await tenantContext.run({ tenantId: tenantA }, async () => {
+      await insertChunks(tenantUserSql(), [
+        {
+          tenantId: tenantA,
+          sourceId,
+          content: 'tenant A secret content',
+          contentHash: sha256hex('tenant A secret content'),
+          tokenCount: 4,
+          span: { startChar: 0, endChar: 23 },
+          embedding: seedEmbedding('tenant A secret content'),
+        },
+      ])
+    })
+
+    const rag = createAgentRag({
+      sql: tenantUserSql(),
+      embeddings: {
+        async embed() {
+          return {
+            embeddings: [seedEmbedding('tenant A secret content')],
+            usage: { promptTokens: 1, totalTokens: 1 },
+          }
+        },
+      },
+    })
+
+    const hitsA = await tenantContext.run({ tenantId: tenantA }, async () =>
+      rag.retrieve('whatever'),
+    )
+    expect(hitsA.length).toBeGreaterThanOrEqual(1)
+    expect(hitsA[0]!.content).toBe('tenant A secret content')
+
+    const hitsB = await tenantContext.run({ tenantId: tenantB }, async () =>
+      rag.retrieve('whatever'),
+    )
+    expect(hitsB).toEqual([])
   })
 })
