@@ -40,5 +40,8 @@ pnpm-debug.log*
 # Local services
 docker-compose.override.yml
 
+# Git worktrees
+.worktrees/
+
 # Local Claude state
 .claude/settings.local.json
