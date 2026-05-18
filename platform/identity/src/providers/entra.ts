@@ -5,7 +5,7 @@ import type { OidcIdToken, SsoProvider } from '../provider'
 export type EntraSsoConfig = {
   clientId: string
   clientSecret: string
-  tenant: string
+  entraTenantId: string
   discoveryUrl?: string
   fetchImpl?: typeof fetch
 }
@@ -26,7 +26,7 @@ export class EntraSsoProvider implements SsoProvider {
   private get discoveryUrl(): string {
     return (
       this.cfg.discoveryUrl ??
-      `https://login.microsoftonline.com/${this.cfg.tenant}/v2.0/.well-known/openid-configuration`
+      `https://login.microsoftonline.com/${this.cfg.entraTenantId}/v2.0/.well-known/openid-configuration`
     )
   }
 
@@ -43,8 +43,15 @@ export class EntraSsoProvider implements SsoProvider {
     return json
   }
 
-  authorizeUrl(opts: { state: string; pkce: string; redirectUri: string }): string {
-    const u = new URL(`https://login.microsoftonline.com/${this.cfg.tenant}/oauth2/v2.0/authorize`)
+  authorizeUrl(opts: {
+    state: string
+    pkce: string
+    redirectUri: string
+    loginHint?: string
+  }): string {
+    const u = new URL(
+      `https://login.microsoftonline.com/${this.cfg.entraTenantId}/oauth2/v2.0/authorize`,
+    )
     u.searchParams.set('client_id', this.cfg.clientId)
     u.searchParams.set('redirect_uri', opts.redirectUri)
     u.searchParams.set('response_type', 'code')
@@ -53,6 +60,7 @@ export class EntraSsoProvider implements SsoProvider {
     u.searchParams.set('state', opts.state)
     u.searchParams.set('code_challenge', opts.pkce)
     u.searchParams.set('code_challenge_method', 'S256')
+    if (opts.loginHint) u.searchParams.set('login_hint', opts.loginHint)
     return u.toString()
   }
 

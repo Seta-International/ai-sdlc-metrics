@@ -5,7 +5,7 @@ describe('EntraSsoProvider.authorizeUrl', () => {
   const provider = new EntraSsoProvider({
     clientId: 'entra-client',
     clientSecret: 'entra-secret',
-    tenant: 'common',
+    entraTenantId: 'common',
   })
 
   it('builds an authorize URL with the required OIDC + PKCE query params', () => {
@@ -27,13 +27,22 @@ describe('EntraSsoProvider.authorizeUrl', () => {
     expect(u.searchParams.get('code_challenge_method')).toBe('S256')
   })
 
-  it('uses configured tenant when not "common"', () => {
-    const p = new EntraSsoProvider({ clientId: 'c', clientSecret: 's', tenant: 'my-tenant' })
+  it('uses configured entraTenantId when not "common"', () => {
+    const p = new EntraSsoProvider({ clientId: 'c', clientSecret: 's', entraTenantId: 'my-tenant' })
     const url = p.authorizeUrl({
       state: 's',
       pkce: 'p',
       redirectUri: 'http://localhost/cb',
     })
     expect(new URL(url).pathname).toBe('/my-tenant/oauth2/v2.0/authorize')
+  })
+
+  it('appends login_hint when provided', () => {
+    const p = new EntraSsoProvider({ clientId: 'c', clientSecret: 's', entraTenantId: 'tid' })
+    const u = new URL(
+      p.authorizeUrl({ state: 'st', pkce: 'pk', redirectUri: 'http://x/cb', loginHint: 'a@b.com' }),
+    )
+    expect(u.searchParams.get('login_hint')).toBe('a@b.com')
+    expect(u.pathname).toBe('/tid/oauth2/v2.0/authorize')
   })
 })
