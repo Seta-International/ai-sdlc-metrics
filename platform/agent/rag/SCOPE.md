@@ -1,6 +1,6 @@
 # SCOPE — platform/agent/rag  (@seta/agent-rag — P1)
 
-> **Status:** **P1 — own package `@seta/agent-rag` lands under `platform/agent/rag/`.** The package.json + `src/` are NOT created in this PR; this SCOPE.md is the P1 contract and the directory placeholder. The package is created in a follow-up PR via `pnpm new:package` — see CLAUDE.md "CLI-only — packages and dependencies".
+> **Status:** **P1 — `@seta/agent-rag` is implemented at `platform/agent/rag/`.** Public surface frozen per [`docs/superpowers/specs/2026-05-18-agent-rag-design.md`](../../../docs/superpowers/specs/2026-05-18-agent-rag-design.md). Companion vector-side change shipped via [`docs/superpowers/specs/2026-05-18-agent-vector-span-citation-design.md`](../../../docs/superpowers/specs/2026-05-18-agent-vector-span-citation-design.md). Retrieve is vector-only in P1; FTS hybrid + RRF asymmetry deferred to P2.
 >
 > **P1 scope override (2026-05-12):** setup.md §6 originally listed all four RAG packages (`agent-chunking`, `agent-embeddings`, `agent-vector`, `agent-rag`) as P2 primitives (table at `docs/setup.md:428-438`; §11 layout grouping these under P2). The spike report `09-memory.md:30, :68` echoed the deferral. User-directed scope change: the **Seta FAQ Agent** requires RAG in P1, so the full RAG track moves to P1. setup.md §6's P2 framing stays as-written; this SCOPE.md is the override citation point.
 
@@ -30,8 +30,12 @@ The Seta FAQ Agent (`modules/products/agent/src/agents/faq.ts`) consumes this pa
 
 ## Current state (P1)
 
-- **Directory placeholder only.** This SCOPE.md exists; no `package.json`, no `src/` lands in this PR. The package is created in the next PR via `pnpm new:package` (CLAUDE.md CLI-only).
-- All three downstream RAG packages are P1 (per override); this composition layer is the topmost of the four and depends on every one of them.
+- **Package implemented.** `package.json`, `src/`, `tests/integration/`, recordings, and the three-subpath `exports` map (`.`, `./types`, `./testkit`) all exist at `platform/agent/rag/`.
+- Public surface: `createAgentRag`, `fuseByRRF`, type exports (`RagApi`, `RagDeps`, `RagHit`, `RagCitation`, `IngestOptions`, `RetrieveOptions`, `RankedItem`, `FusedItem`), and the in-memory fake via `@seta/agent-rag/testkit` (`createFakeAgentRag`).
+- **24 unit tests** pass (RRF correctness, ≥200-run property tests, testkit, factory shape, sha256hex digest).
+- **13 integration tests** pass against real pgvector + recorded OpenAI fixtures (7 ingest cases + 6 retrieve cases).
+- Recordings checked into `tests/integration/__recordings__/` per CLAUDE.md "LLM in tests: only via `@seta/agent-core/testkit` recordings".
+- Vector-side companion (`span jsonb` column + `sourceId` + `span` on `SearchHit`) shipped via [`platform/agent/vector/SCOPE.md`](../vector/SCOPE.md).
 
 ## Public interface (when implementation lands — P1)
 
@@ -98,6 +102,9 @@ Setup.md §11 dep direction confirms: `platform/agent/rag → platform/agent/{ch
 - **Citation span re-resolved at retrieve time** — `@seta/agent-vector.Chunk` carries the chunk content but not the original character span (the `agent_vector.chunks` table stores `content` but not `startChar`/`endChar`; those live on the original `@seta/agent-chunking.Chunk` produced at ingest). The chunk's `startChar`/`endChar` should be stored in the vector row's metadata column at ingest time (proposed `chunks.span jsonb`) so retrieval can return citation spans without re-chunking. **Open question — see below.**
 - **No LLM call inside `retrieve`** — answer synthesis happens upstream in the FAQ Agent's kernel loop. RAG returns ranked hits; the agent's system prompt instructs it to cite them.
 - **Idempotent `ingest`** — re-ingesting the same `(sourceId, content)` should not duplicate chunks. Implementation note: delete-by-`source_id` then insert, all inside the same `withTenant` tx. Setup.md §3 / CLAUDE.md "Idempotent external boundaries".
+- **Factory injection, not module-level singletons.** `createAgentRag({ sql, embeddings })` is the only construction entry point. No imported global `sql` or `embeddings`.
+- **RRF runs even with one leg.** Single-leg passthrough keeps the field shape uniform with future hybrid retrieve.
+- **Citation spans flow `chunkText` → `insertChunks.span` → `searchChunks.span` → `RagHit.citation.span`.** One value, one path; no re-derivation at retrieve time.
 
 ## Patterns to avoid
 
@@ -109,6 +116,10 @@ Setup.md §11 dep direction confirms: `platform/agent/rag → platform/agent/{ch
 - **Do NOT cache retrieve results in-process** — tenant-leak risk. The kernel's prompt-cache layer (Anthropic ephemeral cache, OpenAI structured-output cache per setup.md §5) handles answer-level caching; RAG hits are not cached.
 - **Do NOT add answer-synthesis** — generation is the agent's job. Crossing this boundary couples RAG to a specific model and prompt shape.
 - **Do NOT introduce sub-second wall-clock SLAs for `ingest`** — bulk corpus ingest runs offline / on demand, not on the request hot path. The `retrieve` hot path is the latency-sensitive one.
+- **Do NOT add the FTS leg in P1.** Vector-only retrieve; `fuseByRRF` keeps the shape ready for P2.
+- **Do NOT introduce new error classes.** Pass `DomainError` / `LlmError` through unchanged.
+- **Do NOT cache retrieve results in-process.** Tenant-leak risk.
+- **Do NOT log chunk content, query text, or embedding vectors.**
 
 ## Test strategy (when implementation lands)
 
@@ -130,6 +141,9 @@ Setup.md §11 dep direction confirms: `platform/agent/rag → platform/agent/{ch
 
 ## Cross-references
 
+- **Implementation design (this package, P1):** [`docs/superpowers/specs/2026-05-18-agent-rag-design.md`](../../../docs/superpowers/specs/2026-05-18-agent-rag-design.md)
+- **Companion vector-side spec:** [`docs/superpowers/specs/2026-05-18-agent-vector-span-citation-design.md`](../../../docs/superpowers/specs/2026-05-18-agent-vector-span-citation-design.md)
+- **Superseded ingest spec:** [`docs/superpowers/specs/2026-05-15-agent-rag-dedup-ingest-design.md`](../../../docs/superpowers/specs/2026-05-15-agent-rag-dedup-ingest-design.md) (carry-forward source for the dedup pre-check decision)
 - **Setup spec (load-bearing):** [`docs/setup.md`](../../../docs/setup.md) §6 (RAG primitives — full section; RRF rationale at line 438), §11 (`platform/agent/rag/` directory placement; dep direction), §13 (no incremental external pins beyond what the four packages already pin).
 - **Spike report:** [`docs/explorations/2026-05-12-mastra-spike/09-memory.md`](../../../docs/explorations/2026-05-12-mastra-spike/09-memory.md):30, :68 — RAG track previously P2, now P1 per override.
 - **Spike report:** [`docs/explorations/2026-05-12-mastra-spike/06-llm-recording-replay.md`](../../../docs/explorations/2026-05-12-mastra-spike/06-llm-recording-replay.md) — testkit recordings for the embedding leg.
