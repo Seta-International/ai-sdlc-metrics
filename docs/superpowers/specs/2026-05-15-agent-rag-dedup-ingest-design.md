@@ -1,5 +1,7 @@
 # Design — `@seta/agent-rag.ingest` dedup-aware ingest flow (P1)
 
+> **Superseded by [`2026-05-18-agent-rag-design.md`](./2026-05-18-agent-rag-design.md).** The dedup pre-check decisions and inline `sha256hex` rationale documented here are carried forward verbatim; the only material change is that ingest consumes `EmbeddingsClient.embed` (factory pattern) instead of the original free `embed()` function shown below. Read the new spec for the implemented surface.
+>
 > **Status:** Spec for the composition layer's use of the content-hash dedup
 > introduced in
 > [`2026-05-15-agent-vector-dedup-design.md`](./2026-05-15-agent-vector-dedup-design.md).
