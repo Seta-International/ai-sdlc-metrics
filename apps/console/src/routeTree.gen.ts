@@ -22,6 +22,7 @@ import { Route as LoginProviderCallbackRouteImport } from './routes/login.$provi
 import { Route as SuperadminAdminTenantsRouteImport } from './routes/_superadmin/admin/tenants'
 import { Route as AuthedConnectorsCidConsentRouteImport } from './routes/_authed/connectors.$cid.consent'
 import { Route as SuperadminAdminTenantsTenantIdSsoRouteImport } from './routes/_superadmin/admin/tenants.$tenantId.sso'
+import { Route as SuperadminAdminTenantsTenantIdMailerRouteImport } from './routes/_superadmin/admin/tenants.$tenantId.mailer'
 import { Route as SuperadminAdminTenantsTenantIdSsoDomainsRouteImport } from './routes/_superadmin/admin/tenants.$tenantId.sso.domains'
 
 const NoWorkspaceRoute = NoWorkspaceRouteImport.update({
@@ -89,6 +90,12 @@ const SuperadminAdminTenantsTenantIdSsoRoute =
     path: '/$tenantId/sso',
     getParentRoute: () => SuperadminAdminTenantsRoute,
   } as any)
+const SuperadminAdminTenantsTenantIdMailerRoute =
+  SuperadminAdminTenantsTenantIdMailerRouteImport.update({
+    id: '/$tenantId/mailer',
+    path: '/$tenantId/mailer',
+    getParentRoute: () => SuperadminAdminTenantsRoute,
+  } as any)
 const SuperadminAdminTenantsTenantIdSsoDomainsRoute =
   SuperadminAdminTenantsTenantIdSsoDomainsRouteImport.update({
     id: '/domains',
@@ -107,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/admin/tenants': typeof SuperadminAdminTenantsRouteWithChildren
   '/login/$provider/callback': typeof LoginProviderCallbackRoute
   '/connectors/$cid/consent': typeof AuthedConnectorsCidConsentRoute
+  '/admin/tenants/$tenantId/mailer': typeof SuperadminAdminTenantsTenantIdMailerRoute
   '/admin/tenants/$tenantId/sso': typeof SuperadminAdminTenantsTenantIdSsoRouteWithChildren
   '/admin/tenants/$tenantId/sso/domains': typeof SuperadminAdminTenantsTenantIdSsoDomainsRoute
 }
@@ -121,6 +129,7 @@ export interface FileRoutesByTo {
   '/admin/tenants': typeof SuperadminAdminTenantsRouteWithChildren
   '/login/$provider/callback': typeof LoginProviderCallbackRoute
   '/connectors/$cid/consent': typeof AuthedConnectorsCidConsentRoute
+  '/admin/tenants/$tenantId/mailer': typeof SuperadminAdminTenantsTenantIdMailerRoute
   '/admin/tenants/$tenantId/sso': typeof SuperadminAdminTenantsTenantIdSsoRouteWithChildren
   '/admin/tenants/$tenantId/sso/domains': typeof SuperadminAdminTenantsTenantIdSsoDomainsRoute
 }
@@ -138,6 +147,7 @@ export interface FileRoutesById {
   '/_superadmin/admin/tenants': typeof SuperadminAdminTenantsRouteWithChildren
   '/login/$provider/callback': typeof LoginProviderCallbackRoute
   '/_authed/connectors/$cid/consent': typeof AuthedConnectorsCidConsentRoute
+  '/_superadmin/admin/tenants/$tenantId/mailer': typeof SuperadminAdminTenantsTenantIdMailerRoute
   '/_superadmin/admin/tenants/$tenantId/sso': typeof SuperadminAdminTenantsTenantIdSsoRouteWithChildren
   '/_superadmin/admin/tenants/$tenantId/sso/domains': typeof SuperadminAdminTenantsTenantIdSsoDomainsRoute
 }
@@ -154,6 +164,7 @@ export interface FileRouteTypes {
     | '/admin/tenants'
     | '/login/$provider/callback'
     | '/connectors/$cid/consent'
+    | '/admin/tenants/$tenantId/mailer'
     | '/admin/tenants/$tenantId/sso'
     | '/admin/tenants/$tenantId/sso/domains'
   fileRoutesByTo: FileRoutesByTo
@@ -168,6 +179,7 @@ export interface FileRouteTypes {
     | '/admin/tenants'
     | '/login/$provider/callback'
     | '/connectors/$cid/consent'
+    | '/admin/tenants/$tenantId/mailer'
     | '/admin/tenants/$tenantId/sso'
     | '/admin/tenants/$tenantId/sso/domains'
   id:
@@ -184,6 +196,7 @@ export interface FileRouteTypes {
     | '/_superadmin/admin/tenants'
     | '/login/$provider/callback'
     | '/_authed/connectors/$cid/consent'
+    | '/_superadmin/admin/tenants/$tenantId/mailer'
     | '/_superadmin/admin/tenants/$tenantId/sso'
     | '/_superadmin/admin/tenants/$tenantId/sso/domains'
   fileRoutesById: FileRoutesById
@@ -288,6 +301,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SuperadminAdminTenantsTenantIdSsoRouteImport
       parentRoute: typeof SuperadminAdminTenantsRoute
     }
+    '/_superadmin/admin/tenants/$tenantId/mailer': {
+      id: '/_superadmin/admin/tenants/$tenantId/mailer'
+      path: '/$tenantId/mailer'
+      fullPath: '/admin/tenants/$tenantId/mailer'
+      preLoaderRoute: typeof SuperadminAdminTenantsTenantIdMailerRouteImport
+      parentRoute: typeof SuperadminAdminTenantsRoute
+    }
     '/_superadmin/admin/tenants/$tenantId/sso/domains': {
       id: '/_superadmin/admin/tenants/$tenantId/sso/domains'
       path: '/domains'
@@ -342,11 +362,14 @@ const SuperadminAdminTenantsTenantIdSsoRouteWithChildren =
   )
 
 interface SuperadminAdminTenantsRouteChildren {
+  SuperadminAdminTenantsTenantIdMailerRoute: typeof SuperadminAdminTenantsTenantIdMailerRoute
   SuperadminAdminTenantsTenantIdSsoRoute: typeof SuperadminAdminTenantsTenantIdSsoRouteWithChildren
 }
 
 const SuperadminAdminTenantsRouteChildren: SuperadminAdminTenantsRouteChildren =
   {
+    SuperadminAdminTenantsTenantIdMailerRoute:
+      SuperadminAdminTenantsTenantIdMailerRoute,
     SuperadminAdminTenantsTenantIdSsoRoute:
       SuperadminAdminTenantsTenantIdSsoRouteWithChildren,
   }

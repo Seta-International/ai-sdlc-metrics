@@ -241,4 +241,54 @@ describe('admin-sso (integration)', () => {
     expect(vault.get(`${tenantId}:sso-entra:sso`)).toBe('rotated')
     expect(events.find((e) => e.operation === 'sso.secret_rotated')).toBeDefined()
   })
+
+  describe('admin mailer routes', () => {
+    beforeEach(async () => {
+      await sql`DELETE FROM auth.mailer_configs WHERE tenant_id IN (${tenantId}, ${tenantId2})`
+    })
+
+    it('PUT creates a mailer config; GET returns it; audit records update', async () => {
+      const { app, events } = buildApp(sql)
+      const put = await app.request(`/admin/mailer/tenants/${tenantId}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          provider: 'graph',
+          config: { mailbox_user_id: 'noreply@acme.com', from_address: 'noreply@acme.com' },
+          enabled: true,
+        }),
+      })
+      expect(put.status).toBe(200)
+      const get = await app.request(`/admin/mailer/tenants/${tenantId}`)
+      expect(get.status).toBe(200)
+      const body = (await get.json()) as { provider: string; config: { from_address: string } }
+      expect(body.provider).toBe('graph')
+      expect(body.config.from_address).toBe('noreply@acme.com')
+      expect(events.find((e) => e.operation === 'mailer.config_updated')).toBeDefined()
+    })
+
+    it('GET returns 404 when no mailer row exists', async () => {
+      const { app } = buildApp(sql)
+      const res = await app.request(`/admin/mailer/tenants/${tenantId}`)
+      expect(res.status).toBe(404)
+    })
+
+    it('DELETE removes the row and audits deletion', async () => {
+      const { app, events } = buildApp(sql)
+      await app.request(`/admin/mailer/tenants/${tenantId}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          provider: 'graph',
+          config: { mailbox_user_id: 'a@b.c', from_address: 'a@b.c' },
+          enabled: true,
+        }),
+      })
+      const del = await app.request(`/admin/mailer/tenants/${tenantId}`, { method: 'DELETE' })
+      expect(del.status).toBe(200)
+      const get = await app.request(`/admin/mailer/tenants/${tenantId}`)
+      expect(get.status).toBe(404)
+      expect(events.find((e) => e.operation === 'mailer.config_deleted')).toBeDefined()
+    })
+  })
 })

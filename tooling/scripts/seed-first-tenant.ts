@@ -20,6 +20,9 @@ const Env = z.object({
   BOOTSTRAP_SSO_EMAIL_DOMAINS: z.string().min(1),
   BOOTSTRAP_SUPERADMIN_EMAILS: z.string().min(1),
   BOOTSTRAP_CONNECTORS: z.string().min(1),
+  BOOTSTRAP_MAILER_PROVIDER: z.literal('graph').default('graph'),
+  BOOTSTRAP_GRAPH_MAILBOX_USER_ID: z.string().min(1),
+  BOOTSTRAP_GRAPH_FROM_ADDRESS: z.email(),
   BOOTSTRAP_OFFLINE: z.enum(['0', '1']).default('0'),
   KMS_PROVIDER: z.enum(['aws', 'env']).default('env'),
   DEV_DEK_BASE64: z.string().optional(),
@@ -168,6 +171,23 @@ async function main(): Promise<void> {
         ON CONFLICT (domain) DO NOTHING
       `
     }
+
+    await tx`
+      INSERT INTO auth.mailer_configs (tenant_id, provider, config, enabled)
+      VALUES (
+        ${id},
+        ${env.BOOTSTRAP_MAILER_PROVIDER},
+        ${tx.json({
+          mailbox_user_id: env.BOOTSTRAP_GRAPH_MAILBOX_USER_ID,
+          from_address: env.BOOTSTRAP_GRAPH_FROM_ADDRESS,
+        } as never)},
+        true
+      )
+      ON CONFLICT (tenant_id, provider) DO UPDATE
+        SET config = excluded.config,
+            enabled = excluded.enabled,
+            updated_at = now()
+    `
 
     return id
   })) as unknown as string

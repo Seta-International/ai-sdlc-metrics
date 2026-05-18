@@ -1,6 +1,7 @@
 export * from './api-keys'
 export * from './jwks-cache'
 export * from './magic-links'
+export * from './mailer-configs'
 export * from './sessions'
 export * from './sso-configs'
 export * from './sso-email-domains'

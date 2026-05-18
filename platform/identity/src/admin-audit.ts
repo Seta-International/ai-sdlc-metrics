@@ -17,6 +17,8 @@ export type SsoAuditEvent =
   | 'sso.domain_added'
   | 'sso.domain_removed'
   | 'sso.test_run'
+  | 'mailer.config_updated'
+  | 'mailer.config_deleted'
 
 export async function recordSsoAudit(
   writer: AuditWriter,

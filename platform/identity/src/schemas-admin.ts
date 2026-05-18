@@ -1,4 +1,5 @@
 import { z } from '@hono/zod-openapi'
+import { GraphMailerConfig } from './mailer-config-schema'
 import { EntraConfig } from './sso-config-schema'
 
 export const SsoListItem = z
@@ -62,3 +63,22 @@ export const SsoRotateSecretBody = z
   })
   .openapi('SsoRotateSecretBody')
 export type SsoRotateSecretBody = z.infer<typeof SsoRotateSecretBody>
+
+export const MailerDetail = z
+  .object({
+    tenantId: z.uuid(),
+    provider: z.literal('graph'),
+    config: GraphMailerConfig,
+    enabled: z.boolean(),
+  })
+  .openapi('MailerDetail')
+export type MailerDetail = z.infer<typeof MailerDetail>
+
+export const MailerUpsertBody = z
+  .object({
+    provider: z.literal('graph'),
+    config: GraphMailerConfig,
+    enabled: z.boolean().default(true),
+  })
+  .openapi('MailerUpsertBody')
+export type MailerUpsertBody = z.infer<typeof MailerUpsertBody>

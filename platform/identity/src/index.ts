@@ -10,6 +10,16 @@ export {
   readLastLoginHint,
   signLastLoginHint,
 } from './last-login'
+export {
+  deleteMailerConfig,
+  getMailerConfigByTenant,
+  upsertMailerConfig,
+} from './mailer-config-repo'
+export type { GraphMailerConfig, MailerConfigDiscriminated } from './mailer-config-schema'
+export {
+  MailerConfigDiscriminated as MailerConfigSchema,
+  parseMailerConfig,
+} from './mailer-config-schema'
 export type { ResolveNextUrlInput } from './me/resolve-next-url'
 export { resolveNextUrl } from './me/resolve-next-url'
 export type { AttachStatus, MeContext, MeContextProvider } from './me-context-provider'
@@ -26,7 +36,9 @@ export type { SsoRoutesDeps } from './routes'
 export { createSsoRoutes } from './routes'
 export type {
   MagicLinkRow,
+  MailerConfigRow,
   NewMagicLinkRow,
+  NewMailerConfigRow,
   NewSession,
   NewSsoConfigRow,
   NewSsoEmailDomainRow,
@@ -41,6 +53,7 @@ export type {
 export {
   authSchema,
   magicLinks,
+  mailerConfigs,
   sessions,
   ssoConfigs,
   ssoEmailDomains,
@@ -58,6 +71,8 @@ export {
   TenantSummary,
 } from './schemas'
 export {
+  MailerDetail,
+  MailerUpsertBody,
   SsoConfigDetail,
   SsoListItem,
   SsoListResponse,

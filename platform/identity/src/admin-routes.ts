@@ -4,8 +4,15 @@ import { Hono } from 'hono'
 import type { Sql } from 'postgres'
 import type { AuditWriter } from './admin-audit'
 import { recordSsoAudit } from './admin-audit'
+import {
+  deleteMailerConfig,
+  getMailerConfigByTenant,
+  upsertMailerConfig,
+} from './mailer-config-repo'
 import type { SsoVariables } from './middleware'
 import {
+  MailerDetail,
+  MailerUpsertBody,
   SsoConfigDetail,
   SsoListResponse,
   SsoRotateSecretBody,
@@ -222,6 +229,51 @@ export function createSsoAdminRoutes(deps: SsoAdminRoutesDeps): Hono<{ Variables
     })
     await recordSsoAudit(deps.audit, {
       event: 'sso.secret_rotated',
+      actorUserId,
+      tenantId,
+    })
+    return c.json({ ok: true })
+  })
+
+  app.get('/admin/mailer/tenants/:tenantId', async (c) => {
+    const tenantId = c.req.param('tenantId')
+    const row = await getMailerConfigByTenant(deps.sql, tenantId)
+    if (!row) throw new NotFound('no mailer config')
+    return c.json(MailerDetail.parse({ tenantId, ...row, enabled: true }))
+  })
+
+  app.put('/admin/mailer/tenants/:tenantId', async (c) => {
+    const tenantId = c.req.param('tenantId')
+    const actorUserId = c.get('userId')
+    const body = MailerUpsertBody.parse(await c.req.json().catch(() => ({})))
+    await upsertMailerConfig(deps.sql, {
+      tenantId,
+      provider: 'graph',
+      config: body.config,
+      enabled: body.enabled,
+    })
+    await recordSsoAudit(deps.audit, {
+      event: 'mailer.config_updated',
+      actorUserId,
+      tenantId,
+      metadata: { provider: 'graph', enabled: body.enabled },
+    })
+    return c.json(
+      MailerDetail.parse({
+        tenantId,
+        provider: 'graph',
+        config: body.config,
+        enabled: body.enabled,
+      }),
+    )
+  })
+
+  app.delete('/admin/mailer/tenants/:tenantId', async (c) => {
+    const tenantId = c.req.param('tenantId')
+    const actorUserId = c.get('userId')
+    await deleteMailerConfig(deps.sql, tenantId)
+    await recordSsoAudit(deps.audit, {
+      event: 'mailer.config_deleted',
       actorUserId,
       tenantId,
     })

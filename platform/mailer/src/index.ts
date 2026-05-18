@@ -1,0 +1,8 @@
+export type { ConsoleMailerOpts } from './console'
+export { createConsoleMailer } from './console'
+export type { GraphFetch, GraphMailerOpts } from './graph'
+export { createGraphMailer } from './graph'
+export type { MailerConfigInput, MailerResolverDeps } from './resolver'
+export { mailerForTenant } from './resolver'
+export type { Mailer, OutboundMessage } from './types'
+export { MailerNotConfigured } from './types'

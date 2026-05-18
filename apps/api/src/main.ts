@@ -24,10 +24,16 @@ import {
   createSessionStore,
   createSsoAdminRoutes,
   createSsoRoutes,
+  getMailerConfigByTenant,
   isSuperadmin,
   requireSession,
   requireSuperadmin,
 } from '@seta/identity'
+import {
+  type GraphFetch as MailerGraphFetch,
+  type MailerResolverDeps,
+  mailerForTenant,
+} from '@seta/mailer'
 import { onError, rateLimit, Unauthorized } from '@seta/middleware'
 import { createGraphFetch } from '@seta/ms-graph'
 import { mockTeamsHandler, routes as teamsRoutes } from '@seta/ms-teams'
@@ -80,6 +86,50 @@ const platformConnectorOAuth = new EntraProvider({
   clientId: env.PLATFORM_CONNECTOR_CLIENT_ID,
   clientSecret: env.PLATFORM_CONNECTOR_CLIENT_SECRET,
 })
+
+// ── Mailer resolver ───────────────────────────────────────────────────────────
+
+const mailerGraphFetch: MailerGraphFetch = async (token, method, url, body) => {
+  try {
+    const result = await graph.call({
+      token,
+      method,
+      path: url,
+      body,
+      actor: { type: 'system', label: 'mailer' },
+      connectorId: 'platform-connector',
+    })
+    return new Response('', { status: result.status })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'graph send failed'
+    return new Response(message, { status: 502 })
+  }
+}
+
+const mailerDeps: MailerResolverDeps = {
+  nodeEnv: env.NODE_ENV,
+  getMailerConfig: (tenantId) => getMailerConfigByTenant(sql, tenantId),
+  getEntraTenantIdForTenant: async (tenantId) => {
+    const rows = (await sql`
+      SELECT config->>'entra_tenant_id' AS tid
+      FROM auth.sso_configs WHERE tenant_id = ${tenantId} AND enabled LIMIT 1
+    `) as Array<{ tid: string | null }>
+    return rows[0]?.tid ?? null
+  },
+  platformConnector: {
+    acquireAppOnly: (entraTenantId, scopes) =>
+      platformConnectorOAuth.acquireAppOnly(entraTenantId, scopes),
+  },
+  graphFetch: mailerGraphFetch,
+  logger,
+  ...(env.MAILER_FROM_ADDRESS_DEFAULT !== undefined
+    ? { defaultFrom: env.MAILER_FROM_ADDRESS_DEFAULT }
+    : {}),
+}
+
+export async function getMailerFor(tenantId: string) {
+  return mailerForTenant(tenantId, mailerDeps)
+}
 
 // ── SSO routes ────────────────────────────────────────────────────────────────
 
