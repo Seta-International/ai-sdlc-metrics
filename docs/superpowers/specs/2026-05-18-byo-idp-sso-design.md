@@ -49,8 +49,10 @@ single-Entra-app design.
 | Connector OAuth (Graph API access) | Unchanged — remains a single operator-owned multi-tenant Entra app, separate from per-tenant SSO |
 | SSO admin surface | Superadmin-only. Tenant owners/admins cannot edit their own SSO. |
 | Client secret storage | Reuse existing KMS-backed `oauth.oauth_tokens` vault |
-| Mailer | New platform package `@seta/mailer` wrapping SMTP / SES / Graph / Console backends |
-| Dev affordance for magic links | `ConsoleMailer` selected when `MAILER_BACKEND=console`; logs the link instead of sending. Fails closed in production. |
+| Mailer | New platform package `@seta/mailer` wrapping Graph / SMTP / SES / Console backends. **Config is per-tenant** (table `auth.mailer_configs`); each tenant chooses its backend and credentials. |
+| First mailer backend shipped (v1) | **Microsoft Graph** — sends from a mailbox in the customer's M365 tenant using the existing platform connector Entra app (requires admin-consented `Mail.Send` scope). SMTP/SES backends are designed for but deferred. |
+| Dev affordance for magic links | `ConsoleMailer` is process-level (not per-tenant); selected when no per-tenant `mailer_configs` row exists for the sending tenant AND `NODE_ENV !== 'production'`. In production, missing config is a per-tenant configuration error surfaced to the operator. |
+| Connector OAuth (Graph API access) — per-tenant override | Optional. Default stays Seta-owned multi-tenant connector Entra app (low-friction onboarding). A future per-tenant override (customer registers their own connector app reg in their directory) is supported by an optional `tenant.tenant_connectors.app_client_id` / `app_client_secret_vault_id` extension. **Not implemented in v1**; design leaves room for it. |
 | UX hint | Signed (non-session) `seta_last_login` cookie carries `{ email, provider, tenant_display_name }` for one-click re-login |
 
 ## Architecture
@@ -307,7 +309,8 @@ All mutations emit audit events.
 ## `@seta/mailer` platform package
 
 New platform package at `platform/mailer/`. Vendor-neutral interface,
-vendor-specific backend factories. Selection at boot via env.
+vendor-specific backend factories. **Backend selection is per-tenant**,
+loaded from `auth.mailer_configs` at call-time (not at boot).
 
 ```ts
 export interface Mailer { send(msg: OutboundMessage): Promise<void> }
@@ -322,29 +325,105 @@ export interface OutboundMessage {
   idempotencyKey?: string
 }
 
-export function createSmtpMailer(opts: SmtpOpts): Mailer       // nodemailer
-export function createSesMailer(opts: SesOpts): Mailer         // @aws-sdk/client-ses
-export function createGraphMailer(opts: GraphOpts): Mailer     // @seta/ms-graph
-export function createConsoleMailer(opts: ConsoleOpts): Mailer // logs only
+// Backend factories — each returns Mailer
+export function createGraphMailer(opts: GraphOpts): Mailer    // v1: shipped
+export function createSmtpMailer(opts: SmtpOpts): Mailer      // v2+: scaffolded, not wired
+export function createSesMailer(opts: SesOpts): Mailer        // v2+: scaffolded, not wired
+export function createConsoleMailer(opts: ConsoleOpts): Mailer // dev-only
 
-export function createMailerFromEnv(env, deps): Mailer
+// Per-tenant resolver — loads auth.mailer_configs, decrypts secret if any,
+// dispatches on provider. Returns null when the tenant has no row AND
+// NODE_ENV !== 'production' so the caller falls back to console.
+export function mailerForTenant(
+  tenantId: string,
+  deps: MailerResolverDeps,
+): Promise<Mailer>
 ```
 
-Backends:
+### Per-tenant config (DB)
 
-| Backend | Use case | Auth |
-|---|---|---|
-| `smtp` | Self-hosted or Postmark/Mailgun/SES-SMTP | `SMTP_URL` |
-| `ses` | AWS-hosted | IAM (existing `AWS_REGION` + role) |
-| `graph` | Dogfood via operator M365 mailbox | Constructor-injected token-getter using the platform connector Entra app, `Mail.Send` scope |
-| `console` | Local dev | none |
+```ts
+auth.mailer_configs {
+  tenant_id        uuid NOT NULL
+  provider         text NOT NULL  -- 'graph' (v1) | future: 'smtp' | 'ses'
+  config           jsonb NOT NULL  -- provider-specific, Zod-validated
+  secret_vault_id  text            -- nullable; graph backend does NOT need one
+  enabled          boolean NOT NULL DEFAULT true
+  created_at, updated_at timestamptz
 
-Zod refinement:
+  PRIMARY KEY (tenant_id, provider)
+}
+```
 
-- `MAILER_BACKEND=smtp` → `SMTP_URL` required
-- `MAILER_BACKEND=ses` → `AWS_REGION` required
-- `MAILER_BACKEND=graph` → `GRAPH_MAILBOX_USER_ID` + `OPERATOR_ENTRA_TENANT_ID` required
-- `MAILER_BACKEND=console` + `NODE_ENV=production` → boot error (fail closed)
+Per-provider config shapes:
+
+```ts
+// v1
+const GraphMailerConfig = z.object({
+  mailbox_user_id: z.string().min(1),  // user id / UPN in the customer's M365 directory
+  from_address:    z.string().email(),
+})
+
+// scaffolded
+const SmtpMailerConfig = z.object({
+  from_address: z.string().email(),
+  // secret_vault_id holds the SMTP URL (e.g. smtps://user:pass@host:587)
+})
+const SesMailerConfig  = z.object({
+  region:       z.string().min(1),
+  from_address: z.string().email(),
+  configuration_set: z.string().optional(),
+})
+
+const MailerConfig = z.discriminatedUnion('provider', [
+  z.object({ provider: z.literal('graph'), config: GraphMailerConfig }),
+])
+```
+
+### Graph backend — how it sends mail
+
+The Graph backend reuses the **platform connector Entra app** (the
+Seta-owned multi-tenant app) plus the customer's admin-consented
+`Mail.Send` permission. Token acquisition uses the existing
+`platformConnectorOAuth.acquireAppOnly(<customer-entra-tenant-id>, ['https://graph.microsoft.com/.default'])`
+flow. The customer's Entra tenant id is read from the SSO config
+(`auth.sso_configs.config.entra_tenant_id`) — single source of truth for
+"this Seta tenant lives in that Entra directory".
+
+```
+POST https://graph.microsoft.com/v1.0/users/{mailbox_user_id}/sendMail
+Authorization: Bearer <app-only token for customer's tenant>
+Content-Type: application/json
+
+{
+  "message": { "subject": "...", "body": { "contentType": "Text", "content": "..." }, "toRecipients": [...] },
+  "saveToSentItems": "false"
+}
+```
+
+The customer side requires:
+1. The platform connector Entra app must be admin-consented in their
+   tenant **with** `Mail.Send` permission (operator-runbooked during
+   onboarding alongside Planner/Directory consent).
+2. A real mailbox user exists at `mailbox_user_id` (typically a service
+   account, e.g. `no-reply@customer.com`).
+
+For **Seta's own tenant** (the first row), seed script writes a
+`mailer_configs` row with `provider='graph'`, `mailbox_user_id` =
+the operator's no-reply mailbox UPN, `from_address` = same. No vault
+secret needed.
+
+### Console backend
+
+Process-level fallback for local dev only. Triggered when:
+- `auth.mailer_configs` has no enabled row for the tenant, **AND**
+- `NODE_ENV !== 'production'`
+
+In production, missing config raises `MailerNotConfigured` (an operator
+error surfaced via logger + audit; the caller decides whether the
+operation can proceed).
+
+### Templates
 
 Templates are TypeScript functions colocated with the caller (e.g.
 `@seta/identity/src/mail-templates/magic-link.ts`), returning
@@ -352,7 +431,19 @@ Templates are TypeScript functions colocated with the caller (e.g.
 
 Cross-backend contract suite lives in `platform/mailer/tests/contract/` —
 every backend must satisfy the same happy-path + error-shape tests. This
-guarantees swapping `MAILER_BACKEND` is a config change.
+guarantees adding a backend later is safe.
+
+### Env vars (mailer)
+
+```
+# No backend selector env — backend is per-tenant.
+# Process-level only:
+MAILER_FROM_ADDRESS_DEFAULT       # optional fallback when a tenant's row omits from_address
+```
+
+Per-tenant config edits via the superadmin SSO admin UI (PR 2 extends
+the same screens with a "Mailer" tab) or directly via the seed script for
+the bootstrap tenant.
 
 ## Module ownership
 
@@ -386,18 +477,20 @@ guarantees swapping `MAILER_BACKEND` is a config change.
 + BOOTSTRAP_SSO_CLIENT_SECRET
 + BOOTSTRAP_SSO_EMAIL_DOMAINS   # comma-separated
 
-# Added — mailer
-+ MAILER_BACKEND                # smtp | ses | graph | console
-+ MAILER_FROM_ADDRESS
-+ MAILER_REPLY_TO               # optional
-+ SMTP_URL                      # when backend=smtp
-+ SES_CONFIGURATION_SET         # optional, when backend=ses
-+ GRAPH_MAILBOX_USER_ID         # when backend=graph
-+ OPERATOR_ENTRA_TENANT_ID      # when backend=graph; defaults to BOOTSTRAP_SETA_ENTRA_TENANT_ID
+# Added — mailer (process-level; per-tenant config lives in auth.mailer_configs)
++ MAILER_FROM_ADDRESS_DEFAULT   # optional fallback when a tenant config omits from_address
+
+# Added — Seta-tenant bootstrap mailer (writes auth.mailer_configs row for Seta)
++ BOOTSTRAP_MAILER_PROVIDER        # 'graph' for v1
++ BOOTSTRAP_GRAPH_MAILBOX_USER_ID  # e.g. no-reply@seta-international.vn
++ BOOTSTRAP_GRAPH_FROM_ADDRESS     # usually same as mailbox UPN
 ```
 
-The Zod schema fails the API boot if a backend is selected without its
-required vars. Console + production is a boot error.
+The Zod schema fails the API boot if `NODE_ENV=production` AND
+`auth.mailer_configs` has no enabled row for a tenant attempting to send
+mail — but only at the moment of the send, not at boot (since the table is
+read at call-time). Missing config is surfaced as a per-tenant operational
+error in audit + logs, not a global startup failure.
 
 ## Bootstrap (`seed-first-tenant.ts`)
 
@@ -507,11 +600,14 @@ between PRs; each one ships a coherent slice.
 PR 1 — Foundation: per-tenant Entra SSO, email-first discovery, last-login cookie.
        Login works end-to-end on the new model. Operators manage SSO via SQL.
 PR 2 — Superadmin SSO admin UI (admin routes + console pages).
-PR 3 — @seta/mailer platform package with smtp + console backends + contract suite.
-       No callers yet.
-PR 4 — Break-glass magic links (depends on PR 1 and PR 3).
-PR 5 (later, optional) — Add SES backend.
-PR 6 (later, optional) — Add Graph backend.
+PR 3 — @seta/mailer platform package: per-tenant config (auth.mailer_configs),
+       Graph backend (v1's primary), Console backend (dev fallback), contract suite,
+       superadmin "Mailer" tab in the admin UI.
+PR 4 — Break-glass magic links (depends on PR 1 and PR 3). Uses Graph mailer.
+PR 5 (later, optional) — Add SMTP backend (Postmark/Mailgun/self-hosted).
+PR 6 (later, optional) — Add SES backend.
+PR 7 (later, optional) — Per-tenant connector OAuth override
+       (tenant.tenant_connectors.app_client_id + secret_vault_id columns).
 ```
 
 Cutover mechanics (pre-1.0, no production customers):
@@ -541,7 +637,12 @@ number, picked when PR 1 is opened) records:
 
 None blocking. Future work tracked here:
 
-- Per-tenant from-addresses for invitations / digests (mailer v2)
+- Per-tenant connector OAuth override (PR 7) — customers who want to own
+  their Graph API client registration register their own Entra app and Seta
+  uses their `client_id`/secret instead of the Seta-owned multi-tenant app.
+  Adds `tenant.tenant_connectors.app_client_id` + `app_client_secret_vault_id`.
+- Additional mailer backends: SMTP (PR 5), SES (PR 6).
+- Per-tenant **from-addresses** for invitations / digests when those features ship
 - "Shared computer" toggle on LoginPage to suppress the last-login cookie
 - SCIM provisioning when a customer requires lifecycle automation
 - Multi-IdP per tenant (Entra + Google together)
