@@ -13,11 +13,10 @@ export const EnvSchema = z.object({
   PORT: z.coerce.number().default(8080),
   DATABASE_URL: z.string().url(),
   PUBLIC_BASE_URL: z.string().url(),
-  ENTRA_CLIENT_ID: z.string().min(1),
-  ENTRA_CLIENT_SECRET: z.string().min(1),
-  ENTRA_SSO_TENANT: z.string().min(1).default('common'),
-  GOOGLE_CLIENT_ID: z.string().min(1),
-  GOOGLE_CLIENT_SECRET: z.string().min(1),
+  PLATFORM_CONNECTOR_CLIENT_ID: z.string().min(1),
+  PLATFORM_CONNECTOR_CLIENT_SECRET: z.string().min(1),
+  GOOGLE_CLIENT_ID: z.never().optional(),
+  GOOGLE_CLIENT_SECRET: z.never().optional(),
   SESSION_HMAC_KEY: z.string().min(32, 'must be ≥32 chars'),
   SESSION_TTL_SEC: z.coerce.number().int().positive().default(86400),
   KMS_PROVIDER: z.enum(['aws', 'env']).default('env'),
@@ -43,8 +42,6 @@ export const EnvSchema = z.object({
   OPENAI_EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
   AGENT_EMBEDDINGS_PROVIDER: z.enum(['openai', 'azure-openai', 'none']).default('none'),
   APPS_DEPLOYED: z.string().default('studio'),
-  SSO_ENTRA_ENABLED: z.coerce.boolean().default(true),
-  SSO_GOOGLE_ENABLED: z.coerce.boolean().default(true),
 })
 
 export const env = EnvSchema.parse(process.env)
@@ -53,10 +50,3 @@ export const deployedApps = () =>
   env.APPS_DEPLOYED.split(',')
     .map((s) => s.trim())
     .filter(Boolean)
-
-export const enabledSsoProviders = (): Array<'entra' | 'google'> => {
-  const out: Array<'entra' | 'google'> = []
-  if (env.SSO_ENTRA_ENABLED) out.push('entra')
-  if (env.SSO_GOOGLE_ENABLED) out.push('google')
-  return out
-}
