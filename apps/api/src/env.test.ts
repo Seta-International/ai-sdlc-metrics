@@ -13,7 +13,6 @@ const baseEnv = {
   CONTINUATION_HMAC_KEY: '0'.repeat(64),
   MS_BOT_ID: 'bot',
   MS_BOT_SECRET: 'bot-secret',
-  MS_BOT_TENANT_ID: 'bot-tenant',
   SESSION_HMAC_KEY: 'a'.repeat(32),
   SESSION_TTL_SEC: '86400',
 }
