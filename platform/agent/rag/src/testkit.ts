@@ -1,3 +1,4 @@
+// platform/agent/rag/src/testkit.ts
 import type { RagApi, RagHit } from './types.js'
 
 export interface FakeRagOptions {
@@ -7,19 +8,35 @@ export interface FakeRagOptions {
   retrieve?: (query: string) => RagHit[] | Promise<RagHit[]>
 }
 
+export interface FakeAgentRag extends RagApi {
+  __calls: { ingest: Array<{ sourceId: string; content: string }> }
+}
+
 /**
- * Stub implementation. Plan C replaces this with the real fake.
+ * In-memory `RagApi` for tests. Matches `RagApi` exactly so consumers
+ * (e.g. the FAQ Agent) can bind to the fake and swap to the real
+ * `createAgentRag` in production with a one-line change.
+ *
+ * - `retrieve` returns the `retrieve` responder's value when set,
+ *   otherwise `hits ?? []`. The responder may be sync or async.
+ * - `ingest` is a no-op that pushes `{ sourceId, content }` onto
+ *   `__calls.ingest` for assertions.
+ *
+ * Each invocation produces a fresh instance with its own `__calls` array.
  */
-export function createFakeAgentRag(
-  _opts?: FakeRagOptions,
-): RagApi & { __calls: { ingest: Array<{ sourceId: string; content: string }> } } {
+export function createFakeAgentRag(opts: FakeRagOptions = {}): FakeAgentRag {
+  const __calls: FakeAgentRag['__calls'] = { ingest: [] }
+
   return {
-    __calls: { ingest: [] },
-    async ingest(): Promise<void> {
-      throw new Error('createFakeAgentRag: not implemented yet (see Plan C)')
+    __calls,
+    async ingest(sourceId, content): Promise<void> {
+      __calls.ingest.push({ sourceId, content })
     },
-    async retrieve() {
-      throw new Error('createFakeAgentRag: not implemented yet (see Plan C)')
+    async retrieve(query) {
+      if (opts.retrieve !== undefined) {
+        return Promise.resolve(opts.retrieve(query))
+      }
+      return opts.hits ?? []
     },
   }
 }
