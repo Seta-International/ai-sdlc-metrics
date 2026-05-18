@@ -224,6 +224,11 @@ function Shell({
           <p className="text-[14px] leading-[1.5] text-ink-mute">{subtitle}</p>
         </div>
         {children}
+        <p className="mt-6 text-center text-[12px] text-ink-mute">
+          <a href="/login/magic" className="hover:text-ink hover:underline">
+            Can't sign in? Email me a link
+          </a>
+        </p>
         <div className="mt-8 flex flex-col items-center gap-1 text-center text-[12px] leading-[1.4] text-ink-mute">
           <div className="flex items-center gap-2">
             <a href={termsUrl} className="hover:text-ink hover:underline">

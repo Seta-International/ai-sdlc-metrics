@@ -54,7 +54,6 @@ export function MagicLinkRequestPage({
               id="email"
               type="email"
               required
-              // biome-ignore lint/a11y/noAutofocus: recovery screen is the user's primary intent on this view.
               autoFocus
               value={email}
               onChange={(e) => setEmail(e.target.value)}

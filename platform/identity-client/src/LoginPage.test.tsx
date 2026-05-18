@@ -84,3 +84,14 @@ describe('LoginPage State B (last-login cookie present)', () => {
     expect(screen.getByRole('button', { name: /use a different account/i })).toBeInTheDocument()
   })
 })
+
+describe('LoginPage magic-link recovery', () => {
+  beforeEach(() => {
+    Object.defineProperty(document, 'cookie', { value: '', configurable: true, writable: true })
+  })
+  it('shows a "Can\'t sign in?" link to /login/magic', () => {
+    render(<LoginPage returnTo="/" />)
+    const link = screen.getByRole('link', { name: /can'?t sign in/i })
+    expect(link).toHaveAttribute('href', '/login/magic')
+  })
+})
