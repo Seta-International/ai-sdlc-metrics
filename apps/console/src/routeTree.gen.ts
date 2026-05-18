@@ -21,6 +21,8 @@ import { Route as AuthedConnectorsRouteImport } from './routes/_authed/connector
 import { Route as LoginProviderCallbackRouteImport } from './routes/login.$provider.callback'
 import { Route as SuperadminAdminTenantsRouteImport } from './routes/_superadmin/admin/tenants'
 import { Route as AuthedConnectorsCidConsentRouteImport } from './routes/_authed/connectors.$cid.consent'
+import { Route as SuperadminAdminTenantsTenantIdSsoRouteImport } from './routes/_superadmin/admin/tenants.$tenantId.sso'
+import { Route as SuperadminAdminTenantsTenantIdSsoDomainsRouteImport } from './routes/_superadmin/admin/tenants.$tenantId.sso.domains'
 
 const NoWorkspaceRoute = NoWorkspaceRouteImport.update({
   id: '/no-workspace',
@@ -81,6 +83,18 @@ const AuthedConnectorsCidConsentRoute =
     path: '/$cid/consent',
     getParentRoute: () => AuthedConnectorsRoute,
   } as any)
+const SuperadminAdminTenantsTenantIdSsoRoute =
+  SuperadminAdminTenantsTenantIdSsoRouteImport.update({
+    id: '/$tenantId/sso',
+    path: '/$tenantId/sso',
+    getParentRoute: () => SuperadminAdminTenantsRoute,
+  } as any)
+const SuperadminAdminTenantsTenantIdSsoDomainsRoute =
+  SuperadminAdminTenantsTenantIdSsoDomainsRouteImport.update({
+    id: '/domains',
+    path: '/domains',
+    getParentRoute: () => SuperadminAdminTenantsTenantIdSsoRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
@@ -90,9 +104,11 @@ export interface FileRoutesByFullPath {
   '/members': typeof AuthedMembersRoute
   '/profile': typeof AuthedProfileRoute
   '/admin': typeof SuperadminAdminRouteWithChildren
-  '/admin/tenants': typeof SuperadminAdminTenantsRoute
+  '/admin/tenants': typeof SuperadminAdminTenantsRouteWithChildren
   '/login/$provider/callback': typeof LoginProviderCallbackRoute
   '/connectors/$cid/consent': typeof AuthedConnectorsCidConsentRoute
+  '/admin/tenants/$tenantId/sso': typeof SuperadminAdminTenantsTenantIdSsoRouteWithChildren
+  '/admin/tenants/$tenantId/sso/domains': typeof SuperadminAdminTenantsTenantIdSsoDomainsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AuthedIndexRoute
@@ -102,9 +118,11 @@ export interface FileRoutesByTo {
   '/members': typeof AuthedMembersRoute
   '/profile': typeof AuthedProfileRoute
   '/admin': typeof SuperadminAdminRouteWithChildren
-  '/admin/tenants': typeof SuperadminAdminTenantsRoute
+  '/admin/tenants': typeof SuperadminAdminTenantsRouteWithChildren
   '/login/$provider/callback': typeof LoginProviderCallbackRoute
   '/connectors/$cid/consent': typeof AuthedConnectorsCidConsentRoute
+  '/admin/tenants/$tenantId/sso': typeof SuperadminAdminTenantsTenantIdSsoRouteWithChildren
+  '/admin/tenants/$tenantId/sso/domains': typeof SuperadminAdminTenantsTenantIdSsoDomainsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -117,9 +135,11 @@ export interface FileRoutesById {
   '/_authed/profile': typeof AuthedProfileRoute
   '/_superadmin/admin': typeof SuperadminAdminRouteWithChildren
   '/_authed/': typeof AuthedIndexRoute
-  '/_superadmin/admin/tenants': typeof SuperadminAdminTenantsRoute
+  '/_superadmin/admin/tenants': typeof SuperadminAdminTenantsRouteWithChildren
   '/login/$provider/callback': typeof LoginProviderCallbackRoute
   '/_authed/connectors/$cid/consent': typeof AuthedConnectorsCidConsentRoute
+  '/_superadmin/admin/tenants/$tenantId/sso': typeof SuperadminAdminTenantsTenantIdSsoRouteWithChildren
+  '/_superadmin/admin/tenants/$tenantId/sso/domains': typeof SuperadminAdminTenantsTenantIdSsoDomainsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -134,6 +154,8 @@ export interface FileRouteTypes {
     | '/admin/tenants'
     | '/login/$provider/callback'
     | '/connectors/$cid/consent'
+    | '/admin/tenants/$tenantId/sso'
+    | '/admin/tenants/$tenantId/sso/domains'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -146,6 +168,8 @@ export interface FileRouteTypes {
     | '/admin/tenants'
     | '/login/$provider/callback'
     | '/connectors/$cid/consent'
+    | '/admin/tenants/$tenantId/sso'
+    | '/admin/tenants/$tenantId/sso/domains'
   id:
     | '__root__'
     | '/_authed'
@@ -160,6 +184,8 @@ export interface FileRouteTypes {
     | '/_superadmin/admin/tenants'
     | '/login/$provider/callback'
     | '/_authed/connectors/$cid/consent'
+    | '/_superadmin/admin/tenants/$tenantId/sso'
+    | '/_superadmin/admin/tenants/$tenantId/sso/domains'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -255,6 +281,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedConnectorsCidConsentRouteImport
       parentRoute: typeof AuthedConnectorsRoute
     }
+    '/_superadmin/admin/tenants/$tenantId/sso': {
+      id: '/_superadmin/admin/tenants/$tenantId/sso'
+      path: '/$tenantId/sso'
+      fullPath: '/admin/tenants/$tenantId/sso'
+      preLoaderRoute: typeof SuperadminAdminTenantsTenantIdSsoRouteImport
+      parentRoute: typeof SuperadminAdminTenantsRoute
+    }
+    '/_superadmin/admin/tenants/$tenantId/sso/domains': {
+      id: '/_superadmin/admin/tenants/$tenantId/sso/domains'
+      path: '/domains'
+      fullPath: '/admin/tenants/$tenantId/sso/domains'
+      preLoaderRoute: typeof SuperadminAdminTenantsTenantIdSsoDomainsRouteImport
+      parentRoute: typeof SuperadminAdminTenantsTenantIdSsoRoute
+    }
   }
 }
 
@@ -286,12 +326,42 @@ const AuthedRouteChildren: AuthedRouteChildren = {
 const AuthedRouteWithChildren =
   AuthedRoute._addFileChildren(AuthedRouteChildren)
 
+interface SuperadminAdminTenantsTenantIdSsoRouteChildren {
+  SuperadminAdminTenantsTenantIdSsoDomainsRoute: typeof SuperadminAdminTenantsTenantIdSsoDomainsRoute
+}
+
+const SuperadminAdminTenantsTenantIdSsoRouteChildren: SuperadminAdminTenantsTenantIdSsoRouteChildren =
+  {
+    SuperadminAdminTenantsTenantIdSsoDomainsRoute:
+      SuperadminAdminTenantsTenantIdSsoDomainsRoute,
+  }
+
+const SuperadminAdminTenantsTenantIdSsoRouteWithChildren =
+  SuperadminAdminTenantsTenantIdSsoRoute._addFileChildren(
+    SuperadminAdminTenantsTenantIdSsoRouteChildren,
+  )
+
+interface SuperadminAdminTenantsRouteChildren {
+  SuperadminAdminTenantsTenantIdSsoRoute: typeof SuperadminAdminTenantsTenantIdSsoRouteWithChildren
+}
+
+const SuperadminAdminTenantsRouteChildren: SuperadminAdminTenantsRouteChildren =
+  {
+    SuperadminAdminTenantsTenantIdSsoRoute:
+      SuperadminAdminTenantsTenantIdSsoRouteWithChildren,
+  }
+
+const SuperadminAdminTenantsRouteWithChildren =
+  SuperadminAdminTenantsRoute._addFileChildren(
+    SuperadminAdminTenantsRouteChildren,
+  )
+
 interface SuperadminAdminRouteChildren {
-  SuperadminAdminTenantsRoute: typeof SuperadminAdminTenantsRoute
+  SuperadminAdminTenantsRoute: typeof SuperadminAdminTenantsRouteWithChildren
 }
 
 const SuperadminAdminRouteChildren: SuperadminAdminRouteChildren = {
-  SuperadminAdminTenantsRoute: SuperadminAdminTenantsRoute,
+  SuperadminAdminTenantsRoute: SuperadminAdminTenantsRouteWithChildren,
 }
 
 const SuperadminAdminRouteWithChildren = SuperadminAdminRoute._addFileChildren(
