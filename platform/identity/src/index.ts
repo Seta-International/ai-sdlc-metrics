@@ -71,6 +71,8 @@ export {
   TenantSummary,
 } from './schemas'
 export {
+  MailerDetail,
+  MailerUpsertBody,
   SsoConfigDetail,
   SsoListItem,
   SsoListResponse,
