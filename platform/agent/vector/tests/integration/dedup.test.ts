@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { createPool, withTenant } from '@seta/db'
 import { tenantContext } from '@seta/tenancy'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
@@ -287,6 +288,97 @@ describe('DB failure wraps as the correct AgentError subclass', () => {
         code: 'VECTOR_INSERT_FAILED',
         category: 'SYSTEM',
       })
+    })
+  })
+})
+
+describe('insertChunks — span round-trip', () => {
+  it('round-trips span on fresh insert', async () => {
+    const tenantId = randomUUID()
+    const sourceId = randomUUID()
+    await runAs(tenantId, async () => {
+      await insertChunks(testSql(), [
+        {
+          tenantId,
+          sourceId,
+          content: 'hello world',
+          contentHash: hashContent('hello world'),
+          tokenCount: 2,
+          span: { startChar: 0, endChar: 11 },
+          embedding: seedEmbedding('hello world'),
+        },
+      ])
+      const rows = await withTenant(testSql(), tenantId, async (tx) => {
+        return tx<{ span: { startChar: number; endChar: number } | null }[]>`
+          SELECT span FROM agent_vector.chunks WHERE source_id = ${sourceId}
+        `
+      })
+      expect(rows).toHaveLength(1)
+      expect(rows[0]!.span).toEqual({ startChar: 0, endChar: 11 })
+    })
+  })
+
+  it('accepts null span and stores NULL', async () => {
+    const tenantId = randomUUID()
+    const sourceId = randomUUID()
+    await runAs(tenantId, async () => {
+      await insertChunks(testSql(), [
+        {
+          tenantId,
+          sourceId,
+          content: 'no-span content',
+          contentHash: hashContent('no-span content'),
+          tokenCount: 3,
+          span: null,
+          embedding: seedEmbedding('no-span content'),
+        },
+      ])
+      const rows = await withTenant(testSql(), tenantId, async (tx) => {
+        return tx<{ span: unknown }[]>`
+          SELECT span FROM agent_vector.chunks WHERE source_id = ${sourceId}
+        `
+      })
+      expect(rows).toHaveLength(1)
+      expect(rows[0]!.span).toBeNull()
+    })
+  })
+
+  it('dedup hit does not overwrite the original row span', async () => {
+    const tenantId = randomUUID()
+    const sourceId = randomUUID()
+    const text = 'idempotent content'
+    const hash = hashContent(text)
+    const originalSpan = { startChar: 10, endChar: 28 }
+    await runAs(tenantId, async () => {
+      await insertChunks(testSql(), [
+        {
+          tenantId,
+          sourceId,
+          content: text,
+          contentHash: hash,
+          tokenCount: 2,
+          span: originalSpan,
+          embedding: seedEmbedding(text),
+        },
+      ])
+      await insertChunks(testSql(), [
+        {
+          tenantId,
+          sourceId,
+          content: text,
+          contentHash: hash,
+          tokenCount: 2,
+          span: { startChar: 999, endChar: 1000 },
+          embedding: seedEmbedding(text),
+        },
+      ])
+      const rows = await withTenant(testSql(), tenantId, async (tx) => {
+        return tx<{ span: { startChar: number; endChar: number } | null }[]>`
+          SELECT span FROM agent_vector.chunks WHERE source_id = ${sourceId}
+        `
+      })
+      expect(rows).toHaveLength(1)
+      expect(rows[0]!.span).toEqual(originalSpan)
     })
   })
 })
