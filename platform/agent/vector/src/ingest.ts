@@ -1,8 +1,19 @@
 import { type DbSql, withTenant } from '@seta/db'
 import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenancy'
+import { z } from 'zod'
 import { VectorInsertFailedError, VectorQueryFailedError } from './errors'
 import type { NewChunk } from './schema'
+
+const spanSchema = z
+  .object({
+    startChar: z.number().int().min(0),
+    endChar: z.number().int().min(1),
+  })
+  .refine((s) => s.endChar > s.startChar, {
+    message: 'endChar must exceed startChar',
+  })
+  .nullable()
 
 const log = logger.child({ service: 'agent-vector' })
 
@@ -52,6 +63,7 @@ export async function insertChunks(sql: DbSql, rows: NewChunk[]): Promise<void> 
         new Error(`row tenantId ${r.tenantId} does not match context tenantId ${tenantId}`),
       )
     }
+    spanSchema.parse(r.span ?? null)
   }
 
   try {
@@ -62,6 +74,7 @@ export async function insertChunks(sql: DbSql, rows: NewChunk[]): Promise<void> 
         content: r.content,
         content_hash: r.contentHash,
         token_count: r.tokenCount,
+        span: r.span ?? null,
         embedding: vectorLiteral(r.embedding as number[]),
       }))
       await tx`
