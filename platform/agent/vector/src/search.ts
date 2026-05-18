@@ -7,7 +7,9 @@ const log = logger.child({ service: 'agent-vector' })
 
 export interface SearchHit {
   id: string
+  sourceId: string
   content: string
+  span: { startChar: number; endChar: number } | null
   similarity: number
 }
 
@@ -16,7 +18,13 @@ export interface SearchOptions {
   minSim?: number // default 0.3
 }
 
-type Row = { id: string; content: string; similarity: string | number }
+type Row = {
+  id: string
+  source_id: string
+  content: string
+  span: { startChar: number; endChar: number } | null
+  similarity: string | number
+}
 
 export async function searchChunks(
   sql: DbSql,
@@ -40,7 +48,9 @@ export async function searchChunks(
 
       return tx<Row[]>`
         SELECT id,
+               source_id,
                content,
+               span,
                1 - (embedding <=> ${vec}::vector) AS similarity
         FROM agent_vector.chunks
         WHERE 1 - (embedding <=> ${vec}::vector) > ${minSim}
@@ -51,7 +61,9 @@ export async function searchChunks(
     log.debug({ tenantId, k, minSim, returned: rows.length }, 'vector.search_chunks')
     return rows.map((r) => ({
       id: r.id,
+      sourceId: r.source_id,
       content: r.content,
+      span: r.span,
       similarity: Number(r.similarity),
     }))
   } catch (err) {

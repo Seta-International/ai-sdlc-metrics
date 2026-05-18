@@ -17,6 +17,7 @@ describe('agent_vector schema', () => {
         'embedding',
         'id',
         'sourceId',
+        'span',
         'tenantId',
         'tokenCount',
       ].sort(),
