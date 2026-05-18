@@ -1,0 +1,1 @@
+ALTER TABLE "agent_vector"."chunks" ADD COLUMN "span" jsonb;
