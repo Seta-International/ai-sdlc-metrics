@@ -27,6 +27,10 @@ function hasRecording(name: string): boolean {
   return existsSync(path.join(RECORDINGS_DIR, `${name}.json`))
 }
 
+function shouldRun(name: string): boolean {
+  return process.env.RECORD !== undefined || hasRecording(name)
+}
+
 function sha256hex(s: string): string {
   return createHash('sha256').update(s, 'utf8').digest('hex')
 }
@@ -276,4 +280,35 @@ describe('@seta/agent-rag — retrieve (integration)', () => {
     const r2 = await tenantContext.run({ tenantId }, async () => rag.retrieve('q'))
     expect(r2).toEqual(r1)
   })
+
+  it.skipIf(!shouldRun('retrieve-end-to-end'))(
+    'case 8: ingest + retrieve end-to-end returns populated citation span',
+    async () => {
+      recording = setupLLMRecording({
+        name: 'retrieve-end-to-end',
+        recordingsDir: RECORDINGS_DIR,
+      })
+      recording.start()
+      const tenantId = randomUUID()
+      const srcA = randomUUID()
+      const srcB = randomUUID()
+      const srcC = randomUUID()
+      const rag = createAgentRag({ sql: testSql(), embeddings: buildEmbeddings() })
+
+      await tenantContext.run({ tenantId }, async () => {
+        await rag.ingest(srcA, 'The Eiffel Tower is in Paris, France.')
+        await rag.ingest(srcB, 'The Great Wall of China is the longest wall in the world.')
+        await rag.ingest(srcC, 'The Statue of Liberty was a gift from France to the USA.')
+        const hits = await rag.retrieve('Where is the Eiffel Tower located?')
+        expect(hits.length).toBeGreaterThanOrEqual(1)
+        const top = hits[0]!
+        expect(top.content.toLowerCase()).toContain('eiffel')
+        expect(top.vectorRank).toBe(1)
+        expect(top.sourceId).toBe(srcA)
+        expect(top.citation.span).not.toBeNull()
+        expect(top.citation.span!.endChar).toBeGreaterThan(top.citation.span!.startChar)
+        expect(top.rrfScore).toBeGreaterThan(0)
+      })
+    },
+  )
 })
