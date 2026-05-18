@@ -1,4 +1,4 @@
-import type { OutboundActivity } from '../handler.js'
+import type { OutboundActivity } from '../handler'
 
 export function buildMockCreatePreviewCard(): OutboundActivity {
   return {

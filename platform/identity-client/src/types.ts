@@ -1,1 +1,1 @@
-export { MeResponse, SessionUser, TenantSummary } from '@seta/identity'
+export { MeResponse, SessionUser, TenantSummary } from '@seta/identity/schemas'

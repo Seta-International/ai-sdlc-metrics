@@ -2,7 +2,7 @@
  * Demo script — @seta/agent-embeddings
  * Run: OPENAI_API_KEY=<key> pnpm exec tsx platform/agent/embeddings/scripts/demo.ts
  */
-import { createOpenAIEmbeddings } from '../src/index.js'
+import { createOpenAIEmbeddings } from '../src/index'
 
 const apiKey = process.env.OPENAI_API_KEY
 if (!apiKey) {

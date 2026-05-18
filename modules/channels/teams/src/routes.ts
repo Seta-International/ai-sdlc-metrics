@@ -2,10 +2,10 @@ import { SpanStatusCode, trace } from '@opentelemetry/api'
 import { onError } from '@seta/middleware'
 import { logger } from '@seta/observability'
 import { Hono } from 'hono'
-import { type Activity, ActivitySchema } from './activity.js'
-import type { OutboundActivity, RunContext, TeamsHandler } from './handler.js'
-import { verifyBotFrameworkJwt } from './jwt.js'
-import { replyToActivity } from './reply.js'
+import { type Activity, ActivitySchema } from './activity'
+import type { OutboundActivity, RunContext, TeamsHandler } from './handler'
+import { verifyBotFrameworkJwt } from './jwt'
+import { replyToActivity } from './reply'
 
 type Sql = {
   <T extends Record<string, unknown>>(

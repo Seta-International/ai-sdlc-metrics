@@ -11,7 +11,9 @@ describe('migration runner', () => {
       'audit',
       'connector_ms365_directory',
       'connector_ms365_planner',
-      'agent',
+      'planner',
+      'analytics',
+      'agent_server',
       'agent_memory',
       'agent_workflows',
       'agent_vector',
@@ -25,8 +27,8 @@ describe('migration runner', () => {
     expect(tenancyIdx).toBe(identityIdx + 1)
   })
 
-  it('places agent_memory after agent', () => {
-    const agentIdx = OWNER_ORDER.indexOf('agent')
+  it('places agent_memory after agent_server', () => {
+    const agentIdx = OWNER_ORDER.indexOf('agent_server')
     const memIdx = OWNER_ORDER.indexOf('agent_memory')
     expect(agentIdx).toBeGreaterThanOrEqual(0)
     expect(memIdx).toBeGreaterThan(agentIdx)

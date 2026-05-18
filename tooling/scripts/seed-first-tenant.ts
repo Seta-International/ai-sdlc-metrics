@@ -1,5 +1,4 @@
 #!/usr/bin/env tsx
-import 'dotenv/config'
 import { createAuditWriter } from '@seta/audit'
 import { directoryConnector } from '@seta/connector-ms365-directory'
 import { plannerConnector } from '@seta/connector-ms365-planner'
@@ -7,15 +6,16 @@ import { createConnectorRegistry } from '@seta/connector-registry'
 import { createPool } from '@seta/db'
 import { createKmsClient, createTokenVault, EntraProvider } from '@seta/oauth'
 import { z } from 'zod'
+import './_env'
 
 const Env = z.object({
   DATABASE_URL: z.string().min(1),
+  ENTRA_CLIENT_ID: z.string().min(1),
+  ENTRA_CLIENT_SECRET: z.string().min(1),
   BOOTSTRAP_TENANT_SLUG: z.string().min(1),
   BOOTSTRAP_TENANT_NAME: z.string().min(1),
   BOOTSTRAP_ENTRA_TENANT_ID: z.string().min(1),
-  BOOTSTRAP_ENTRA_CLIENT_ID: z.string().min(1),
-  BOOTSTRAP_ENTRA_CLIENT_SECRET: z.string().min(1),
-  BOOTSTRAP_ADMIN_EMAIL: z.email(),
+  BOOTSTRAP_SUPERADMIN_EMAILS: z.string().min(1),
   BOOTSTRAP_CONNECTORS: z.string().min(1),
   BOOTSTRAP_OFFLINE: z.enum(['0', '1']).default('0'),
   KMS_PROVIDER: z.enum(['aws', 'env']).default('env'),
@@ -25,9 +25,21 @@ const Env = z.object({
 })
 
 const env = Env.parse(process.env)
+
 const connectorIds = env.BOOTSTRAP_CONNECTORS.split(',')
   .map((s) => s.trim())
   .filter(Boolean)
+
+const superadminEmails = env.BOOTSTRAP_SUPERADMIN_EMAILS.split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+
+if (superadminEmails.length === 0) {
+  console.error('BOOTSTRAP_SUPERADMIN_EMAILS must contain at least one email')
+  process.exit(1)
+}
+
+const ownerEmail = z.email().parse(superadminEmails[0])
 
 const sql = createPool(env.DATABASE_URL)
 const kms = createKmsClient({
@@ -43,15 +55,14 @@ registry.register(plannerConnector)
 registry.register(directoryConnector)
 
 const entra = new EntraProvider({
-  clientId: env.BOOTSTRAP_ENTRA_CLIENT_ID,
-  clientSecret: env.BOOTSTRAP_ENTRA_CLIENT_SECRET,
+  clientId: env.ENTRA_CLIENT_ID,
+  clientSecret: env.ENTRA_CLIENT_SECRET,
 })
 
 const SEED_MODE_OFFLINE = env.BOOTSTRAP_OFFLINE === '1'
 
 async function main(): Promise<void> {
-  // Pre-flight: validate connector ids before opening a transaction.
-  for (const cid of connectorIds) registry.get(cid) // throws ConnectorUnknown early
+  for (const cid of connectorIds) registry.get(cid)
 
   const tenantId = (await sql.begin(async (tx) => {
     const existing = await tx<
@@ -85,26 +96,42 @@ async function main(): Promise<void> {
       `
     }
 
-    const users = await tx<Array<{ id: string }>>`
+    const ownerRows = await tx<Array<{ id: string }>>`
       INSERT INTO auth.users (email, name, primary_provider)
-      VALUES (${env.BOOTSTRAP_ADMIN_EMAIL}, ${env.BOOTSTRAP_ADMIN_EMAIL}, 'entra')
+      VALUES (${ownerEmail}, ${ownerEmail}, 'entra')
       ON CONFLICT (email) DO UPDATE SET name = excluded.name
       RETURNING id
     `
-    const user = users[0]
-    if (!user) throw new Error('user insert returned no row')
+    const owner = ownerRows[0]
+    if (!owner) throw new Error('owner insert returned no row')
 
     await tx`
       INSERT INTO auth.user_identities (provider, subject, user_id)
-      VALUES ('entra', ${`bootstrap:${env.BOOTSTRAP_ENTRA_CLIENT_ID}`}, ${user.id})
+      VALUES ('entra', ${`bootstrap:${env.ENTRA_CLIENT_ID}`}, ${owner.id})
       ON CONFLICT (provider, subject) DO NOTHING
     `
 
     await tx`
       INSERT INTO tenant.tenant_members (user_id, tenant_id, role, source)
-      VALUES (${user.id}, ${id}, 'owner', 'bootstrap')
+      VALUES (${owner.id}, ${id}, 'owner', 'bootstrap')
       ON CONFLICT DO NOTHING
     `
+
+    for (const email of superadminEmails) {
+      const validEmail = z.email().parse(email)
+      const rows = await tx<Array<{ id: string }>>`
+        INSERT INTO auth.users (email, name, primary_provider)
+        VALUES (${validEmail}, ${validEmail}, 'entra')
+        ON CONFLICT (email) DO UPDATE SET email = excluded.email
+        RETURNING id
+      `
+      const u = rows[0]
+      if (!u) continue
+      await tx`
+        INSERT INTO auth.superadmins (user_id) VALUES (${u.id})
+        ON CONFLICT (user_id) DO NOTHING
+      `
+    }
 
     return id
   })) as unknown as string
@@ -113,7 +140,7 @@ async function main(): Promise<void> {
     const bundle = await entra.acquireAppOnly(env.BOOTSTRAP_ENTRA_TENANT_ID, [
       'https://graph.microsoft.com/.default',
     ])
-    await vault.put(tenantId, 'entra', `app:${env.BOOTSTRAP_ENTRA_CLIENT_ID}`, bundle)
+    await vault.put(tenantId, 'entra', `app:${env.ENTRA_CLIENT_ID}`, bundle)
   }
 
   await audit.recordAudit({
@@ -122,10 +149,16 @@ async function main(): Promise<void> {
     providerId: 'entra',
     operation: 'tenant.bootstrap',
     result: 'ok',
-    metadata: { slug: env.BOOTSTRAP_TENANT_SLUG, connectors: connectorIds },
+    metadata: {
+      slug: env.BOOTSTRAP_TENANT_SLUG,
+      connectors: connectorIds,
+      superadmins: superadminEmails.length,
+    },
   })
 
-  console.log(`✓ seeded tenant ${env.BOOTSTRAP_TENANT_SLUG} (${tenantId})`)
+  console.log(
+    `✓ seeded tenant ${env.BOOTSTRAP_TENANT_SLUG} (${tenantId}) with ${superadminEmails.length} superadmin(s)`,
+  )
   await sql.end()
 }
 

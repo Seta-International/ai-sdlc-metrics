@@ -1,5 +1,12 @@
-import 'dotenv/config'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { config } from 'dotenv'
 import { z } from 'zod'
+
+config({
+  path: resolve(dirname(fileURLToPath(import.meta.url)), '../../../.env'),
+  quiet: true,
+})
 
 export const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -36,11 +43,7 @@ export const EnvSchema = z.object({
   PLANNER_SYNC_INTERVAL_MS: z.coerce.number().int().positive().default(180_000),
   OPENAI_EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
   AGENT_EMBEDDINGS_PROVIDER: z.enum(['openai', 'azure-openai', 'none']).default('none'),
-  SETA_SEED_TENANT_ID: z.uuid(),
-  SETA_SEED_TENANT_SLUG: z.string().min(1),
-  SETA_SEED_TENANT_NAME: z.string().min(1),
-  SETA_SEED_SUPERADMIN_EMAILS: z.string().default(''),
-  SETA_APPS_DEPLOYED: z.string().default('studio'),
+  APPS_DEPLOYED: z.string().default('studio'),
   SSO_ENTRA_ENABLED: z.coerce.boolean().default(true),
   SSO_GOOGLE_ENABLED: z.coerce.boolean().default(true),
 })
@@ -48,12 +51,7 @@ export const EnvSchema = z.object({
 export const env = EnvSchema.parse(process.env)
 
 export const deployedApps = () =>
-  env.SETA_APPS_DEPLOYED.split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-
-export const superadminEmails = () =>
-  env.SETA_SEED_SUPERADMIN_EMAILS.split(',')
+  env.APPS_DEPLOYED.split(',')
     .map((s) => s.trim())
     .filter(Boolean)
 

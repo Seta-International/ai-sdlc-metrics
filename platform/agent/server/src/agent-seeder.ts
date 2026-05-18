@@ -1,5 +1,6 @@
-type DbSql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>
-type SqlWithArray = DbSql & { array(arr: unknown[]): unknown[] }
+import type { DbSql } from '@seta/db'
+import { drizzle } from 'drizzle-orm/postgres-js'
+import { agentProfiles } from './schema'
 
 export interface AgentProfileSeed {
   slug: string
@@ -11,19 +12,22 @@ export interface AgentProfileSeed {
   workingMemoryTemplate: string | null
 }
 
-export async function seedAgentProfiles(
-  sql: SqlWithArray,
-  seeds: AgentProfileSeed[],
-): Promise<void> {
+export async function seedAgentProfiles(sql: DbSql, seeds: AgentProfileSeed[]): Promise<void> {
+  const db = drizzle(sql)
   for (const p of seeds) {
-    await sql`
-      INSERT INTO agent.agent_profiles
-        (slug, tenant_id, name, description, instructions, model, tool_ids,
-         working_memory_template, status)
-      VALUES
-        (${p.slug}, NULL, ${p.name}, ${p.description ?? null}, ${p.instructions},
-         ${p.model}, ${sql.array(p.toolIds)}, ${p.workingMemoryTemplate ?? null}, 'published')
-      ON CONFLICT DO NOTHING
-    `
+    await db
+      .insert(agentProfiles)
+      .values({
+        slug: p.slug,
+        tenantId: null,
+        name: p.name,
+        description: p.description,
+        instructions: p.instructions,
+        model: p.model,
+        toolIds: p.toolIds,
+        workingMemoryTemplate: p.workingMemoryTemplate,
+        status: 'published',
+      })
+      .onConflictDoNothing()
   }
 }

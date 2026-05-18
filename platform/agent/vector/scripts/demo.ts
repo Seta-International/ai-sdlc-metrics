@@ -9,7 +9,7 @@ import {
   type NewChunk,
   type SearchHit,
   searchChunks,
-} from '../src/index.js'
+} from '../src/index'
 
 /**
  * Demo script — @seta/agent-vector

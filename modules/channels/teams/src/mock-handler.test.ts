@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
-import type { Activity } from './activity.js'
-import type { RunContext } from './handler.js'
-import { mockTeamsHandler } from './mock-handler.js'
+import type { Activity } from './activity'
+import type { RunContext } from './handler'
+import { mockTeamsHandler } from './mock-handler'
 
 const runCtx: RunContext = { tenantId: 'tenant-1', userId: 'user-1' }
 

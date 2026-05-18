@@ -4,8 +4,8 @@
   "description": "Identity: SSO flow, users, sessions, API keys, superadmins",
   "main": "./dist/index.js",
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --sourcemap",
-    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "build": "tsup",
+    "dev": "tsup --watch",
     "test:unit": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
@@ -35,5 +35,15 @@
     "tsup": "8.5.1",
     "typescript": "6.0.3",
     "vitest": "4.1.6"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schemas": {
+      "types": "./dist/schemas.d.ts",
+      "import": "./dist/schemas.js"
+    }
   }
 }
