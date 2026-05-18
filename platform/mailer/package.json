@@ -1,0 +1,28 @@
+{
+  "name": "@seta/mailer",
+  "version": "0.1.0",
+  "description": "Vendor-neutral mailer with per-tenant config + Graph/Console backends",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --sourcemap",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "license": "Apache-2.0",
+  "type": "module",
+  "private": true,
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@seta/ms-graph": "workspace:*",
+    "@seta/observability": "workspace:*"
+  },
+  "devDependencies": {
+    "@seta/tsconfig": "workspace:*",
+    "tsup": "8.5.1",
+    "typescript": "6.0.3"
+  }
+}
