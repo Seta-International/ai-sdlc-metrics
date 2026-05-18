@@ -1057,9 +1057,6 @@ importers:
       '@seta/db':
         specifier: workspace:*
         version: link:../db
-      '@seta/mailer':
-        specifier: workspace:*
-        version: link:../mailer
       '@seta/middleware':
         specifier: workspace:*
         version: link:../middleware

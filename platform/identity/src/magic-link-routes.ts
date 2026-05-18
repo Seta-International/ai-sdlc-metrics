@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto'
-import type { Mailer } from '@seta/mailer'
 import { BadRequest } from '@seta/middleware'
 import { logger } from '@seta/observability'
 import { Hono } from 'hono'
@@ -10,10 +9,19 @@ import { signCookie } from './cookie'
 import { LAST_LOGIN_COOKIE_NAME, signLastLoginHint } from './last-login'
 import { expiresAtFromNow, hashToken, MAGIC_LINK_TTL_MS, mintToken } from './magic-link'
 import { consumeMagicLink, insertMagicLink } from './magic-link-repo'
-import { magicLinkMessage } from './mail-templates/magic-link'
+import { type MagicLinkOutbound, magicLinkMessage } from './mail-templates/magic-link'
 import type { SsoVariables } from './middleware'
 import { createSessionStore } from './session-store'
 import { resolveSsoByEmail } from './sso-config-repo'
+
+/**
+ * Minimal structural `Mailer` accepted by the route. Compatible with
+ * `@seta/mailer`'s `Mailer` interface but defined locally to keep the identity
+ * build graph cycle-free. Tests can pass any `{ send(msg) }`.
+ */
+export type MagicLinkMailer = {
+  send(msg: MagicLinkOutbound): Promise<void>
+}
 
 export type MagicLinkRoutesDeps = {
   sql: Sql
@@ -21,7 +29,7 @@ export type MagicLinkRoutesDeps = {
   sessionCookie: { name: string; hmacKey: string; ttlSec: number; secure: boolean }
   redirectBase: string
   /** Resolves the mailer for the given tenant. */
-  getMailerForTenant: (tenantId: string) => Promise<Mailer>
+  getMailerForTenant: (tenantId: string) => Promise<MagicLinkMailer>
   /** Resolves tenant display info for the email template and last-login cookie. */
   getTenantBrief: (tenantId: string) => Promise<{ slug: string; displayName: string } | null>
 }

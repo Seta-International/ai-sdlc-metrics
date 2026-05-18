@@ -19,7 +19,6 @@
   "dependencies": {
     "@hono/zod-openapi": "1.4.0",
     "@seta/db": "workspace:*",
-    "@seta/mailer": "workspace:*",
     "@seta/middleware": "workspace:*",
     "@seta/observability": "workspace:*",
     "dotenv": "17.4.2",

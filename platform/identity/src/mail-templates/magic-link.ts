@@ -1,12 +1,24 @@
 import { createHash } from 'node:crypto'
-import type { OutboundMessage } from '@seta/mailer'
+
+/**
+ * Structural shape matching `@seta/mailer`'s `OutboundMessage`. Defined locally
+ * to avoid a build-graph cycle (`identity` → `mailer` → `ms-graph` → … → `identity`).
+ * Callers pass a `Mailer` whose `send` accepts this shape.
+ */
+export type MagicLinkOutbound = {
+  to: string
+  subject: string
+  text: string
+  html?: string
+  idempotencyKey?: string
+}
 
 export function magicLinkMessage(opts: {
   to: string
   link: string
   tenantDisplayName: string
   expiresInMin: number
-}): OutboundMessage {
+}): MagicLinkOutbound {
   const subject = `Sign in to ${opts.tenantDisplayName}`
   const text = [
     `Click the link below to sign in. It expires in ${opts.expiresInMin} minutes and works only once.`,

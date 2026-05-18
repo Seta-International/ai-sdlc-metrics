@@ -1,9 +1,8 @@
-import type { Mailer } from '@seta/mailer'
 import { onError } from '@seta/middleware'
 import { Hono } from 'hono'
 import postgres from 'postgres'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMagicLinkRoutes } from '../../src/magic-link-routes'
+import { createMagicLinkRoutes, type MagicLinkMailer } from '../../src/magic-link-routes'
 import { upsertSsoConfig, upsertSsoEmailDomain } from '../../src/sso-config-repo'
 
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://seta:dev@localhost:5432/seta'
@@ -12,7 +11,7 @@ const tenantId = '00000000-0000-4000-8000-0000000000aa'
 const ownerId = '00000000-0000-4000-8000-0000000000ab'
 const memberId = '00000000-0000-4000-8000-0000000000ac'
 
-function buildApp(sql: postgres.Sql, mailer: Mailer) {
+function buildApp(sql: postgres.Sql, mailer: MagicLinkMailer) {
   const app = new Hono().onError(onError)
   app.route(
     '/',
@@ -103,7 +102,7 @@ describe('magic-link routes (integration)', () => {
     let capturedLink: string | null = null
     const send = vi.fn(async (msg: { text: string }) => {
       const m = msg.text.match(/(http\S+)/)
-      capturedLink = m ? m[1]! : null
+      capturedLink = m?.[1] ?? null
     })
     const app = buildApp(sql, { send } as never)
     await app.request('/sso/magic/request', {
@@ -111,8 +110,8 @@ describe('magic-link routes (integration)', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email: 'owner@magic-acme.test' }),
     })
-    expect(capturedLink).toBeTruthy()
-    const u = new URL(capturedLink!)
+    if (!capturedLink) throw new Error('mailer never received a link')
+    const u = new URL(capturedLink)
     const path = u.pathname + u.search
     const res = await app.request(path)
     expect(res.status).toBe(302)
