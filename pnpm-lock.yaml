@@ -726,7 +726,48 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
-  platform/agent/rag: {}
+  platform/agent/rag:
+    dependencies:
+      '@seta/agent-chunking':
+        specifier: workspace:*
+        version: link:../chunking
+      '@seta/agent-core':
+        specifier: workspace:*
+        version: link:../core
+      '@seta/agent-embeddings':
+        specifier: workspace:*
+        version: link:../embeddings
+      '@seta/agent-vector':
+        specifier: workspace:*
+        version: link:../vector
+      '@seta/db':
+        specifier: workspace:*
+        version: link:../../db
+      '@seta/observability':
+        specifier: workspace:*
+        version: link:../../observability
+      '@seta/tenancy':
+        specifier: workspace:*
+        version: link:../../tenancy
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@seta/tsconfig':
+        specifier: workspace:*
+        version: link:../../tsconfig
+      '@types/node':
+        specifier: ^25.8.0
+        version: 25.8.0
+      fast-check:
+        specifier: 4.8.0
+        version: 4.8.0
+      tsup:
+        specifier: 8.5.1
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.14)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.4)
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
 
   platform/agent/sdk:
     dependencies:
@@ -9020,7 +9061,7 @@ snapshots:
 
   '@types/adm-zip@0.5.8':
     dependencies:
-      '@types/node': 25.7.0
+      '@types/node': 25.8.0
 
   '@types/aria-query@5.0.4': {}
 
@@ -9028,7 +9069,7 @@ snapshots:
 
   '@types/bunyan@1.8.11':
     dependencies:
-      '@types/node': 25.7.0
+      '@types/node': 25.8.0
 
   '@types/chai@5.2.3':
     dependencies:
@@ -9037,7 +9078,7 @@ snapshots:
 
   '@types/connect@3.4.38':
     dependencies:
-      '@types/node': 25.7.0
+      '@types/node': 25.8.0
 
   '@types/cookie@0.6.0': {}
 
@@ -9081,11 +9122,11 @@ snapshots:
 
   '@types/memcached@2.2.10':
     dependencies:
-      '@types/node': 25.7.0
+      '@types/node': 25.8.0
 
   '@types/mysql@2.15.27':
     dependencies:
-      '@types/node': 25.7.0
+      '@types/node': 25.8.0
 
   '@types/node@12.20.55': {}
 
@@ -9103,7 +9144,7 @@ snapshots:
 
   '@types/oracledb@6.5.2':
     dependencies:
-      '@types/node': 25.7.0
+      '@types/node': 25.8.0
 
   '@types/pg-pool@2.0.7':
     dependencies:
@@ -9111,7 +9152,7 @@ snapshots:
 
   '@types/pg@8.15.6':
     dependencies:
-      '@types/node': 25.7.0
+      '@types/node': 25.8.0
       pg-protocol: 1.13.0
       pg-types: 2.2.0
 
@@ -9125,13 +9166,13 @@ snapshots:
 
   '@types/set-cookie-parser@2.4.10':
     dependencies:
-      '@types/node': 25.7.0
+      '@types/node': 25.8.0
 
   '@types/statuses@2.0.6': {}
 
   '@types/tedious@4.0.14':
     dependencies:
-      '@types/node': 25.7.0
+      '@types/node': 25.8.0
 
   '@types/tough-cookie@4.0.5': {}
 
@@ -10520,12 +10561,12 @@ snapshots:
       '@protobufjs/path': 1.1.2
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.1
-      '@types/node': 25.7.0
+      '@types/node': 25.8.0
       long: 5.3.2
 
   protobufjs@8.2.0:
     dependencies:
-      '@types/node': 25.7.0
+      '@types/node': 25.8.0
       long: 5.3.2
 
   psl@1.15.0:
