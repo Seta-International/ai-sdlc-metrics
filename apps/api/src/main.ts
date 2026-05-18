@@ -20,7 +20,14 @@ import {
   plannerConnector,
 } from '@seta/connector-ms365-planner'
 import { createConnectorAdminRoutes, createConnectorRegistry } from '@seta/connector-registry'
-import { createSessionStore, createSsoRoutes, isSuperadmin, requireSession } from '@seta/identity'
+import {
+  createSessionStore,
+  createSsoAdminRoutes,
+  createSsoRoutes,
+  isSuperadmin,
+  requireSession,
+  requireSuperadmin,
+} from '@seta/identity'
 import { onError, rateLimit, Unauthorized } from '@seta/middleware'
 import { createGraphFetch } from '@seta/ms-graph'
 import { mockTeamsHandler, routes as teamsRoutes } from '@seta/ms-teams'
@@ -281,6 +288,14 @@ app.use('/members*', rateLimit({ rps: 10, burst: 30, key: userKey }))
 app.use('/admin/*', rateLimit({ rps: 10, burst: 30, key: userKey }))
 
 app.route('/', sso)
+
+const ssoAdmin = createSsoAdminRoutes({ sql, audit, vault })
+app.use(
+  '/admin/sso/*',
+  requireSessionMiddleware,
+  requireSuperadmin({ lookup: (uid) => isSuperadmin(sql as never, uid) }),
+)
+app.route('/', ssoAdmin)
 
 app.route(
   '/oauth',

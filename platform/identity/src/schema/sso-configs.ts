@@ -12,6 +12,8 @@ export const ssoConfigs = authSchema.table(
     createdByUserId: uuid('created_by_user_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    lastTestedAt: timestamp('last_tested_at', { withTimezone: true }),
+    lastTestResult: text('last_test_result'),
   },
   (t) => [primaryKey({ columns: [t.tenantId, t.provider] })],
 )

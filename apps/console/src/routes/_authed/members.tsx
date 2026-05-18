@@ -1,6 +1,8 @@
 import { meQueryOptions } from '@seta/identity-client'
+import { type Column, DataTable, EmptyState } from '@seta/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { Users } from 'lucide-react'
 
 type MemberRole = 'owner' | 'admin' | 'member'
 
@@ -24,7 +26,7 @@ export const Route = createFileRoute('/_authed/members')({
 
 function MembersPage() {
   const qc = useQueryClient()
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['members'],
     queryFn: async () => {
       const res = await fetch('/members', { credentials: 'include' })
@@ -54,53 +56,73 @@ function MembersPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['members'] }),
   })
 
-  if (!data) return <div className="p-8">Loading…</div>
+  if (isLoading) return <div className="p-8">Loading…</div>
+
+  const rows = data?.members ?? []
+
+  const columns: Column<Member>[] = [
+    {
+      key: 'name',
+      header: 'Name',
+      cell: (m) => m.name,
+      sortable: true,
+      compare: (a, b) => a.name.localeCompare(b.name),
+    },
+    {
+      key: 'email',
+      header: 'Email',
+      cell: (m) => m.email,
+      sortable: true,
+      compare: (a, b) => a.email.localeCompare(b.email),
+    },
+    {
+      key: 'role',
+      header: 'Role',
+      cell: (m) => (
+        <select
+          value={m.role}
+          onChange={(e) => setRole.mutate({ userId: m.userId, role: e.target.value as MemberRole })}
+          className="rounded border border-hairline bg-canvas-soft px-2 py-1 text-[13px]"
+        >
+          <option value="owner">owner</option>
+          <option value="admin">admin</option>
+          <option value="member">member</option>
+        </select>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      cell: (m) => (
+        <button
+          type="button"
+          onClick={() => {
+            if (confirm(`Remove ${m.name}?`)) removeMember.mutate(m.userId)
+          }}
+          className="text-[13px] text-error hover:underline"
+        >
+          Remove
+        </button>
+      ),
+    },
+  ]
 
   return (
     <div className="max-w-3xl space-y-4 p-8">
       <h1 className="text-xl font-semibold text-ink">Members</h1>
-      <table className="w-full text-sm">
-        <thead className="text-ink-muted">
-          <tr>
-            <th className="p-2 text-left">Name</th>
-            <th className="p-2 text-left">Email</th>
-            <th className="p-2 text-left">Role</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {data.members.map((m) => (
-            <tr key={m.userId} className="border-t border-hairline">
-              <td className="p-2">{m.name}</td>
-              <td className="p-2">{m.email}</td>
-              <td className="p-2">
-                <select
-                  value={m.role}
-                  onChange={(e) =>
-                    setRole.mutate({ userId: m.userId, role: e.target.value as MemberRole })
-                  }
-                  className="rounded border border-hairline bg-canvas-soft px-2 py-1"
-                >
-                  <option value="owner">owner</option>
-                  <option value="admin">admin</option>
-                  <option value="member">member</option>
-                </select>
-              </td>
-              <td className="p-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (confirm(`Remove ${m.name}?`)) removeMember.mutate(m.userId)
-                  }}
-                  className="text-sm text-red-600"
-                >
-                  Remove
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <DataTable
+        rows={rows}
+        columns={columns}
+        rowKey={(m) => m.userId}
+        empty={
+          <EmptyState
+            icon={Users}
+            title="No members"
+            description="Invite teammates to collaborate."
+          />
+        }
+      />
     </div>
   )
 }
