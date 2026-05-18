@@ -26,13 +26,41 @@ Then edit `.env` and fill in:
 | `CONTINUATION_HMAC_KEY` | `openssl rand -hex 32` |
 | `BOOTSTRAP_SUPERADMIN_EMAILS` | your email (first entry becomes tenant owner) |
 
-For **real SSO login** you also need:
+For **real SSO login** you need two Entra app registrations (different purposes):
 
-- `ENTRA_CLIENT_ID` + `ENTRA_CLIENT_SECRET` — Azure App Registration with redirect URI `http://localhost:8080/sso/callback/entra`
-- `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` — Google OAuth client with redirect URI `http://localhost:8080/sso/callback/google`
-- `BOOTSTRAP_ENTRA_TENANT_ID` — the Azure tenant the bootstrap user lives in
+| App | Vars | Purpose |
+| --- | --- | --- |
+| Platform connector app | `PLATFORM_CONNECTOR_CLIENT_ID` / `_SECRET` | Graph API access (Planner, Directory). Seta-operated multi-tenant app; customer admin grants admin-consent once. |
+| Per-tenant SSO app | `BOOTSTRAP_SSO_CLIENT_ID` / `_SECRET`, `BOOTSTRAP_ENTRA_DIRECTORY_ID`, `BOOTSTRAP_SSO_EMAIL_DOMAINS` | User sign-in for the bootstrap tenant. Single-tenant; registered inside the tenant's own Entra directory. |
 
-For first run without SSO (UI smoke test only) leave the SSO/Bootstrap-Entra values as the `dev-placeholder-*` defaults and keep `BOOTSTRAP_OFFLINE=1`.
+See **First-time SSO setup** below for the step-by-step app-reg walkthrough.
+
+For first run without SSO (UI smoke test only) leave the placeholders alone and keep `BOOTSTRAP_OFFLINE=1`.
+
+### First-time SSO setup
+
+Seta uses bring-your-own-IdP SSO: each tenant configures its own Microsoft
+Entra app. For local development, Seta-the-tenant needs an Entra app reg
+in your test Entra directory.
+
+1. Open the Azure portal → **App registrations** → **New registration**.
+2. Name: `Seta SSO (dev)`. Supported account types: **Accounts in this
+   organizational directory only**.
+3. Redirect URI (Web): `http://localhost:8080/sso/callback/entra`.
+4. After registration:
+   - Copy **Application (client) ID** → `BOOTSTRAP_SSO_CLIENT_ID`
+   - Copy **Directory (tenant) ID** → `BOOTSTRAP_ENTRA_DIRECTORY_ID`
+5. **Certificates & secrets** → **New client secret** → copy the **Value**
+   (not the Secret ID) → `BOOTSTRAP_SSO_CLIENT_SECRET`. The value is shown only once.
+6. Set `BOOTSTRAP_SSO_EMAIL_DOMAINS` to a comma list of email domains
+   whose users should resolve to this tenant at `POST /sso/discover`
+   (typically your corporate domain, e.g. `seta-international.vn`).
+7. Run `pnpm bootstrap`.
+
+The platform connector Entra app (`PLATFORM_CONNECTOR_CLIENT_*`) is a
+separate, Seta-operated multi-tenant Entra app used only for Graph API
+access (Planner, Directory). It is unrelated to per-tenant SSO. For dev,
+you may reuse the same app reg for both — production should have two.
 
 ## Bootstrap
 
