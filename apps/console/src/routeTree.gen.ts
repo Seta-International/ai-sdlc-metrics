@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as SuperadminRouteImport } from './routes/_superadmin'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
+import { Route as LoginMagicRouteImport } from './routes/login.magic'
 import { Route as SuperadminAdminRouteImport } from './routes/_superadmin/admin'
 import { Route as AuthedProfileRouteImport } from './routes/_authed/profile'
 import { Route as AuthedMembersRouteImport } from './routes/_authed/members'
@@ -47,6 +48,11 @@ const AuthedIndexRoute = AuthedIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthedRoute,
+} as any)
+const LoginMagicRoute = LoginMagicRouteImport.update({
+  id: '/magic',
+  path: '/magic',
+  getParentRoute: () => LoginRoute,
 } as any)
 const SuperadminAdminRoute = SuperadminAdminRouteImport.update({
   id: '/admin',
@@ -111,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/members': typeof AuthedMembersRoute
   '/profile': typeof AuthedProfileRoute
   '/admin': typeof SuperadminAdminRouteWithChildren
+  '/login/magic': typeof LoginMagicRoute
   '/admin/tenants': typeof SuperadminAdminTenantsRouteWithChildren
   '/login/$provider/callback': typeof LoginProviderCallbackRoute
   '/connectors/$cid/consent': typeof AuthedConnectorsCidConsentRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/members': typeof AuthedMembersRoute
   '/profile': typeof AuthedProfileRoute
   '/admin': typeof SuperadminAdminRouteWithChildren
+  '/login/magic': typeof LoginMagicRoute
   '/admin/tenants': typeof SuperadminAdminTenantsRouteWithChildren
   '/login/$provider/callback': typeof LoginProviderCallbackRoute
   '/connectors/$cid/consent': typeof AuthedConnectorsCidConsentRoute
@@ -143,6 +151,7 @@ export interface FileRoutesById {
   '/_authed/members': typeof AuthedMembersRoute
   '/_authed/profile': typeof AuthedProfileRoute
   '/_superadmin/admin': typeof SuperadminAdminRouteWithChildren
+  '/login/magic': typeof LoginMagicRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_superadmin/admin/tenants': typeof SuperadminAdminTenantsRouteWithChildren
   '/login/$provider/callback': typeof LoginProviderCallbackRoute
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/members'
     | '/profile'
     | '/admin'
+    | '/login/magic'
     | '/admin/tenants'
     | '/login/$provider/callback'
     | '/connectors/$cid/consent'
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | '/members'
     | '/profile'
     | '/admin'
+    | '/login/magic'
     | '/admin/tenants'
     | '/login/$provider/callback'
     | '/connectors/$cid/consent'
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | '/_authed/members'
     | '/_authed/profile'
     | '/_superadmin/admin'
+    | '/login/magic'
     | '/_authed/'
     | '/_superadmin/admin/tenants'
     | '/login/$provider/callback'
@@ -244,6 +256,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthedIndexRouteImport
       parentRoute: typeof AuthedRoute
+    }
+    '/login/magic': {
+      id: '/login/magic'
+      path: '/magic'
+      fullPath: '/login/magic'
+      preLoaderRoute: typeof LoginMagicRouteImport
+      parentRoute: typeof LoginRoute
     }
     '/_superadmin/admin': {
       id: '/_superadmin/admin'
@@ -404,10 +423,12 @@ const SuperadminRouteWithChildren = SuperadminRoute._addFileChildren(
 )
 
 interface LoginRouteChildren {
+  LoginMagicRoute: typeof LoginMagicRoute
   LoginProviderCallbackRoute: typeof LoginProviderCallbackRoute
 }
 
 const LoginRouteChildren: LoginRouteChildren = {
+  LoginMagicRoute: LoginMagicRoute,
   LoginProviderCallbackRoute: LoginProviderCallbackRoute,
 }
 
