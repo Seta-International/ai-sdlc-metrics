@@ -5,6 +5,10 @@ export {
   readLastLoginHintCookie,
 } from './LastLoginHint'
 export { LoginPage, type LoginPageProps } from './LoginPage'
+export {
+  MagicLinkRequestPage,
+  type MagicLinkRequestPageProps,
+} from './MagicLinkRequestPage'
 export { RequireSession, type RequireSessionProps } from './RequireSession'
 export {
   type DiscoverHit,
