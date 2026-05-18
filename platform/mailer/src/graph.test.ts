@@ -4,20 +4,10 @@ import { createGraphMailer } from './graph'
 describe('createGraphMailer', () => {
   it('POSTs to /users/{mailbox}/sendMail with token from getToken', async () => {
     const getToken = vi.fn().mockResolvedValue('TOK')
-    let capturedReq: {
-      url: string
-      method: string
-      headers: Record<string, string>
-      body: string
-    } | null = null
+    const calls: Array<{ token: string; method: string; url: string; body: string }> = []
     const graphFetchFake = vi.fn(
       async (token: string, method: string, url: string, body?: unknown) => {
-        capturedReq = {
-          url,
-          method,
-          headers: { Authorization: `Bearer ${token}` },
-          body: JSON.stringify(body),
-        }
+        calls.push({ token, method, url, body: JSON.stringify(body) })
         return new Response('', { status: 202 })
       },
     )
@@ -30,8 +20,11 @@ describe('createGraphMailer', () => {
     await m.send({ to: ['alice@acme.com'], subject: 'Hi', text: 'body' })
     expect(getToken).toHaveBeenCalled()
     expect(graphFetchFake).toHaveBeenCalledTimes(1)
-    expect(capturedReq?.url).toBe('/users/noreply@acme.com/sendMail')
-    const parsed = JSON.parse(capturedReq!.body) as {
+    const captured = calls[0]
+    expect(captured?.url).toBe('/users/noreply@acme.com/sendMail')
+    expect(captured?.token).toBe('TOK')
+    expect(captured?.method).toBe('POST')
+    const parsed = JSON.parse(captured!.body) as {
       message: {
         subject: string
         toRecipients: Array<{ emailAddress: { address: string } }>
