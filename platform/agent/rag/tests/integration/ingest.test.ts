@@ -56,7 +56,7 @@ describe('@seta/agent-rag — ingest (integration)', () => {
     })
     expect(hasRecording('ingest-empty-MUST-NOT-RECORD')).toBe(false)
     const rows = await withTenant(testSql(), tenantId, async (tx) => {
-      return tx<unknown[]>`SELECT id FROM agent_vector.chunks`
+      return tx<{ id: string }[]>`SELECT id FROM agent_vector.chunks`
     })
     expect(rows).toHaveLength(0)
   })
@@ -84,7 +84,7 @@ describe('@seta/agent-rag — ingest (integration)', () => {
       expect(e.name === 'AbortError' || /abort/i.test(e.message)).toBe(true)
     })
     const rows = await withTenant(testSql(), tenantId, async (tx) => {
-      return tx<unknown[]>`SELECT id FROM agent_vector.chunks`
+      return tx<{ id: string }[]>`SELECT id FROM agent_vector.chunks`
     })
     expect(rows).toHaveLength(0)
     expect(hasRecording('ingest-abort-MUST-NOT-RECORD')).toBe(false)
