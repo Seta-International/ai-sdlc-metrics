@@ -12,7 +12,9 @@ export const OWNER_ORDER = [
   'audit',
   'connector_ms365_directory',
   'connector_ms365_planner',
-  'agent',
+  'planner',
+  'analytics',
+  'agent_server',
   'agent_memory',
   'agent_workflows',
   'agent_vector',
@@ -28,7 +30,9 @@ const OWNER_PACKAGE_PATH: Record<Owner, string> = {
   audit: 'platform/audit/migrations',
   connector_ms365_directory: 'modules/connectors/ms365-directory/migrations',
   connector_ms365_planner: 'modules/connectors/ms365-planner/migrations',
-  agent: 'modules/products/agent/migrations',
+  planner: 'modules/products/planner/migrations',
+  analytics: 'modules/products/analytics/migrations',
+  agent_server: 'platform/agent/server/migrations',
   agent_memory: 'platform/agent/memory/migrations',
   agent_workflows: 'platform/agent/workflows/migrations',
   agent_vector: 'platform/agent/vector/migrations',
@@ -46,7 +50,7 @@ export async function runMigrations(opts: RunMigrationsOpts): Promise<void> {
   const repoRoot = opts.repoRoot ?? process.cwd()
   const owners = opts.owners ?? OWNER_ORDER
 
-  const sql = postgres(opts.url, { max: 1, prepare: false })
+  const sql = postgres(opts.url, { max: 1, prepare: false, onnotice: () => {} })
   try {
     if (opts.roleName) {
       // Use unsafe() because SET ROLE doesn't accept bind parameters and the

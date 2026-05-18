@@ -1,8 +1,8 @@
 import { type DbSql, withTenant } from '@seta/db'
 import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenancy'
-import { VectorInsertFailedError, VectorQueryFailedError } from './errors.js'
-import type { NewChunk } from './schema.js'
+import { VectorInsertFailedError, VectorQueryFailedError } from './errors'
+import type { NewChunk } from './schema'
 
 const log = logger.child({ service: 'agent-vector' })
 

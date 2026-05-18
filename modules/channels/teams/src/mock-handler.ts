@@ -1,8 +1,8 @@
-import type { Activity } from './activity.js'
-import { buildMockChartCard } from './cards/mock-chart.js'
-import { buildMockCreatePreviewCard } from './cards/mock-create-preview.js'
-import { buildMockTaskListCard } from './cards/mock-task-list.js'
-import type { OutboundActivity, TeamsHandler } from './handler.js'
+import type { Activity } from './activity'
+import { buildMockChartCard } from './cards/mock-chart'
+import { buildMockCreatePreviewCard } from './cards/mock-create-preview'
+import { buildMockTaskListCard } from './cards/mock-task-list'
+import type { OutboundActivity, TeamsHandler } from './handler'
 
 export const mockTeamsHandler: TeamsHandler = async (
   activity: Activity,

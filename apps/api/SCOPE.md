@@ -101,8 +101,8 @@ Endpoints currently mounted:
 - `GET  /oauth/*` and `POST /oauth/*` — surface owned by `@seta/oauth`
   `createOAuthRoutes`; covers admin-consent URL issuance and the OAuth
   callback per CLAUDE.md "Connector consent" + setup.md §4. The callback
-  optionally redirects to `${PUBLIC_STUDIO_URL}/tenants/:id/connectors/:cid/consent`
-  via the `onConsentRedirect` hook (PR-4 — wires Studio's consent landing).
+  optionally redirects to `${PUBLIC_BASE_URL}/console/connectors/:cid/consent`
+  via the `onConsentRedirect` hook (Console owns the consent landing UI).
 - `GET  /tenants` — surface owned by `@seta/tenancy` `createTenantRoutes`;
   returns the membership rows joined from `tenant.tenant_members`.
 - `GET  /tenants/:id/connectors`, `POST /tenants/:id/connectors/:cid/consent-url`
@@ -139,8 +139,7 @@ This is an app, not a library — the "public interface" is HTTP and env.
 | `NODE_ENV` | `'development' \| 'test' \| 'production'` | `development` | no |
 | `PORT` | number (coerced) | `8080` | no |
 | `DATABASE_URL` | URL | — | yes |
-| `PUBLIC_BASE_URL` | URL | — | yes |
-| `PUBLIC_STUDIO_URL` | URL | — | yes — Studio origin used by oauth `onConsentRedirect` |
+| `PUBLIC_BASE_URL` | URL | — | yes — canonical origin for API + all SPAs (single-origin) |
 | `ENTRA_CLIENT_ID` | non-empty string | — | yes |
 | `ENTRA_CLIENT_SECRET` | non-empty string | — | yes |
 | `ENTRA_SSO_TENANT` | non-empty string | `common` | no |

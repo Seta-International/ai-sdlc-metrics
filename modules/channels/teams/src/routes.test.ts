@@ -2,7 +2,7 @@ import * as jose from 'jose'
 import { HttpResponse, http } from 'msw'
 import { setupServer } from 'msw/node'
 import { afterAll, afterEach, beforeAll, describe, expect, test, vi } from 'vitest'
-import type { TeamsHandler } from './index.js'
+import type { TeamsHandler } from './index'
 
 const SERVICE_URL = 'https://test-service-url.invalid'
 const CONV_ID = 'conv-test-1'
@@ -78,7 +78,7 @@ describe('routes', () => {
     server.use(
       http.get('https://login.botframework.com/v1/.well-known/keys', () => HttpResponse.json(jwks)),
     )
-    const { routes: freshRoutes } = await import('./routes.js')
+    const { routes: freshRoutes } = await import('./routes')
     const app = freshRoutes(echoHandler, {
       botId: BOT_ID,
       botSecret: 'bot-secret',
@@ -106,7 +106,7 @@ describe('routes', () => {
     server.use(
       http.get('https://login.botframework.com/v1/.well-known/keys', () => HttpResponse.json(jwks)),
     )
-    const { routes: freshRoutes } = await import('./routes.js')
+    const { routes: freshRoutes } = await import('./routes')
     const app = freshRoutes(echoHandler, {
       botId: BOT_ID,
       botSecret: 'bot-secret',
@@ -127,7 +127,7 @@ describe('routes', () => {
       http.get('https://login.botframework.com/v1/.well-known/keys', () => HttpResponse.json(jwks)),
     )
     const noReplyHandler: TeamsHandler = async () => null
-    const { routes: freshRoutes } = await import('./routes.js')
+    const { routes: freshRoutes } = await import('./routes')
     const app = freshRoutes(noReplyHandler, {
       botId: BOT_ID,
       botSecret: 'bot-secret',

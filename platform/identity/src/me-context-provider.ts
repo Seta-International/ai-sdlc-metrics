@@ -1,15 +1,4 @@
-import { z } from '@hono/zod-openapi'
-
-export const TenantSummary = z
-  .object({
-    id: z.uuid(),
-    slug: z.string(),
-    name: z.string(),
-    isAdmin: z.boolean(),
-  })
-  .openapi('TenantSummary')
-
-export type TenantSummary = z.infer<typeof TenantSummary>
+import type { TenantSummary } from './schemas'
 
 export type MeContext = {
   tenant: TenantSummary | null

@@ -6,14 +6,12 @@ import {
   FileText,
   GaugeCircle,
   Hammer,
-  PlugZap,
   ScrollText,
   Workflow,
 } from 'lucide-react'
 
 export function studioNav(): NavItem[] {
   return [
-    { id: 'connectors', label: 'Connectors', icon: PlugZap, to: '/connectors' },
     { id: 'runs', label: 'Runs', icon: Activity, to: '/runs' },
     { id: 'corpus', label: 'Corpus', icon: FileText, to: '/corpus' },
     { id: 'audit', label: 'Audit', icon: ScrollText, to: '/audit' },

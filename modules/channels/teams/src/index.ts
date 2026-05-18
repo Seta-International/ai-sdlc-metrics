@@ -1,15 +1,15 @@
-export { type Activity, ActivitySchema } from './activity.js'
-export { getBotToken } from './bot-token.js'
-export { BotFrameworkJwtInvalid } from './errors.js'
-export type { OutboundActivity, RunContext, TeamsHandler } from './handler.js'
-export { verifyBotFrameworkJwt } from './jwt.js'
-export { mockTeamsHandler } from './mock-handler.js'
-export { replyToActivity } from './reply.js'
-export { routes, type TeamsRouterOpts, teamsRouter } from './routes.js'
+export { type Activity, ActivitySchema } from './activity'
+export { getBotToken } from './bot-token'
+export { BotFrameworkJwtInvalid } from './errors'
+export type { OutboundActivity, RunContext, TeamsHandler } from './handler'
+export { verifyBotFrameworkJwt } from './jwt'
+export { mockTeamsHandler } from './mock-handler'
+export { replyToActivity } from './reply'
+export { routes, type TeamsRouterOpts, teamsRouter } from './routes'
 export type {
   TeamsActivity,
   TeamsHandlerDeps,
   TeamsHandlerResult,
   TeamsRunContext,
-} from './teams-handler.js'
-export { createTeamsHandler } from './teams-handler.js'
+} from './teams-handler'
+export { createTeamsHandler } from './teams-handler'

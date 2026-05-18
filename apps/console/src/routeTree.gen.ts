@@ -17,8 +17,10 @@ import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as SuperadminAdminRouteImport } from './routes/_superadmin/admin'
 import { Route as AuthedProfileRouteImport } from './routes/_authed/profile'
 import { Route as AuthedMembersRouteImport } from './routes/_authed/members'
+import { Route as AuthedConnectorsRouteImport } from './routes/_authed/connectors'
 import { Route as LoginProviderCallbackRouteImport } from './routes/login.$provider.callback'
 import { Route as SuperadminAdminTenantsRouteImport } from './routes/_superadmin/admin/tenants'
+import { Route as AuthedConnectorsCidConsentRouteImport } from './routes/_authed/connectors.$cid.consent'
 
 const NoWorkspaceRoute = NoWorkspaceRouteImport.update({
   id: '/no-workspace',
@@ -58,6 +60,11 @@ const AuthedMembersRoute = AuthedMembersRouteImport.update({
   path: '/members',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedConnectorsRoute = AuthedConnectorsRouteImport.update({
+  id: '/connectors',
+  path: '/connectors',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const LoginProviderCallbackRoute = LoginProviderCallbackRouteImport.update({
   id: '/$provider/callback',
   path: '/$provider/callback',
@@ -68,26 +75,36 @@ const SuperadminAdminTenantsRoute = SuperadminAdminTenantsRouteImport.update({
   path: '/tenants',
   getParentRoute: () => SuperadminAdminRoute,
 } as any)
+const AuthedConnectorsCidConsentRoute =
+  AuthedConnectorsCidConsentRouteImport.update({
+    id: '/$cid/consent',
+    path: '/$cid/consent',
+    getParentRoute: () => AuthedConnectorsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
   '/login': typeof LoginRouteWithChildren
   '/no-workspace': typeof NoWorkspaceRoute
+  '/connectors': typeof AuthedConnectorsRouteWithChildren
   '/members': typeof AuthedMembersRoute
   '/profile': typeof AuthedProfileRoute
   '/admin': typeof SuperadminAdminRouteWithChildren
   '/admin/tenants': typeof SuperadminAdminTenantsRoute
   '/login/$provider/callback': typeof LoginProviderCallbackRoute
+  '/connectors/$cid/consent': typeof AuthedConnectorsCidConsentRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AuthedIndexRoute
   '/login': typeof LoginRouteWithChildren
   '/no-workspace': typeof NoWorkspaceRoute
+  '/connectors': typeof AuthedConnectorsRouteWithChildren
   '/members': typeof AuthedMembersRoute
   '/profile': typeof AuthedProfileRoute
   '/admin': typeof SuperadminAdminRouteWithChildren
   '/admin/tenants': typeof SuperadminAdminTenantsRoute
   '/login/$provider/callback': typeof LoginProviderCallbackRoute
+  '/connectors/$cid/consent': typeof AuthedConnectorsCidConsentRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -95,12 +112,14 @@ export interface FileRoutesById {
   '/_superadmin': typeof SuperadminRouteWithChildren
   '/login': typeof LoginRouteWithChildren
   '/no-workspace': typeof NoWorkspaceRoute
+  '/_authed/connectors': typeof AuthedConnectorsRouteWithChildren
   '/_authed/members': typeof AuthedMembersRoute
   '/_authed/profile': typeof AuthedProfileRoute
   '/_superadmin/admin': typeof SuperadminAdminRouteWithChildren
   '/_authed/': typeof AuthedIndexRoute
   '/_superadmin/admin/tenants': typeof SuperadminAdminTenantsRoute
   '/login/$provider/callback': typeof LoginProviderCallbackRoute
+  '/_authed/connectors/$cid/consent': typeof AuthedConnectorsCidConsentRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -108,33 +127,39 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/no-workspace'
+    | '/connectors'
     | '/members'
     | '/profile'
     | '/admin'
     | '/admin/tenants'
     | '/login/$provider/callback'
+    | '/connectors/$cid/consent'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
     | '/no-workspace'
+    | '/connectors'
     | '/members'
     | '/profile'
     | '/admin'
     | '/admin/tenants'
     | '/login/$provider/callback'
+    | '/connectors/$cid/consent'
   id:
     | '__root__'
     | '/_authed'
     | '/_superadmin'
     | '/login'
     | '/no-workspace'
+    | '/_authed/connectors'
     | '/_authed/members'
     | '/_authed/profile'
     | '/_superadmin/admin'
     | '/_authed/'
     | '/_superadmin/admin/tenants'
     | '/login/$provider/callback'
+    | '/_authed/connectors/$cid/consent'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -202,6 +227,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedMembersRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/connectors': {
+      id: '/_authed/connectors'
+      path: '/connectors'
+      fullPath: '/connectors'
+      preLoaderRoute: typeof AuthedConnectorsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/login/$provider/callback': {
       id: '/login/$provider/callback'
       path: '/$provider/callback'
@@ -216,16 +248,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SuperadminAdminTenantsRouteImport
       parentRoute: typeof SuperadminAdminRoute
     }
+    '/_authed/connectors/$cid/consent': {
+      id: '/_authed/connectors/$cid/consent'
+      path: '/$cid/consent'
+      fullPath: '/connectors/$cid/consent'
+      preLoaderRoute: typeof AuthedConnectorsCidConsentRouteImport
+      parentRoute: typeof AuthedConnectorsRoute
+    }
   }
 }
 
+interface AuthedConnectorsRouteChildren {
+  AuthedConnectorsCidConsentRoute: typeof AuthedConnectorsCidConsentRoute
+}
+
+const AuthedConnectorsRouteChildren: AuthedConnectorsRouteChildren = {
+  AuthedConnectorsCidConsentRoute: AuthedConnectorsCidConsentRoute,
+}
+
+const AuthedConnectorsRouteWithChildren =
+  AuthedConnectorsRoute._addFileChildren(AuthedConnectorsRouteChildren)
+
 interface AuthedRouteChildren {
+  AuthedConnectorsRoute: typeof AuthedConnectorsRouteWithChildren
   AuthedMembersRoute: typeof AuthedMembersRoute
   AuthedProfileRoute: typeof AuthedProfileRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
+  AuthedConnectorsRoute: AuthedConnectorsRouteWithChildren,
   AuthedMembersRoute: AuthedMembersRoute,
   AuthedProfileRoute: AuthedProfileRoute,
   AuthedIndexRoute: AuthedIndexRoute,

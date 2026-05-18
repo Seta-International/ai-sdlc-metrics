@@ -9,7 +9,7 @@ import {
   type NewChunk,
   type SearchHit,
   searchChunks,
-} from '../src/index.js'
+} from '../src/index'
 
 /**
  * Demo script — @seta/agent-vector
@@ -108,7 +108,7 @@ const GLOBEX_QUERY = 'What Globex products are available?'
 function bar(sim: number, width = 40): string {
   const clamped = Math.max(0, Math.min(1, sim))
   const filled = Math.round(clamped * width)
-  return '█'.repeat(filled) + '░'.repeat(width - filled) + ` ${(clamped * 100).toFixed(1)}%`
+  return `${'█'.repeat(filled)}${'░'.repeat(width - filled)} ${(clamped * 100).toFixed(1)}%`
 }
 
 function printSection(num: number, total: number, emoji: string, title: string): void {
@@ -136,14 +136,18 @@ function buildChunks(
   totalTokens: number,
 ): NewChunk[] {
   const perRow = Math.max(1, Math.round(totalTokens / contents.length))
-  return contents.map((content, i) => ({
-    tenantId,
-    sourceId,
-    content,
-    contentHash: hashContent(content),
-    tokenCount: perRow,
-    embedding: vectors[i]!,
-  }))
+  return contents.map((content, i) => {
+    const embedding = vectors[i]
+    if (!embedding) throw new Error(`vectors[${i}] missing — embed/contents length mismatch`)
+    return {
+      tenantId,
+      sourceId,
+      content,
+      contentHash: hashContent(content),
+      tokenCount: perRow,
+      embedding,
+    }
+  })
 }
 
 // ─── main ────────────────────────────────────────────────────────────────────
@@ -273,10 +277,10 @@ try {
   // ── 6/10: search as Acme ─────────────────────────────────────────────────
   printSection(6, TOTAL_STEPS, '🔍', `Search as Acme: "${ACME_QUERY}"`)
   const acmeQueryEmbed = await embeddings.embed([ACME_QUERY])
-  const acmeQueryVec = acmeQueryEmbed.embeddings[0]!
+  const acmeQueryVec = acmeQueryEmbed.embeddings[0]
+  if (!acmeQueryVec) throw new Error('embed returned no vector for Acme query')
   const acmeHits: SearchHit[] = await runAs(ACME, () => searchChunks(sql, acmeQueryVec, { k: 3 }))
-  for (let i = 0; i < acmeHits.length; i++) {
-    const h = acmeHits[i]!
+  for (const [i, h] of acmeHits.entries()) {
     console.log(
       `   ${i + 1}.  ${bar(h.similarity)}  "${truncate(h.content.replace(/\n/g, ' '), 60)}"`,
     )
@@ -303,9 +307,9 @@ try {
   // ── 8/10: search as Globex ───────────────────────────────────────────────
   printSection(8, TOTAL_STEPS, '🔍', `Search as Globex: "${GLOBEX_QUERY}"`)
   const globexQueryEmbed = await embeddings.embed([GLOBEX_QUERY])
-  const globexHits = await runAs(GLOBEX, () =>
-    searchChunks(sql, globexQueryEmbed.embeddings[0]!, { k: 3 }),
-  )
+  const globexQueryVec = globexQueryEmbed.embeddings[0]
+  if (!globexQueryVec) throw new Error('embed returned no vector for Globex query')
+  const globexHits = await runAs(GLOBEX, () => searchChunks(sql, globexQueryVec, { k: 3 }))
   const globexInsertIds = new Set(
     await runAs(GLOBEX, () =>
       withTenant(sql, GLOBEX, async (tx) => {
@@ -316,8 +320,7 @@ try {
       }),
     ),
   )
-  for (let i = 0; i < globexHits.length; i++) {
-    const h = globexHits[i]!
+  for (const [i, h] of globexHits.entries()) {
     console.log(
       `   ${i + 1}.  ${bar(h.similarity)}  "${truncate(h.content.replace(/\n/g, ' '), 60)}"`,
     )

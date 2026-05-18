@@ -12,7 +12,9 @@ Node 24 · pnpm · Turborepo · TypeScript (strict) · Hono · Zod · Drizzle OR
 
 ## Quickstart
 
-_Coming soon._ See [`CLAUDE.md`](./CLAUDE.md) / [`AGENTS.md`](./AGENTS.md) for repo conventions and contributor guidance.
+See [`QUICKSTART.md`](./QUICKSTART.md) — local dev environment in ~5 minutes via `pnpm bootstrap && pnpm dev`.
+
+See [`CLAUDE.md`](./CLAUDE.md) / [`AGENTS.md`](./AGENTS.md) for repo conventions and contributor guidance.
 
 ## License
 

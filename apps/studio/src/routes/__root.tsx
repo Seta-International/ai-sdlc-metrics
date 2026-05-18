@@ -9,8 +9,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 })
 
 function RootComponent() {
+  const { queryClient } = Route.useRouteContext()
   return (
-    <SetaProvider client={client}>
+    <SetaProvider client={client} queryClient={queryClient}>
       <div className="flex min-h-screen flex-col">
         <div className="flex-1">
           <Outlet />

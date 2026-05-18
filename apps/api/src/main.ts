@@ -54,9 +54,8 @@ import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { agentMemory, agentRegistry } from './agent'
 import { sql } from './db'
-import { deployedApps, enabledSsoProviders, env, superadminEmails } from './env'
+import { deployedApps, enabledSsoProviders, env } from './env'
 import { lastAppMiddleware, verifyLastApp } from './last-app-middleware'
-import { runSeed } from './seed'
 
 // ── Infrastructure ────────────────────────────────────────────────────────────
 
@@ -294,7 +293,7 @@ app.route(
       const cid = connectorIds[0] ?? 'unknown'
       const params = new URLSearchParams({ ok: ok ? '1' : '0' })
       if (error) params.set('error', error)
-      return `${env.PUBLIC_STUDIO_URL}/studio/connectors/${cid}/consent?${params.toString()}`
+      return `${env.PUBLIC_BASE_URL}/console/connectors/${cid}/consent?${params.toString()}`
     },
   }),
 )
@@ -351,18 +350,7 @@ app.route(
 // ── Boot: seed agent profiles ─────────────────────────────────────────────────
 
 async function boot() {
-  await runSeed({
-    sql: sql as never,
-    tenant: {
-      id: env.SETA_SEED_TENANT_ID,
-      slug: env.SETA_SEED_TENANT_SLUG,
-      name: env.SETA_SEED_TENANT_NAME,
-    },
-    superadminEmails: superadminEmails(),
-  })
-  logger.info({ tenantId: env.SETA_SEED_TENANT_ID }, 'tenant seed applied')
-
-  await seedAgentProfiles(sql as never, [PLANNER_PROFILE_SEED, ANALYTICS_PROFILE_SEED])
+  await seedAgentProfiles(sql, [PLANNER_PROFILE_SEED, ANALYTICS_PROFILE_SEED])
   logger.info('agent profiles seeded')
 
   const getAppToken = async (tenantId: string): Promise<string> => {

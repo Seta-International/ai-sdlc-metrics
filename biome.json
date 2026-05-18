@@ -8,7 +8,8 @@
       "!**/node_modules",
       "!**/.turbo",
       "!**/routeTree.gen.ts",
-      "!**/*.css"
+      "!**/*.css",
+      "!**/__recordings__"
     ]
   },
   "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },

@@ -1,5 +1,15 @@
 import { z } from '@hono/zod-openapi'
-import { TenantSummary } from './me-context-provider'
+
+export const TenantSummary = z
+  .object({
+    id: z.uuid(),
+    slug: z.string(),
+    name: z.string(),
+    isAdmin: z.boolean(),
+  })
+  .openapi('TenantSummary')
+
+export type TenantSummary = z.infer<typeof TenantSummary>
 
 export const SessionUser = z
   .object({

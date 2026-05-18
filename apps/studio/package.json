@@ -7,7 +7,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test:unit": "vitest run",
+    "test:unit": "vitest run --passWithNoTests",
     "test:e2e": "playwright test",
     "check:bundle": "tsx scripts/check-bundle-size.ts"
   },
@@ -17,8 +17,8 @@
   "dependencies": {
     "@seta/agent-sdk": "workspace:*",
     "@seta/connector-registry": "workspace:*",
-    "@seta/identity-client": "workspace:*",
     "@seta/identity": "workspace:*",
+    "@seta/identity-client": "workspace:*",
     "@seta/ui": "workspace:*",
     "@tanstack/react-query": "5.100.10",
     "@tanstack/react-router": "1.169.2",

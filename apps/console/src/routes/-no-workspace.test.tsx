@@ -5,7 +5,7 @@ import { Route } from './no-workspace'
 describe('NoWorkspaceRoute', () => {
   it('renders the heading', () => {
     const Component = Route.options.component as () => React.ReactNode
-    render(<>{Component()}</>)
+    render(<Component />)
     expect(screen.getByText('No workspace yet')).toBeTruthy()
   })
 })

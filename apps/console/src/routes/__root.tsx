@@ -1,6 +1,7 @@
+import { SetaProvider } from '@seta/ui'
 import type { QueryClient } from '@tanstack/react-query'
-import { QueryClientProvider } from '@tanstack/react-query'
 import { createRootRouteWithContext, Outlet } from '@tanstack/react-router'
+import { client } from '../api/client'
 import { env } from '../env'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -10,7 +11,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootComponent() {
   const { queryClient } = Route.useRouteContext()
   return (
-    <QueryClientProvider client={queryClient}>
+    <SetaProvider client={client} queryClient={queryClient}>
       <div className="flex min-h-screen flex-col">
         <div className="flex-1">
           <Outlet />
@@ -19,6 +20,6 @@ function RootComponent() {
           <span className="font-mono">build {env.VITE_PUBLIC_BUILD_SHA.slice(0, 7)}</span>
         </footer>
       </div>
-    </QueryClientProvider>
+    </SetaProvider>
   )
 }

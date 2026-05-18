@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthedRouteImport } from './routes/_authed'
+import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as AuthedWorkflowsRouteImport } from './routes/_authed/workflows'
 import { Route as AuthedToolsRouteImport } from './routes/_authed/tools'
 import { Route as AuthedThreadsRouteImport } from './routes/_authed/threads'
@@ -17,14 +18,17 @@ import { Route as AuthedSetupRouteImport } from './routes/_authed/setup'
 import { Route as AuthedRunsRouteImport } from './routes/_authed/runs'
 import { Route as AuthedMetricsRouteImport } from './routes/_authed/metrics'
 import { Route as AuthedCorpusRouteImport } from './routes/_authed/corpus'
-import { Route as AuthedConnectorsRouteImport } from './routes/_authed/connectors'
 import { Route as AuthedAuditRouteImport } from './routes/_authed/audit'
 import { Route as AuthedAgentsRouteImport } from './routes/_authed/agents'
-import { Route as AuthedConnectorsCidConsentRouteImport } from './routes/_authed/connectors.$cid.consent'
 
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedIndexRoute = AuthedIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedWorkflowsRoute = AuthedWorkflowsRouteImport.update({
   id: '/workflows',
@@ -61,11 +65,6 @@ const AuthedCorpusRoute = AuthedCorpusRouteImport.update({
   path: '/corpus',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedConnectorsRoute = AuthedConnectorsRouteImport.update({
-  id: '/connectors',
-  path: '/connectors',
-  getParentRoute: () => AuthedRoute,
-} as any)
 const AuthedAuditRoute = AuthedAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
@@ -76,18 +75,11 @@ const AuthedAgentsRoute = AuthedAgentsRouteImport.update({
   path: '/agents',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedConnectorsCidConsentRoute =
-  AuthedConnectorsCidConsentRouteImport.update({
-    id: '/$cid/consent',
-    path: '/$cid/consent',
-    getParentRoute: () => AuthedConnectorsRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AuthedRouteWithChildren
+  '/': typeof AuthedIndexRoute
   '/agents': typeof AuthedAgentsRoute
   '/audit': typeof AuthedAuditRoute
-  '/connectors': typeof AuthedConnectorsRouteWithChildren
   '/corpus': typeof AuthedCorpusRoute
   '/metrics': typeof AuthedMetricsRoute
   '/runs': typeof AuthedRunsRoute
@@ -95,13 +87,10 @@ export interface FileRoutesByFullPath {
   '/threads': typeof AuthedThreadsRoute
   '/tools': typeof AuthedToolsRoute
   '/workflows': typeof AuthedWorkflowsRoute
-  '/connectors/$cid/consent': typeof AuthedConnectorsCidConsentRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof AuthedRouteWithChildren
   '/agents': typeof AuthedAgentsRoute
   '/audit': typeof AuthedAuditRoute
-  '/connectors': typeof AuthedConnectorsRouteWithChildren
   '/corpus': typeof AuthedCorpusRoute
   '/metrics': typeof AuthedMetricsRoute
   '/runs': typeof AuthedRunsRoute
@@ -109,14 +98,13 @@ export interface FileRoutesByTo {
   '/threads': typeof AuthedThreadsRoute
   '/tools': typeof AuthedToolsRoute
   '/workflows': typeof AuthedWorkflowsRoute
-  '/connectors/$cid/consent': typeof AuthedConnectorsCidConsentRoute
+  '/': typeof AuthedIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authed': typeof AuthedRouteWithChildren
   '/_authed/agents': typeof AuthedAgentsRoute
   '/_authed/audit': typeof AuthedAuditRoute
-  '/_authed/connectors': typeof AuthedConnectorsRouteWithChildren
   '/_authed/corpus': typeof AuthedCorpusRoute
   '/_authed/metrics': typeof AuthedMetricsRoute
   '/_authed/runs': typeof AuthedRunsRoute
@@ -124,7 +112,7 @@ export interface FileRoutesById {
   '/_authed/threads': typeof AuthedThreadsRoute
   '/_authed/tools': typeof AuthedToolsRoute
   '/_authed/workflows': typeof AuthedWorkflowsRoute
-  '/_authed/connectors/$cid/consent': typeof AuthedConnectorsCidConsentRoute
+  '/_authed/': typeof AuthedIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -132,7 +120,6 @@ export interface FileRouteTypes {
     | '/'
     | '/agents'
     | '/audit'
-    | '/connectors'
     | '/corpus'
     | '/metrics'
     | '/runs'
@@ -140,13 +127,10 @@ export interface FileRouteTypes {
     | '/threads'
     | '/tools'
     | '/workflows'
-    | '/connectors/$cid/consent'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/agents'
     | '/audit'
-    | '/connectors'
     | '/corpus'
     | '/metrics'
     | '/runs'
@@ -154,13 +138,12 @@ export interface FileRouteTypes {
     | '/threads'
     | '/tools'
     | '/workflows'
-    | '/connectors/$cid/consent'
+    | '/'
   id:
     | '__root__'
     | '/_authed'
     | '/_authed/agents'
     | '/_authed/audit'
-    | '/_authed/connectors'
     | '/_authed/corpus'
     | '/_authed/metrics'
     | '/_authed/runs'
@@ -168,7 +151,7 @@ export interface FileRouteTypes {
     | '/_authed/threads'
     | '/_authed/tools'
     | '/_authed/workflows'
-    | '/_authed/connectors/$cid/consent'
+    | '/_authed/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -183,6 +166,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthedRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authed/': {
+      id: '/_authed/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AuthedIndexRouteImport
+      parentRoute: typeof AuthedRoute
     }
     '/_authed/workflows': {
       id: '/_authed/workflows'
@@ -233,13 +223,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedCorpusRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/connectors': {
-      id: '/_authed/connectors'
-      path: '/connectors'
-      fullPath: '/connectors'
-      preLoaderRoute: typeof AuthedConnectorsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
     '/_authed/audit': {
       id: '/_authed/audit'
       path: '/audit'
@@ -254,31 +237,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAgentsRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/connectors/$cid/consent': {
-      id: '/_authed/connectors/$cid/consent'
-      path: '/$cid/consent'
-      fullPath: '/connectors/$cid/consent'
-      preLoaderRoute: typeof AuthedConnectorsCidConsentRouteImport
-      parentRoute: typeof AuthedConnectorsRoute
-    }
   }
 }
-
-interface AuthedConnectorsRouteChildren {
-  AuthedConnectorsCidConsentRoute: typeof AuthedConnectorsCidConsentRoute
-}
-
-const AuthedConnectorsRouteChildren: AuthedConnectorsRouteChildren = {
-  AuthedConnectorsCidConsentRoute: AuthedConnectorsCidConsentRoute,
-}
-
-const AuthedConnectorsRouteWithChildren =
-  AuthedConnectorsRoute._addFileChildren(AuthedConnectorsRouteChildren)
 
 interface AuthedRouteChildren {
   AuthedAgentsRoute: typeof AuthedAgentsRoute
   AuthedAuditRoute: typeof AuthedAuditRoute
-  AuthedConnectorsRoute: typeof AuthedConnectorsRouteWithChildren
   AuthedCorpusRoute: typeof AuthedCorpusRoute
   AuthedMetricsRoute: typeof AuthedMetricsRoute
   AuthedRunsRoute: typeof AuthedRunsRoute
@@ -286,12 +250,12 @@ interface AuthedRouteChildren {
   AuthedThreadsRoute: typeof AuthedThreadsRoute
   AuthedToolsRoute: typeof AuthedToolsRoute
   AuthedWorkflowsRoute: typeof AuthedWorkflowsRoute
+  AuthedIndexRoute: typeof AuthedIndexRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAgentsRoute: AuthedAgentsRoute,
   AuthedAuditRoute: AuthedAuditRoute,
-  AuthedConnectorsRoute: AuthedConnectorsRouteWithChildren,
   AuthedCorpusRoute: AuthedCorpusRoute,
   AuthedMetricsRoute: AuthedMetricsRoute,
   AuthedRunsRoute: AuthedRunsRoute,
@@ -299,6 +263,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedThreadsRoute: AuthedThreadsRoute,
   AuthedToolsRoute: AuthedToolsRoute,
   AuthedWorkflowsRoute: AuthedWorkflowsRoute,
+  AuthedIndexRoute: AuthedIndexRoute,
 }
 
 const AuthedRouteWithChildren =
