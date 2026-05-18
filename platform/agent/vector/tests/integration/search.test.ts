@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { createPool, withTenant } from '@seta/db'
 import { tenantContext } from '@seta/tenancy'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
@@ -105,6 +106,7 @@ describe('searchChunks — similarity bounds', () => {
           content: 'exact',
           contentHash: hashContent('exact'),
           tokenCount: 1,
+          span: { startChar: 0, endChar: 5 }, // 'exact' is 5 chars
           embedding: queryEmbedding,
         },
         // A few decoys.
@@ -132,6 +134,8 @@ describe('searchChunks — similarity bounds', () => {
     // The exact-match chunk should be first and have similarity ≈ 1.
     expect(hits[0]?.content).toBe('exact')
     expect(hits[0]?.similarity).toBeGreaterThan(0.999)
+    expect(hits[0]?.sourceId).toBe(SOURCE_1)
+    expect(hits[0]?.span).toEqual({ startChar: 0, endChar: 5 })
   })
 })
 
@@ -228,5 +232,32 @@ describe('searchChunks — recall ordering', () => {
       if (!prev || !curr) throw new Error('unexpected sparse hits')
       expect(prev.similarity).toBeGreaterThanOrEqual(curr.similarity)
     }
+  })
+})
+
+describe('searchChunks — null span passthrough', () => {
+  it('returns span: null for rows inserted without a span', async () => {
+    const tenantId = randomUUID()
+    const sourceId = randomUUID()
+    await runAs(tenantId, async () => {
+      await insertChunks(testSql(), [
+        {
+          tenantId,
+          sourceId,
+          content: 'legacy chunk without span',
+          contentHash: hashContent('legacy chunk without span'),
+          tokenCount: 5,
+          span: null,
+          embedding: seedEmbedding('legacy chunk without span'),
+        },
+      ])
+      const [hit] = await searchChunks(testSql(), seedEmbedding('legacy chunk without span'), {
+        k: 1,
+        minSim: -1,
+      })
+      expect(hit).toBeDefined()
+      expect(hit!.span).toBeNull()
+      expect(hit!.sourceId).toBe(sourceId)
+    })
   })
 })
