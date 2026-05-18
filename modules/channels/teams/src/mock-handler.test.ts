@@ -3,7 +3,7 @@ import type { Activity } from './activity'
 import type { RunContext } from './handler'
 import { mockTeamsHandler } from './mock-handler'
 
-const runCtx: RunContext = { tenantId: 'tenant-1', userId: 'user-1' }
+const runCtx: RunContext = { userId: 'user-1' }
 
 function makeActivity(overrides: Partial<Activity>): Activity {
   return {

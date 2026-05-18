@@ -23,7 +23,13 @@ async function signJwt(botId: string): Promise<string> {
 
 function makeSqlStub() {
   return Object.assign(
-    (_strings: TemplateStringsArray, ..._values: unknown[]) => Promise.resolve([]),
+    (strings: TemplateStringsArray, ..._values: unknown[]) => {
+      const sql = strings.join('?')
+      if (sql.includes('resolve_tenant_by_entra_id')) {
+        return Promise.resolve([{ tenant_id: 'cccccccc-4444-5555-6666-dddddddddddd' }])
+      }
+      return Promise.resolve([])
+    },
     { json: (v: object) => v },
   )
 }
@@ -43,7 +49,6 @@ describe('routes', () => {
     const app = routes(stubHandler, {
       botId: 'test-bot',
       botSecret: 'secret',
-      botTenantId: 'test-tenant',
       sql: makeSqlStub() as never,
     })
     const res = await app.request('/health')
@@ -61,7 +66,6 @@ describe('routes', () => {
     const app = freshRoutes(stubHandler, {
       botId,
       botSecret: 'secret',
-      botTenantId: 'test-tenant',
       sql: makeSqlStub() as never,
     })
     const body = {
@@ -71,6 +75,7 @@ describe('routes', () => {
       from: { id: 'user-1', aadObjectId: 'aad-object-id-1' },
       conversation: { id: 'conv-1', conversationType: 'personal' },
       recipient: { id: 'bot-1' },
+      channelData: { tenant: { id: 'aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb' } },
       text: 'hello',
     }
     const token = await signJwt(botId)

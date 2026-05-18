@@ -26,6 +26,7 @@
     "@seta/middleware": "workspace:*",
     "@seta/oauth": "workspace:*",
     "@seta/observability": "workspace:*",
+    "@seta/tenancy": "workspace:*",
     "adm-zip": "0.5.17",
     "hono": "4.12.18",
     "jose": "6.2.3",

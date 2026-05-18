@@ -1,6 +1,7 @@
 import { SpanStatusCode, trace } from '@opentelemetry/api'
-import { onError } from '@seta/middleware'
+import { onError, Unauthorized } from '@seta/middleware'
 import { logger } from '@seta/observability'
+import { tenantContext } from '@seta/tenancy'
 import { Hono } from 'hono'
 import { type Activity, ActivitySchema } from './activity'
 import type { OutboundActivity, RunContext, TeamsHandler } from './handler'
@@ -18,7 +19,6 @@ type Sql = {
 export interface TeamsRouterOpts {
   botId: string
   botSecret: string
-  botTenantId: string
   sql: Sql
 }
 
@@ -35,11 +35,29 @@ export function routes(handler: TeamsHandler, opts: TeamsRouterOpts): Hono {
     const body = await c.req.json()
     const activity = ActivitySchema.parse(body)
 
+    // channelData.tenant.id is the Teams organisation's Entra tenant ID.
+    // Bot Framework JWT tid is botframework.com — not the caller's org.
+    const entraTenantId = activity.channelData?.tenant?.id ?? null
+    if (!entraTenantId) throw new Unauthorized('Teams activity missing channelData.tenant.id')
+
+    // Resolve Teams organisation (Entra tenant) → SETA tenant via SECURITY DEFINER function
+    const rows = await opts.sql<{ tenant_id: string }>`
+      SELECT auth.resolve_tenant_by_entra_id(${entraTenantId})::text AS tenant_id
+    `
+    const setaTenantId = rows[0]?.tenant_id ?? null
+    if (!setaTenantId)
+      throw new Unauthorized(`Teams organisation ${entraTenantId} is not registered`)
+
     // Return 200 immediately — Bot Framework requires HTTP ACK before the bot replies
     setImmediate(() => {
-      dispatchActivity(activity, handler, opts).catch((err) => {
-        logger.error({ err }, 'teams dispatch failed')
-      })
+      const userId = activity.from.aadObjectId
+      tenantContext
+        .run({ tenantId: setaTenantId, ...(userId ? { userId } : {}) }, () =>
+          dispatchActivity(activity, handler, opts),
+        )
+        .catch((err) => {
+          logger.error({ err }, 'teams dispatch failed')
+        })
     })
 
     return c.body(null, 200)
@@ -60,14 +78,23 @@ async function dispatchActivity(
     span.setAttributes({ 'conversation.type': activity.conversation.conversationType })
     try {
       const runCtx: RunContext = {
-        tenantId: activity.channelData?.tenant?.id ?? 'unknown',
         userId: activity.from.aadObjectId ?? 'unknown',
       }
 
       const reply: OutboundActivity | null = await handler(activity, runCtx)
 
       if (reply) {
-        await replyToActivity(activity.serviceUrl, activity.conversation.id, reply, opts)
+        const tenantId = activity.channelData?.tenant?.id
+        if (!tenantId) throw new Error('missing tenant id in activity channelData')
+        const enriched = {
+          ...reply,
+          from: activity.recipient,
+          recipient: { id: activity.from.id },
+        }
+        await replyToActivity(activity.serviceUrl, activity.conversation.id, enriched, {
+          ...opts,
+          tenantId,
+        })
       }
       span.setAttribute('result', 'ok')
     } catch (err) {

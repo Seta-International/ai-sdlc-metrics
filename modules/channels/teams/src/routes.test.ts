@@ -7,7 +7,7 @@ import type { TeamsHandler } from './index'
 const SERVICE_URL = 'https://test-service-url.invalid'
 const CONV_ID = 'conv-test-1'
 const BOT_ID = 'bot-id'
-const BOT_TENANT_ID = 'test-tenant-id'
+const SETA_TENANT_ID = 'cccccccc-4444-5555-6666-dddddddddddd'
 const capturedReplies: unknown[] = []
 
 const { privateKey, publicKey } = await jose.generateKeyPair('RS256')
@@ -26,16 +26,22 @@ async function signJwt(): Promise<string> {
     .sign(privateKey)
 }
 
-function makeSqlStub() {
+function makeSqlStub(resolveTenantId: string | null = SETA_TENANT_ID) {
   return Object.assign(
-    (_strings: TemplateStringsArray, ..._values: unknown[]) => Promise.resolve([]),
+    (strings: TemplateStringsArray, ..._values: unknown[]) => {
+      const sql = strings.join('?')
+      if (sql.includes('resolve_tenant_by_entra_id')) {
+        return Promise.resolve(resolveTenantId !== null ? [{ tenant_id: resolveTenantId }] : [])
+      }
+      return Promise.resolve([])
+    },
     { json: (v: object) => v },
   )
 }
 
 const server = setupServer(
-  // Bot Framework token endpoint — getBotToken() calls this with the bot's tenant ID
-  http.post(`https://login.microsoftonline.com/${BOT_TENANT_ID}/oauth2/v2.0/token`, () =>
+  // Bot Framework token endpoint — uses the Teams org's Entra tenant ID (from channelData.tenant.id)
+  http.post(`https://login.microsoftonline.com/tenant-1/oauth2/v2.0/token`, () =>
     HttpResponse.json({ access_token: 'test-token', expires_in: 3600 }),
   ),
   // Outbound reply endpoint — replyToActivity() posts here
@@ -82,7 +88,6 @@ describe('routes', () => {
     const app = freshRoutes(echoHandler, {
       botId: BOT_ID,
       botSecret: 'bot-secret',
-      botTenantId: BOT_TENANT_ID,
       sql: makeSqlStub() as never,
     })
 
@@ -110,13 +115,32 @@ describe('routes', () => {
     const app = freshRoutes(echoHandler, {
       botId: BOT_ID,
       botSecret: 'bot-secret',
-      botTenantId: BOT_TENANT_ID,
       sql: makeSqlStub() as never,
     })
     const res = await app.request('/messages', {
       method: 'POST',
       body: JSON.stringify(buildActivity('hi')),
       headers: { 'content-type': 'application/json', authorization: 'Bearer forged.token.here' },
+    })
+    expect(res.status).toBe(401)
+  })
+
+  test('POST /messages from unregistered Teams org returns 401', async () => {
+    const jwks = await buildJwks()
+    server.use(
+      http.get('https://login.botframework.com/v1/.well-known/keys', () => HttpResponse.json(jwks)),
+    )
+    const { routes: freshRoutes } = await import('./routes')
+    const app = freshRoutes(echoHandler, {
+      botId: BOT_ID,
+      botSecret: 'bot-secret',
+      sql: makeSqlStub(null) as never, // no matching SETA tenant
+    })
+    const token = await signJwt()
+    const res = await app.request('/messages', {
+      method: 'POST',
+      body: JSON.stringify(buildActivity('hi')),
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
     })
     expect(res.status).toBe(401)
   })
@@ -131,7 +155,6 @@ describe('routes', () => {
     const app = freshRoutes(noReplyHandler, {
       botId: BOT_ID,
       botSecret: 'bot-secret',
-      botTenantId: BOT_TENANT_ID,
       sql: makeSqlStub() as never,
     })
 
