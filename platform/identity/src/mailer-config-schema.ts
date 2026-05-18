@@ -2,17 +2,17 @@ import { z } from '@hono/zod-openapi'
 
 export const GraphMailerConfig = z.object({
   mailbox_user_id: z.string().min(1),
-  from_address: z.string().email(),
+  from_address: z.email(),
 })
 export type GraphMailerConfig = z.infer<typeof GraphMailerConfig>
 
 export const SmtpMailerConfig = z.object({
-  from_address: z.string().email(),
+  from_address: z.email(),
 })
 
 export const SesMailerConfig = z.object({
   region: z.string().min(1),
-  from_address: z.string().email(),
+  from_address: z.email(),
   configuration_set: z.string().optional(),
 })
 

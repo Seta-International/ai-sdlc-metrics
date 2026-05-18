@@ -8,9 +8,9 @@ export type TenantSummary = z.infer<typeof TenantSummary>
 export const SessionUser = z
   .object({
     id: z.uuid(),
-    email: z.string().email(),
+    email: z.email(),
     name: z.string().min(1),
-    pictureUrl: z.string().url().nullable(),
+    pictureUrl: z.url().nullable(),
   })
   .openapi('SessionUser')
 export type SessionUser = z.infer<typeof SessionUser>
@@ -26,7 +26,7 @@ export const MeResponse = z
   .openapi('MeResponse')
 export type MeResponse = z.infer<typeof MeResponse>
 
-export const DiscoverBody = z.object({ email: z.string().email() }).openapi('SsoDiscoverBody')
+export const DiscoverBody = z.object({ email: z.email() }).openapi('SsoDiscoverBody')
 export const DiscoverResponse = z
   .discriminatedUnion('ok', [
     z.object({
@@ -40,8 +40,8 @@ export const DiscoverResponse = z
   .openapi('SsoDiscoverResponse')
 
 export const StartBody = z
-  .object({ email: z.string().email(), returnTo: z.string().optional() })
+  .object({ email: z.email(), returnTo: z.string().optional() })
   .openapi('SsoStartBody')
-export const StartResponse = z.object({ url: z.string().url() }).openapi('SsoStartResponse')
+export const StartResponse = z.object({ url: z.url() }).openapi('SsoStartResponse')
 
 export const ProviderParam = z.enum(['entra'])

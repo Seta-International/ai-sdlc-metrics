@@ -1,3 +1,4 @@
+import { Server as HttpServer } from 'node:http'
 import { serve } from '@hono/node-server'
 import {
   createAgentRouter,
@@ -61,6 +62,7 @@ import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { agentMemory, agentRegistry } from './agent'
 import { sql } from './db'
+import { attachDevProxyUpgrade, createDevProxyApp, FRONTEND_DEV_PROXY } from './dev-proxy'
 import { deployedApps, env } from './env'
 import { lastAppMiddleware, verifyLastApp } from './last-app-middleware'
 
@@ -84,8 +86,8 @@ registry.register(plannerConnector)
 registry.register(directoryConnector)
 
 const platformConnectorOAuth = new EntraProvider({
-  clientId: env.PLATFORM_CONNECTOR_CLIENT_ID,
-  clientSecret: env.PLATFORM_CONNECTOR_CLIENT_SECRET,
+  clientId: env.ENTRA_CLIENT_ID,
+  clientSecret: env.ENTRA_CLIENT_SECRET,
 })
 
 // ── Mailer resolver ───────────────────────────────────────────────────────────
@@ -302,30 +304,7 @@ app.use(
 
 if (env.NODE_ENV === 'development') {
   app.get('/', (c) => c.redirect('/console/'))
-
-  const FRONTEND_PORTS: Record<string, number> = {
-    console: 5174,
-    studio: 5180,
-  }
-  for (const [prefix, port] of Object.entries(FRONTEND_PORTS)) {
-    app.all(`/${prefix}/*`, async (c) => {
-      const target = `http://localhost:${port}${c.req.path}${c.req.url.includes('?') ? `?${c.req.url.split('?')[1]}` : ''}`
-      const init: RequestInit = {
-        method: c.req.method,
-        headers: c.req.raw.headers,
-      }
-      if (c.req.method !== 'GET' && c.req.method !== 'HEAD') {
-        init.body = c.req.raw.body
-        ;(init as { duplex?: string }).duplex = 'half'
-      }
-      const upstream = await fetch(target, init)
-      return upstream
-    })
-    app.all(`/${prefix}`, async (c) => {
-      const target = `http://localhost:${port}/${prefix}`
-      return fetch(target, { method: c.req.method, headers: c.req.raw.headers })
-    })
-  }
+  app.route('/', createDevProxyApp(FRONTEND_DEV_PROXY))
 }
 
 app.get('/healthz', (c) => c.json({ ok: true }))
@@ -484,6 +463,10 @@ if (isMain) {
     logger.info({ port: info.port }, 'api listening')
     await boot().catch((err) => logger.error({ err }, 'boot failed'))
   })
+
+  if (env.NODE_ENV === 'development' && server instanceof HttpServer) {
+    attachDevProxyUpgrade(server, FRONTEND_DEV_PROXY)
+  }
 
   const shutdown = (signal: string) => async () => {
     logger.info({ signal }, 'shutting down')

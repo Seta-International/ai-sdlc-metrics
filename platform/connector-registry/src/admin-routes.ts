@@ -31,7 +31,7 @@ const ConsentUrlBody = z.object({
 })
 
 const ConsentUrlResponse = z
-  .object({ url: z.string().url(), state: z.string() })
+  .object({ url: z.url(), state: z.string() })
   .openapi('ConsentUrlResponse')
 
 export type ConnectorAdminMembershipRole = 'owner' | 'admin' | 'member'

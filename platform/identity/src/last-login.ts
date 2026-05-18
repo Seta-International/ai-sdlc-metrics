@@ -4,7 +4,7 @@ import { signCookie, verifyCookie } from './cookie'
 export const LAST_LOGIN_COOKIE_NAME = 'seta_last_login'
 
 export const LastLoginHint = z.object({
-  email: z.string().email(),
+  email: z.email(),
   provider: z.literal('entra'),
   tenantDisplayName: z.string().min(1),
   ts: z.number().int(),

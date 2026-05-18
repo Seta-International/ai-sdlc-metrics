@@ -36,8 +36,8 @@ describe('seed-first-tenant.ts', () => {
     const env = {
       ...process.env,
       DATABASE_URL: URL,
-      PLATFORM_CONNECTOR_CLIENT_ID: 'connector-client-seed',
-      PLATFORM_CONNECTOR_CLIENT_SECRET: 'connector-secret-seed',
+      ENTRA_CLIENT_ID: 'connector-client-seed',
+      ENTRA_CLIENT_SECRET: 'connector-secret-seed',
       BOOTSTRAP_TENANT_SLUG: 'seed-test',
       BOOTSTRAP_TENANT_NAME: 'Seed Test Tenant',
       BOOTSTRAP_ENTRA_DIRECTORY_ID: 'tid-seed',

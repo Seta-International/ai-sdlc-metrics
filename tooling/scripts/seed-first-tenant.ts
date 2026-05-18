@@ -10,8 +10,8 @@ import './_env'
 
 const Env = z.object({
   DATABASE_URL: z.string().min(1),
-  PLATFORM_CONNECTOR_CLIENT_ID: z.string().min(1),
-  PLATFORM_CONNECTOR_CLIENT_SECRET: z.string().min(1),
+  ENTRA_CLIENT_ID: z.string().min(1),
+  ENTRA_CLIENT_SECRET: z.string().min(1),
   BOOTSTRAP_TENANT_SLUG: z.string().min(1),
   BOOTSTRAP_TENANT_NAME: z.string().min(1),
   BOOTSTRAP_ENTRA_DIRECTORY_ID: z.string().min(1),
@@ -61,8 +61,8 @@ registry.register(plannerConnector)
 registry.register(directoryConnector)
 
 const entra = new EntraProvider({
-  clientId: env.PLATFORM_CONNECTOR_CLIENT_ID,
-  clientSecret: env.PLATFORM_CONNECTOR_CLIENT_SECRET,
+  clientId: env.ENTRA_CLIENT_ID,
+  clientSecret: env.ENTRA_CLIENT_SECRET,
 })
 
 const bootstrapSsoDomains = env.BOOTSTRAP_SSO_EMAIL_DOMAINS.split(',')
@@ -117,7 +117,7 @@ async function main(): Promise<void> {
 
     await tx`
       INSERT INTO auth.user_identities (provider, subject, user_id)
-      VALUES ('entra', ${`bootstrap:${env.PLATFORM_CONNECTOR_CLIENT_ID}`}, ${owner.id})
+      VALUES ('entra', ${`bootstrap:${env.ENTRA_CLIENT_ID}`}, ${owner.id})
       ON CONFLICT (provider, subject) DO NOTHING
     `
 
@@ -206,7 +206,7 @@ async function main(): Promise<void> {
     const bundle = await entra.acquireAppOnly(env.BOOTSTRAP_ENTRA_DIRECTORY_ID, [
       'https://graph.microsoft.com/.default',
     ])
-    await vault.put(tenantId, 'entra', `app:${env.PLATFORM_CONNECTOR_CLIENT_ID}`, bundle)
+    await vault.put(tenantId, 'entra', `app:${env.ENTRA_CLIENT_ID}`, bundle)
   }
 
   await audit.recordAudit({
