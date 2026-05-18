@@ -18,7 +18,7 @@ describe('signLastLoginHint / readLastLoginHint', () => {
 
   it('returns null on tampered HMAC', () => {
     const signed = signLastLoginHint(payload, HMAC_KEY)
-    const tampered = signed.slice(0, -2) + 'aa'
+    const tampered = `${signed.slice(0, -2)}aa`
     expect(readLastLoginHint(tampered, HMAC_KEY)).toBeNull()
   })
 

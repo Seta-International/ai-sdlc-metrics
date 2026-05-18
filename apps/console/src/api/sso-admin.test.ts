@@ -47,7 +47,7 @@ describe('sso-admin API client', () => {
       },
       { fetch: fetchImpl as never },
     )
-    const [, init] = fetchImpl.mock.calls[0]!
+    const [, init] = fetchImpl.mock.calls[0] as [unknown, RequestInit]
     const body = JSON.parse(init.body as string)
     expect(body).not.toHaveProperty('clientSecret')
     expect(init.method).toBe('PUT')
@@ -66,7 +66,7 @@ describe('sso-admin API client', () => {
       },
       { fetch: fetchImpl as never },
     )
-    const [, init] = fetchImpl.mock.calls[0]!
+    const [, init] = fetchImpl.mock.calls[0] as [unknown, RequestInit]
     expect(JSON.parse(init.body as string).clientSecret).toBe('topsecret')
   })
 
@@ -94,7 +94,7 @@ describe('sso-admin API client', () => {
   it('rotateSsoSecret POSTs the secret', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ ok: true }))
     await rotateSsoSecret('t-1', 'new', { fetch: fetchImpl as never })
-    const [, init] = fetchImpl.mock.calls[0]!
+    const [, init] = fetchImpl.mock.calls[0] as [unknown, RequestInit]
     expect(JSON.parse(init.body as string)).toEqual({ clientSecret: 'new' })
   })
 

@@ -3,6 +3,7 @@ import { tenantContext } from '@seta/tenancy'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { findExistingHashes, insertChunks } from '../../src/ingest'
 import {
+  closeTestSql,
   ensureMigrations,
   hashContent,
   seedEmbedding,
@@ -31,7 +32,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await testSql().end({ timeout: 2 })
+  await closeTestSql()
   await tenantUserSql.end({ timeout: 2 })
 })
 

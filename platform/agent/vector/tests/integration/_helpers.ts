@@ -19,6 +19,17 @@ export function testSql(): DbSql {
   return cachedSql
 }
 
+// With singleFork+isolate:false the module-level pool is shared across test
+// files; ending it in one file's afterAll would leave subsequent files with a
+// dead pool. Reset the cache on close so the next caller re-creates.
+export async function closeTestSql(): Promise<void> {
+  if (cachedSql) {
+    const sql = cachedSql
+    cachedSql = undefined
+    await sql.end({ timeout: 2 })
+  }
+}
+
 /** Apply every owner's migrations up through agent_vector. */
 export async function ensureMigrations(): Promise<void> {
   await runMigrations({

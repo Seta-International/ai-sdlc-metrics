@@ -1,8 +1,6 @@
 import { createPool, type DbSql } from '@seta/db'
 
-const URL = process.env.DATABASE_URL
-if (!URL) throw new Error('integration tests require DATABASE_URL')
-const dbUrl: string = URL
+const dbUrl = process.env.DATABASE_URL ?? 'postgres://seta:dev@localhost:5432/seta'
 
 // tenant_user: RLS-subject, used by the runner (matches production).
 const TENANT_USER_URL = dbUrl.replace('seta:dev@', 'tenant_user:dev_only_change_me@')

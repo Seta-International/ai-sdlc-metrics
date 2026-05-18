@@ -14,8 +14,6 @@ const baseEnv = {
   MS_BOT_ID: 'bot',
   MS_BOT_SECRET: 'bot-secret',
   MS_BOT_TENANT_ID: 'bot-tenant',
-  GOOGLE_CLIENT_ID: 'google-client',
-  GOOGLE_CLIENT_SECRET: 'google-secret',
   SESSION_HMAC_KEY: 'a'.repeat(32),
   SESSION_TTL_SEC: '86400',
 }
@@ -23,7 +21,7 @@ const baseEnv = {
 describe('apps/api env', () => {
   it('accepts a complete, valid env', () => {
     const parsed = EnvSchema.parse(baseEnv)
-    expect(parsed.GOOGLE_CLIENT_ID).toBe('google-client')
+    expect(parsed.ENTRA_CLIENT_ID).toBe('entra-client')
     expect(parsed.SESSION_TTL_SEC).toBe(86400)
     expect(parsed.SESSION_HMAC_KEY.length).toBe(32)
   })
@@ -38,14 +36,12 @@ describe('apps/api env', () => {
     expect(() => EnvSchema.parse(rest)).toThrow()
   })
 
-  it('rejects when GOOGLE_CLIENT_ID is missing', () => {
-    const { GOOGLE_CLIENT_ID: _, ...rest } = baseEnv
-    expect(() => EnvSchema.parse(rest)).toThrow()
+  it('rejects when GOOGLE_CLIENT_ID is set', () => {
+    expect(() => EnvSchema.parse({ ...baseEnv, GOOGLE_CLIENT_ID: 'x' })).toThrow()
   })
 
-  it('rejects when GOOGLE_CLIENT_SECRET is missing', () => {
-    const { GOOGLE_CLIENT_SECRET: _, ...rest } = baseEnv
-    expect(() => EnvSchema.parse(rest)).toThrow()
+  it('rejects when GOOGLE_CLIENT_SECRET is set', () => {
+    expect(() => EnvSchema.parse({ ...baseEnv, GOOGLE_CLIENT_SECRET: 'x' })).toThrow()
   })
 
   it('rejects SESSION_HMAC_KEY shorter than 32 chars', () => {

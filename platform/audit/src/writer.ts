@@ -28,7 +28,7 @@ export function createAuditWriter(sql: Sql): AuditWriter {
            operation, resource_type, resource_ids, result, metadata)
         VALUES
           (${e.tenantId}, ${actorType}, ${actorId}, ${e.providerId ?? null}, ${e.connectorId ?? null},
-           ${e.operation}, ${e.resource?.type ?? null}, ${e.resource?.ids ?? null},
+           ${e.operation}, ${e.resource?.type ?? null}, ${e.resource?.ids != null ? sql.array(e.resource.ids) : null},
            ${e.result}, ${sql.json((e.metadata ?? {}) as never)})
       `
     },

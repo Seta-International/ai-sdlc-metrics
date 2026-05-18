@@ -8,13 +8,14 @@ const sql = postgres(DATABASE_URL, { max: 1, prepare: false })
 
 const tenantId = '00000000-0000-4000-8000-0000000000f1'
 const userId = '00000000-0000-4000-8000-0000000000f2'
+const tenantSlug = 'magic-link-repo-test'
 
 describe('magic-link-repo (integration)', () => {
   beforeEach(async () => {
     await sql`TRUNCATE auth.magic_links, auth.user_identities, auth.users CASCADE`
     await sql`DELETE FROM tenant.tenant_members WHERE user_id = ${userId}`
-    await sql`DELETE FROM tenant.tenants WHERE id = ${tenantId}`
-    await sql`INSERT INTO tenant.tenants (id, slug, display_name) VALUES (${tenantId}, 'acme', 'Acme')`
+    await sql`DELETE FROM tenant.tenants WHERE id = ${tenantId} OR slug = ${tenantSlug}`
+    await sql`INSERT INTO tenant.tenants (id, slug, display_name) VALUES (${tenantId}, ${tenantSlug}, 'Magic Link Repo Test')`
     await sql`
       INSERT INTO auth.users (id, email, name, primary_provider)
       VALUES (${userId}, 'alice@acme.com', 'Alice', 'entra')

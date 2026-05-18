@@ -19,7 +19,7 @@ describe('tenants + connector admin slice', () => {
     `
     await sql`
       INSERT INTO tenant.tenant_members (user_id, tenant_id, role)
-      VALUES (${userId}, ${tenantA}, 'admin'), (${userId}, ${tenantB}, 'member')
+      VALUES (${userId}, ${tenantA}, 'admin')
     `
   })
 

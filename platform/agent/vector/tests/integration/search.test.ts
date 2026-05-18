@@ -4,11 +4,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { insertChunks } from '../../src/ingest'
 import { searchChunks } from '../../src/search'
 import {
+  closeTestSql,
   ensureMigrations,
   hashContent,
   seedEmbedding,
   TEST_DATABASE_URL,
-  testSql,
   truncateVectorTables,
 } from './_helpers'
 
@@ -31,7 +31,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await testSql().end({ timeout: 2 })
+  await closeTestSql()
   await tenantUserSql.end({ timeout: 2 })
 })
 

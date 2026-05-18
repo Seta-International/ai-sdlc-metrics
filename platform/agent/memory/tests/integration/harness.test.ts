@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { ensureMigrations, testSql } from './_helpers'
+import { closeTestSql, ensureMigrations, testSql } from './_helpers'
 
 beforeAll(async () => {
   await ensureMigrations()
 })
 
 afterAll(async () => {
-  await testSql().end({ timeout: 2 })
+  await closeTestSql()
 })
 
 describe('integration harness', () => {

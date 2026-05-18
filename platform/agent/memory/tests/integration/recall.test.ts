@@ -5,7 +5,7 @@ import { tenantContext } from '@seta/tenancy'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { fetchRecallPage } from '../../src/recall'
 import { ensureThread, saveMessages } from '../../src/save-turn'
-import { ensureMigrations, testSql, truncateMemoryTables } from './_helpers'
+import { closeTestSql, ensureMigrations, testSql, truncateMemoryTables } from './_helpers'
 
 const TENANT = '00000000-0000-0000-0000-000000000001'
 
@@ -22,7 +22,7 @@ beforeEach(async () => {
 })
 
 afterAll(async () => {
-  await testSql().end({ timeout: 2 })
+  await closeTestSql()
 })
 
 describe('fetchRecallPage', () => {

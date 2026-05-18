@@ -12,7 +12,13 @@ import {
   upsertWorkingMemoryByResource,
   WORKING_MEMORY_BYTE_CAP,
 } from '../../src/working-memory'
-import { ensureMigrations, TEST_DATABASE_URL, testSql, truncateMemoryTables } from './_helpers'
+import {
+  closeTestSql,
+  ensureMigrations,
+  TEST_DATABASE_URL,
+  testSql,
+  truncateMemoryTables,
+} from './_helpers'
 
 const TENANT = '00000000-0000-0000-0000-000000000001'
 
@@ -25,7 +31,7 @@ beforeEach(async () => {
 })
 
 afterAll(async () => {
-  await testSql().end({ timeout: 2 })
+  await closeTestSql()
 })
 
 describe('working memory', () => {

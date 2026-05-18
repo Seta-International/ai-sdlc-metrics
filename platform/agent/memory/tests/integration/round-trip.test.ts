@@ -13,7 +13,7 @@ import { setupLLMRecording } from '@seta/agent-core/testkit'
 import { tenantContext } from '@seta/tenancy'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { AgentMemoryProvider } from '../../src/provider'
-import { ensureMigrations, testSql, truncateMemoryTables } from './_helpers'
+import { closeTestSql, ensureMigrations, testSql, truncateMemoryTables } from './_helpers'
 
 const RECORDINGS_DIR = path.resolve(__dirname, './__recordings__')
 const TENANT = '00000000-0000-0000-0000-000000000099'
@@ -63,7 +63,7 @@ afterEach(() => {
 })
 
 afterAll(async () => {
-  await testSql().end({ timeout: 2 })
+  await closeTestSql()
 })
 
 describe('kernel + AgentMemoryProvider round-trip', () => {

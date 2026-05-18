@@ -42,4 +42,24 @@ describe('recordAudit', () => {
     expect(rows[0]?.result).toBe('ok')
     expect(rows[0]?.metadata).toMatchObject({ foo: 'bar' })
   })
+
+  it('inserts a row with resource type and ids', async () => {
+    const tenantId = '44444444-4444-4444-4444-444444444444'
+    await writer.recordAudit({
+      tenantId,
+      actor: { type: 'user', userId: 'u1' },
+      operation: 'item.created',
+      result: 'ok',
+      resource: { type: 'task', ids: ['id-1', 'id-2'] },
+    })
+    const rows = await sql<{ resource_type: string; resource_ids: string[] }[]>`
+      SELECT resource_type, resource_ids
+        FROM audit.audit_log
+       WHERE tenant_id = ${tenantId}
+       ORDER BY ts DESC
+       LIMIT 1
+    `
+    expect(rows[0]?.resource_type).toBe('task')
+    expect(rows[0]?.resource_ids).toEqual(['id-1', 'id-2'])
+  })
 })

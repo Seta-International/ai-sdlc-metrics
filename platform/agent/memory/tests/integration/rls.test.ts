@@ -3,7 +3,13 @@ import { createPool, withTenant } from '@seta/db'
 import { tenantContext } from '@seta/tenancy'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { AgentMemoryProvider } from '../../src/provider'
-import { ensureMigrations, TEST_DATABASE_URL, testSql, truncateMemoryTables } from './_helpers'
+import {
+  closeTestSql,
+  ensureMigrations,
+  TEST_DATABASE_URL,
+  testSql,
+  truncateMemoryTables,
+} from './_helpers'
 
 const TENANT_A = '00000000-0000-0000-0000-0000000000aa'
 const TENANT_B = '00000000-0000-0000-0000-0000000000bb'
@@ -24,7 +30,7 @@ beforeEach(async () => {
 })
 
 afterAll(async () => {
-  await testSql().end({ timeout: 2 })
+  await closeTestSql()
   await tenantUserSql.end({ timeout: 2 })
 })
 
