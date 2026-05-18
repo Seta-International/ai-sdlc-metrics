@@ -63,7 +63,7 @@ export function seedEmbedding(seed: string): number[] {
   let mag = 0
   for (const v of out) mag += v * v
   mag = Math.sqrt(mag) || 1
-  for (let i = 0; i < dims; i++) out[i] = out[i]! / mag
+  for (const [i, v] of out.entries()) out[i] = v / mag
   return out
 }
 

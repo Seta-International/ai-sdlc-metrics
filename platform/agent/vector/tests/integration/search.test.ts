@@ -223,7 +223,10 @@ describe('searchChunks — recall ordering', () => {
     expect(hits[0]?.content).toBe('center')
     // Sorted descending by similarity.
     for (let i = 1; i < hits.length; i++) {
-      expect(hits[i - 1]!.similarity).toBeGreaterThanOrEqual(hits[i]!.similarity)
+      const prev = hits[i - 1]
+      const curr = hits[i]
+      if (!prev || !curr) throw new Error('unexpected sparse hits')
+      expect(prev.similarity).toBeGreaterThanOrEqual(curr.similarity)
     }
   })
 })
