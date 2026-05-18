@@ -981,9 +981,8 @@ export function SsoDomainsTable({ domains, onChange }: SsoDomainsTableProps) {
               aria-label={`Remove ${d}`}
               onClick={() => void remove(d)}
               icon={<X className="size-4" />}
-            >
-              {''}
-            </Button>
+            />
+            {/* Button.children is optional; the X icon + aria-label suffice. */}
           </li>
         ))}
         {domains.length === 0 ? (
@@ -997,7 +996,7 @@ export function SsoDomainsTable({ domains, onChange }: SsoDomainsTableProps) {
 
 Notes:
 - The inline error alert div is gone — the error now flows through `Field`'s `error` prop (renders as `role="alert"` `text-error caption` under the input).
-- The remove `<button>` becomes `<Button variant="ghost" size="sm" icon={<X/>}>` with an empty children — slightly awkward; if Button's children is `''` the icon-only render is fine because the icon already provides accessible labelling via `aria-label`. If linting complains about empty children, switch to a tight inline button styled to match `Button variant="ghost"` (border-radius `rounded-md`, `size-7`, `hover:bg-canvas-subtle`, `text-ink-mute`).
+- The remove `<button>` becomes `<Button variant="ghost" size="sm" icon={<X/>} aria-label="…" />` — icon-only Button. `Button.children` is optional in the existing signature; the `aria-label` provides accessibility.
 - `px-3 py-2` → `px-md py-sm`; `gap-3 gap-2 gap-1` standardized.
 
 - [ ] **Step 2: Update `SsoDomainsTable.test.tsx`**
