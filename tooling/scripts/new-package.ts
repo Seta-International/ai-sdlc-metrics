@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { stdin, stdout } from 'node:process'
 import { createInterface } from 'node:readline/promises'
+import { fileURLToPath } from 'node:url'
 
 type Kind = 'platform-agent' | 'platform' | 'channel' | 'product' | 'app'
 
@@ -15,7 +16,7 @@ const KINDS: Record<Kind, { dir: string; public: boolean }> = {
   app: { dir: 'apps', public: false },
 }
 
-const REPO_ROOT = new URL('../..', import.meta.url).pathname.replace(/\/$/, '')
+const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url)).replace(/[\\/]$/, '')
 
 function sh(cmd: string, cwd = REPO_ROOT) {
   return execSync(cmd, { cwd, stdio: ['ignore', 'pipe', 'inherit'] })
@@ -62,7 +63,7 @@ function computeName(kind: Kind, shortName: string): string {
 }
 
 function writeTsconfig(pkgDir: string) {
-  const depth = relative(pkgDir, REPO_ROOT).split('/').filter(Boolean).length
+  const depth = relative(pkgDir, REPO_ROOT).split(/[\\/]/).filter(Boolean).length
   const tsconfigPath = `${'../'.repeat(depth)}platform/tsconfig/node.json`
   writeFileSync(
     join(pkgDir, 'tsconfig.json'),
