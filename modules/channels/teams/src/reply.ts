@@ -9,10 +9,13 @@ export async function replyToActivity(
   serviceUrl: string,
   conversationId: string,
   activity: OutboundActivity,
-  opts: { botId: string; botSecret: string; botTenantId: string },
+  opts: { botId: string; botSecret: string; tenantId: string },
 ): Promise<void> {
-  const token = await getBotToken(opts.botId, opts.botSecret, opts.botTenantId)
-  const res = await fetch(`${serviceUrl}/v3/conversations/${conversationId}/activities`, {
+  const token = await getBotToken(opts.botId, opts.botSecret, opts.tenantId)
+  const base = serviceUrl.replace(/\/$/, '')
+  const url = `${base}/v3/conversations/${conversationId}/activities`
+  log.info({ url, botId: opts.botId }, 'teams.reply-attempt')
+  const res = await fetch(url, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${token}`,

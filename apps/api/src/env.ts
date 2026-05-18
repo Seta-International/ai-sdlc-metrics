@@ -37,7 +37,6 @@ export const EnvSchema = z.object({
   CONTINUATION_TTL_MIN: z.coerce.number().int().positive().default(15),
   MS_BOT_ID: z.string().min(1),
   MS_BOT_SECRET: z.string().min(1),
-  MS_BOT_TENANT_ID: z.string().min(1),
   PLANNER_SYNC_INTERVAL_MS: z.coerce.number().int().positive().default(180_000),
   OPENAI_EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
   AGENT_EMBEDDINGS_PROVIDER: z.enum(['openai', 'azure-openai', 'none']).default('none'),

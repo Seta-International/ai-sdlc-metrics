@@ -8,7 +8,6 @@ export interface OutboundActivity {
 }
 
 export interface RunContext {
-  tenantId: string
   userId: string
   abortSignal?: AbortSignal
 }

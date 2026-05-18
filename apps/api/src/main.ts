@@ -415,7 +415,6 @@ app.route(
   teamsRoutes(mockTeamsHandler, {
     botId: env.MS_BOT_ID,
     botSecret: env.MS_BOT_SECRET,
-    botTenantId: env.MS_BOT_TENANT_ID,
     sql: sql as never,
   }),
 )

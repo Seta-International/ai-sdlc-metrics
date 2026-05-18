@@ -57,6 +57,13 @@
       "when": 1779084702497,
       "tag": "0007_mailer_configs_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1779099038886,
+      "tag": "0008_grant-jwks-cache-and-tenant-resolver",
+      "breakpoints": true
     }
   ]
 }
