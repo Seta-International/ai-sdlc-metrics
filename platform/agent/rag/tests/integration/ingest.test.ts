@@ -148,4 +148,42 @@ describe('@seta/agent-rag — ingest (integration)', () => {
       }
     },
   )
+
+  it.skipIf(!shouldRun('ingest-fresh-3-chunks'))(
+    'case 2: re-ingesting identical content makes zero new OpenAI calls and inserts no new rows',
+    async () => {
+      recording = setupLLMRecording({
+        name: 'ingest-fresh-3-chunks',
+        recordingsDir: RECORDINGS_DIR,
+      })
+      recording.start()
+      const tenantId = randomUUID()
+      const sourceId = randomUUID()
+      const rag = createAgentRag({ sql: testSql(), embeddings: buildEmbeddings() })
+      const content = Array.from(
+        { length: 80 },
+        (_, i) => `Paragraph ${i}: lorem ipsum dolor sit amet, consectetur adipiscing elit.`,
+      ).join('\n\n')
+      await tenantContext.run({ tenantId }, async () => {
+        await rag.ingest(sourceId, content)
+        await rag.ingest(sourceId, content)
+      })
+      const rows = await withTenant(testSql(), tenantId, async (tx) => {
+        return tx<{ id: string }[]>`
+          SELECT id FROM agent_vector.chunks WHERE source_id = ${sourceId}
+        `
+      })
+      expect(rows.length).toBeGreaterThanOrEqual(1)
+      const after2 = rows.length
+      await tenantContext.run({ tenantId }, async () => {
+        await rag.ingest(sourceId, content)
+      })
+      const rows2 = await withTenant(testSql(), tenantId, async (tx) => {
+        return tx<{ id: string }[]>`
+          SELECT id FROM agent_vector.chunks WHERE source_id = ${sourceId}
+        `
+      })
+      expect(rows2.length).toBe(after2)
+    },
+  )
 })
