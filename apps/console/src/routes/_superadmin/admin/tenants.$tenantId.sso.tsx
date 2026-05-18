@@ -53,13 +53,22 @@ function SsoSettingsPage() {
         <span>SSO configuration</span>
       </div>
       {detail ? (
-        <Link
-          to="/admin/tenants/$tenantId/sso/domains"
-          params={{ tenantId }}
-          className="inline-block text-[14px] text-primary hover:underline"
-        >
-          Manage email domains →
-        </Link>
+        <div className="flex flex-col gap-2">
+          <Link
+            to="/admin/tenants/$tenantId/sso/domains"
+            params={{ tenantId }}
+            className="inline-block text-[14px] text-primary hover:underline"
+          >
+            Manage email domains →
+          </Link>
+          <Link
+            to="/admin/tenants/$tenantId/mailer"
+            params={{ tenantId }}
+            className="inline-block text-[14px] text-primary hover:underline"
+          >
+            Mailer settings →
+          </Link>
+        </div>
       ) : (
         <p className="text-[13px] text-ink-mute">
           No SSO configured yet — save credentials below to enable.
