@@ -60,12 +60,12 @@ single-Entra-app design.
 | Entra app | Owner | Purpose | How tenant is identified |
 |---|---|---|---|
 | Platform connector app | Seta (operator) | Graph API access (Planner, Directory, future Teams, future Outlook mail send). Multi-tenant in Azure portal; customer admin grants admin-consent once. | `tenantHint` (customer's Entra tenant id) on consent URL. App-only tokens via `acquireAppOnly(tenantId, scopes)`. |
-| Per-tenant SSO app | Customer | User sign-in only. Single-tenant; customer registers their own app in their own Entra directory. | Authority `login.microsoftonline.com/<config.entra_tenant_id>/v2.0`. Loaded per-request from `identity.sso_configs`. |
+| Per-tenant SSO app | Customer | User sign-in only. Single-tenant; customer registers their own app in their own Entra directory. | Authority `login.microsoftonline.com/<config.entra_tenant_id>/v2.0`. Loaded per-request from `auth.sso_configs`. |
 
 ### Data model
 
 ```ts
-identity.sso_configs {
+auth.sso_configs {
   tenant_id           uuid    NOT NULL FK→tenant.tenants.id
   provider            text    NOT NULL  -- 'entra' (v1) | future: 'google' | 'oidc' | 'saml'
   config              jsonb   NOT NULL  -- provider-specific, Zod-validated discriminated union
@@ -77,13 +77,13 @@ identity.sso_configs {
   PRIMARY KEY (tenant_id, provider)
 }
 
-identity.sso_email_domains {
+auth.sso_email_domains {
   domain     text NOT NULL PRIMARY KEY  -- lowercased at the app boundary
   tenant_id  uuid NOT NULL FK→sso_configs.tenant_id
   created_at timestamptz
 }
 
-identity.magic_links {
+auth.magic_links {
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid()
   user_id         uuid NOT NULL FK→auth.users.id
   tenant_id       uuid NOT NULL FK→tenant.tenants.id
@@ -172,7 +172,7 @@ LRU (keyed string, TTL 1h) — same pattern as the connector OAuth provider.
 
 2. State A submit → POST /sso/discover { email }
    - normalize domain
-   - lookup identity.sso_email_domains for the domain
+   - lookup auth.sso_email_domains for the domain
    - hit  → 200 { provider, tenant_pub_id, display_name }
    - miss → 200 { error: 'no_workspace_for_email' }  (canonical, non-leaky)
 
@@ -217,7 +217,7 @@ LRU (keyed string, TTL 1h) — same pattern as the connector OAuth provider.
      tenant_members.role='owner'. Otherwise: 200 with no row inserted,
      no email sent (no enumeration).
    - generate 32-byte URL-safe token; store sha256(token) in
-     identity.magic_links; TTL 10 min
+     auth.magic_links; TTL 10 min
    - send via mailer.send(magicLinkMessage({ to, link, tenantDisplayName }))
    - audit: sso.magic_link_issued
 
@@ -381,7 +381,7 @@ guarantees swapping `MAILER_BACKEND` is a config change.
 - ENTRA_CLIENT_SECRET        → PLATFORM_CONNECTOR_CLIENT_SECRET
 - BOOTSTRAP_ENTRA_TENANT_ID  → BOOTSTRAP_SETA_ENTRA_TENANT_ID
 
-# Added — Seta-the-tenant's own SSO app (first row in identity.sso_configs)
+# Added — Seta-the-tenant's own SSO app (first row in auth.sso_configs)
 + BOOTSTRAP_SSO_CLIENT_ID
 + BOOTSTRAP_SSO_CLIENT_SECRET
 + BOOTSTRAP_SSO_EMAIL_DOMAINS   # comma-separated
@@ -411,7 +411,7 @@ await vault.put(id, 'sso-entra', 'sso',
 
 // upsert sso_configs row
 await tx`
-  INSERT INTO identity.sso_configs
+  INSERT INTO auth.sso_configs
     (tenant_id, provider, config, secret_vault_id, enabled, created_by_user_id)
   VALUES (
     ${id},
@@ -434,7 +434,7 @@ await tx`
 // insert email domain rows
 for (const domain of bootstrapSsoEmailDomains) {
   await tx`
-    INSERT INTO identity.sso_email_domains (domain, tenant_id)
+    INSERT INTO auth.sso_email_domains (domain, tenant_id)
     VALUES (${domain.toLowerCase()}, ${id})
     ON CONFLICT (domain) DO NOTHING
   `
