@@ -47,7 +47,7 @@ export function createSessionStore(sql: Sql): SessionStore & {
     async insert({ id, userId, expiresAt, ip, userAgent }) {
       await sql`
         INSERT INTO auth.sessions (id, user_id, expires_at, ip, user_agent)
-        VALUES (${id}, ${userId}, ${expiresAt}, ${ip}, ${userAgent})
+        VALUES (${id}, ${userId}, ${expiresAt.toISOString()}, ${ip}, ${userAgent})
       `
     },
     async delete(sessionId) {

@@ -104,7 +104,7 @@ export function createTokenVault(deps: { sql: Sql; kms: KmsClient }): TokenVault
           VALUES
             (${tenantId}, ${providerId}, ${partitionKey}, ${x.json(bundle.scopes as never)}, 1,
              ${dek.keyId}, ${Buffer.from(dek.ciphertextBlob)}, ${iv}, ${authTag}, ${ciphertext},
-             ${bundle.expiresAt})
+             ${bundle.expiresAt.toISOString()})
           ON CONFLICT (tenant_id, provider_id, partition_key) DO UPDATE SET
             scope_set        = excluded.scope_set,
             envelope_version = excluded.envelope_version,

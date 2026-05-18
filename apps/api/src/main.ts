@@ -52,7 +52,6 @@ import {
   createMeContextProvider,
   createTenancyRoutes,
   findOrAttachUser,
-  getActiveTenantIds,
   isConnectorConsented,
   recordConsent,
   type TenantMembershipRole,
@@ -428,7 +427,17 @@ async function boot() {
   logger.info('agent profiles seeded')
 
   const getAppToken = async (tenantId: string): Promise<string> => {
-    const bundle = await platformConnectorOAuth.acquireAppOnly(tenantId, [
+    const rows = (await sql`
+      SELECT config->>'entra_tenant_id' AS tid
+      FROM auth.sso_configs
+      WHERE tenant_id = ${tenantId}::uuid
+        AND provider  = 'entra'
+        AND enabled
+      LIMIT 1
+    `) as Array<{ tid: string | null }>
+    const entraTenantId = rows[0]?.tid
+    if (!entraTenantId) throw new Error(`no active Entra SSO config for tenant ${tenantId}`)
+    const bundle = await platformConnectorOAuth.acquireAppOnly(entraTenantId, [
       'https://graph.microsoft.com/.default',
     ])
     return bundle.accessToken
@@ -444,7 +453,15 @@ async function boot() {
     },
   })
 
-  const tenantIds = await getActiveTenantIds(sql as never)
+  const entraEnabledTenantIds = (await sql`
+    SELECT DISTINCT t.id::text AS id
+    FROM tenant.tenants t
+    JOIN auth.sso_configs sc
+      ON sc.tenant_id = t.id AND sc.provider = 'entra' AND sc.enabled
+    WHERE t.status = 'active'
+      AND (sc.config->>'entra_tenant_id') IS NOT NULL
+  `) as Array<{ id: string }>
+  const tenantIds = entraEnabledTenantIds.map((r) => r.id)
   syncWorker.start(tenantIds)
   logger.info({ tenants: tenantIds.length }, 'planner sync worker started')
 }
