@@ -1,6 +1,40 @@
-import { describe, expect, test } from 'vitest'
+import * as jose from 'jose'
+import { HttpResponse, http } from 'msw'
+import { setupServer } from 'msw/node'
+import { afterAll, afterEach, beforeAll, describe, expect, test, vi } from 'vitest'
 import type { TeamsHandler } from './index'
 import { routes } from './index'
+
+const { privateKey, publicKey } = await jose.generateKeyPair('RS256')
+
+async function buildJwks(): Promise<jose.JSONWebKeySet> {
+  const pub = await jose.exportJWK(publicKey)
+  return { keys: [{ ...pub, kid: 'test-key', use: 'sig' }] }
+}
+
+async function signJwt(botId: string): Promise<string> {
+  return new jose.SignJWT({ aud: botId })
+    .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
+    .setIssuer('https://api.botframework.com')
+    .setIssuedAt()
+    .setExpirationTime('1h')
+    .sign(privateKey)
+}
+
+function makeSqlStub() {
+  return Object.assign(
+    (_strings: TemplateStringsArray, ..._values: unknown[]) => Promise.resolve([]),
+    { json: (v: object) => v },
+  )
+}
+
+const server = setupServer()
+beforeAll(() => server.listen())
+afterEach(() => {
+  server.resetHandlers()
+  vi.resetModules()
+})
+afterAll(() => server.close())
 
 const stubHandler: TeamsHandler = async () => null
 
@@ -10,6 +44,7 @@ describe('routes', () => {
       botId: 'test-bot',
       botSecret: 'secret',
       botTenantId: 'test-tenant',
+      sql: makeSqlStub() as never,
     })
     const res = await app.request('/health')
     expect(res.status).toBe(200)
@@ -17,11 +52,17 @@ describe('routes', () => {
   })
 
   test('POST /messages with valid body returns 200', async () => {
-    const app = routes(stubHandler, {
-      botId: 'test-bot',
+    const botId = 'test-bot'
+    const jwks = await buildJwks()
+    server.use(
+      http.get('https://login.botframework.com/v1/.well-known/keys', () => HttpResponse.json(jwks)),
+    )
+    const { routes: freshRoutes } = await import('./routes.js')
+    const app = freshRoutes(stubHandler, {
+      botId,
       botSecret: 'secret',
       botTenantId: 'test-tenant',
-      skipJwtVerify: true,
+      sql: makeSqlStub() as never,
     })
     const body = {
       type: 'message',
@@ -32,10 +73,11 @@ describe('routes', () => {
       recipient: { id: 'bot-1' },
       text: 'hello',
     }
+    const token = await signJwt(botId)
     const res = await app.request('/messages', {
       method: 'POST',
       body: JSON.stringify(body),
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
     })
     expect(res.status).toBe(200)
   })
