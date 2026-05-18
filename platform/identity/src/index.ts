@@ -1,3 +1,7 @@
+export type { AuditWriter, SsoAuditEvent } from './admin-audit'
+export { recordSsoAudit } from './admin-audit'
+export type { SsoAdminRoutesDeps } from './admin-routes'
+export { createSsoAdminRoutes } from './admin-routes'
 export { signCookie, verifyCookie } from './cookie'
 export { deriveCsrfToken } from './csrf'
 export {
@@ -53,6 +57,14 @@ export {
   StartResponse,
   TenantSummary,
 } from './schemas'
+export {
+  SsoConfigDetail,
+  SsoListItem,
+  SsoListResponse,
+  SsoRotateSecretBody,
+  SsoTestResponse,
+  SsoUpsertBody,
+} from './schemas-admin'
 export type { PostgresSessionStore } from './session-store'
 export { createSessionStore } from './session-store'
 export {
