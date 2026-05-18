@@ -9,7 +9,7 @@ const tenantId = '00000000-0000-4000-8000-000000000001'
 
 describe('sso-config-repo (integration)', () => {
   beforeEach(async () => {
-    await sql`DELETE FROM auth.sso_email_domains WHERE tenant_id = ${tenantId}`
+    await sql`DELETE FROM auth.sso_email_domains WHERE tenant_id = ${tenantId} OR domain = 'acme.com'`
     await sql`DELETE FROM auth.sso_configs WHERE tenant_id = ${tenantId}`
     await sql`DELETE FROM tenant.tenant_members WHERE tenant_id = ${tenantId}`
     await sql`DELETE FROM tenant.tenant_connectors WHERE tenant_id = ${tenantId}`
@@ -17,7 +17,7 @@ describe('sso-config-repo (integration)', () => {
     await sql`INSERT INTO tenant.tenants (id, slug, display_name) VALUES (${tenantId}, 'sso-repo-acme', 'Acme')`
   })
   afterAll(async () => {
-    await sql`DELETE FROM auth.sso_email_domains WHERE tenant_id = ${tenantId}`
+    await sql`DELETE FROM auth.sso_email_domains WHERE tenant_id = ${tenantId} OR domain = 'acme.com'`
     await sql`DELETE FROM auth.sso_configs WHERE tenant_id = ${tenantId}`
     await sql`DELETE FROM tenant.tenant_members WHERE tenant_id = ${tenantId}`
     await sql`DELETE FROM tenant.tenant_connectors WHERE tenant_id = ${tenantId}`
