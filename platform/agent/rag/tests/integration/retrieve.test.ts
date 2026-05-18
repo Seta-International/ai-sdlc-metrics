@@ -181,4 +181,63 @@ describe('@seta/agent-rag — retrieve (integration)', () => {
     )
     expect(hitsB).toEqual([])
   })
+
+  it('case 10: known-answer chunk appears as top-1 hit', async () => {
+    const tenantId = randomUUID()
+    const sourceId = randomUUID()
+    const known = 'how to reset my password — the recovery flow goes via email'
+    const filler1 = 'unrelated content one about cooking pasta'
+    const filler2 = 'unrelated content two about hiking boots'
+
+    await tenantContext.run({ tenantId }, async () => {
+      await insertChunks(testSql(), [
+        {
+          tenantId,
+          sourceId,
+          content: known,
+          contentHash: sha256hex(known),
+          tokenCount: 12,
+          span: { startChar: 0, endChar: known.length },
+          embedding: seedEmbedding(known),
+        },
+        {
+          tenantId,
+          sourceId,
+          content: filler1,
+          contentHash: sha256hex(filler1),
+          tokenCount: 7,
+          span: { startChar: 0, endChar: filler1.length },
+          embedding: seedEmbedding(filler1),
+        },
+        {
+          tenantId,
+          sourceId,
+          content: filler2,
+          contentHash: sha256hex(filler2),
+          tokenCount: 7,
+          span: { startChar: 0, endChar: filler2.length },
+          embedding: seedEmbedding(filler2),
+        },
+      ])
+    })
+
+    const rag = createAgentRag({
+      sql: testSql(),
+      embeddings: {
+        async embed() {
+          return {
+            embeddings: [seedEmbedding(known)],
+            usage: { promptTokens: 1, totalTokens: 1 },
+          }
+        },
+      },
+    })
+
+    const hits = await tenantContext.run({ tenantId }, async () => rag.retrieve('q'))
+    expect(hits.length).toBeGreaterThanOrEqual(1)
+    expect(hits[0]!.content).toBe(known)
+    expect(hits[0]!.vectorRank).toBe(1)
+    expect(hits[0]!.vectorSimilarity).toBeCloseTo(1, 5)
+    expect(hits[0]!.citation.span).toEqual({ startChar: 0, endChar: known.length })
+  })
 })
