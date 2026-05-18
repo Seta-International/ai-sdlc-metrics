@@ -83,10 +83,11 @@ describe('RLS isolation (tenant_user role)', () => {
       })
     })
 
-    // Verify the tenant A row is untouched.
+    // Verify the tenant A row is untouched — title remains the auto-derived
+    // value from tenant A's saveTurn, NOT 'pwned'.
     const rows = await testSql()<Array<{ title: string | null }>>`
       SELECT title FROM agent_memory.threads WHERE id = ${threadId}
     `
-    expect(rows[0]?.title ?? null).toBeNull()
+    expect(rows[0]?.title).toBe('A row')
   })
 })

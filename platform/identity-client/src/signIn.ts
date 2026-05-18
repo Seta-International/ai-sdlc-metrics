@@ -1,26 +1,43 @@
-export type SsoProviderId = 'entra' | 'google'
+export type SsoProviderId = 'entra'
+
+export type DiscoverHit = {
+  ok: true
+  provider: 'entra'
+  tenantSlug: string
+  displayName: string
+}
+export type DiscoverMiss = { ok: false; error: 'no_workspace_for_email' }
+export type DiscoverResult = DiscoverHit | DiscoverMiss
 
 export interface SignInOptions {
-  /** Path to send the user back to after callback. Defaults to '/'. */
   returnTo?: string
-  /** Override the POST URL (default: `/sso/login/{provider}`). */
-  loginUrl?: (provider: SsoProviderId) => string
-  /** Override the fetch impl (testing). */
   fetch?: typeof fetch
+  /** Override base path (rarely needed). */
+  basePath?: string
 }
 
-export async function signIn(
-  provider: SsoProviderId,
-  options: SignInOptions = {},
-): Promise<{ url: string }> {
-  const fetchImpl = options.fetch ?? fetch
-  const url = options.loginUrl?.(provider) ?? `/sso/login/${provider}`
+export async function discover(email: string, opts: SignInOptions = {}): Promise<DiscoverResult> {
+  const fetchImpl = opts.fetch ?? fetch
+  const url = `${opts.basePath ?? ''}/sso/discover`
   const res = await fetchImpl(url, {
     method: 'POST',
     credentials: 'include',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ returnTo: options.returnTo ?? '/' }),
+    body: JSON.stringify({ email }),
   })
-  if (!res.ok) throw new Error(`sso login ${provider} failed: ${res.status}`)
+  if (!res.ok) throw new Error(`sso discover failed: ${res.status}`)
+  return (await res.json()) as DiscoverResult
+}
+
+export async function start(email: string, opts: SignInOptions = {}): Promise<{ url: string }> {
+  const fetchImpl = opts.fetch ?? fetch
+  const url = `${opts.basePath ?? ''}/sso/start`
+  const res = await fetchImpl(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email, returnTo: opts.returnTo ?? '/' }),
+  })
+  if (!res.ok) throw new Error(`sso start failed: ${res.status}`)
   return (await res.json()) as { url: string }
 }

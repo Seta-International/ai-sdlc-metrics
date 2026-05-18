@@ -10,11 +10,14 @@ import './_env'
 
 const Env = z.object({
   DATABASE_URL: z.string().min(1),
-  ENTRA_CLIENT_ID: z.string().min(1),
-  ENTRA_CLIENT_SECRET: z.string().min(1),
+  PLATFORM_CONNECTOR_CLIENT_ID: z.string().min(1),
+  PLATFORM_CONNECTOR_CLIENT_SECRET: z.string().min(1),
   BOOTSTRAP_TENANT_SLUG: z.string().min(1),
   BOOTSTRAP_TENANT_NAME: z.string().min(1),
-  BOOTSTRAP_ENTRA_TENANT_ID: z.string().min(1),
+  BOOTSTRAP_ENTRA_DIRECTORY_ID: z.string().min(1),
+  BOOTSTRAP_SSO_CLIENT_ID: z.string().min(1),
+  BOOTSTRAP_SSO_CLIENT_SECRET: z.string().min(1),
+  BOOTSTRAP_SSO_EMAIL_DOMAINS: z.string().min(1),
   BOOTSTRAP_SUPERADMIN_EMAILS: z.string().min(1),
   BOOTSTRAP_CONNECTORS: z.string().min(1),
   BOOTSTRAP_OFFLINE: z.enum(['0', '1']).default('0'),
@@ -55,9 +58,13 @@ registry.register(plannerConnector)
 registry.register(directoryConnector)
 
 const entra = new EntraProvider({
-  clientId: env.ENTRA_CLIENT_ID,
-  clientSecret: env.ENTRA_CLIENT_SECRET,
+  clientId: env.PLATFORM_CONNECTOR_CLIENT_ID,
+  clientSecret: env.PLATFORM_CONNECTOR_CLIENT_SECRET,
 })
+
+const bootstrapSsoDomains = env.BOOTSTRAP_SSO_EMAIL_DOMAINS.split(',')
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean)
 
 const SEED_MODE_OFFLINE = env.BOOTSTRAP_OFFLINE === '1'
 
@@ -107,7 +114,7 @@ async function main(): Promise<void> {
 
     await tx`
       INSERT INTO auth.user_identities (provider, subject, user_id)
-      VALUES ('entra', ${`bootstrap:${env.ENTRA_CLIENT_ID}`}, ${owner.id})
+      VALUES ('entra', ${`bootstrap:${env.PLATFORM_CONNECTOR_CLIENT_ID}`}, ${owner.id})
       ON CONFLICT (provider, subject) DO NOTHING
     `
 
@@ -133,14 +140,53 @@ async function main(): Promise<void> {
       `
     }
 
+    await tx`
+      INSERT INTO auth.sso_configs
+        (tenant_id, provider, config, secret_vault_id, enabled, created_by_user_id)
+      VALUES (
+        ${id},
+        'entra',
+        ${tx.json({
+          entra_tenant_id: env.BOOTSTRAP_ENTRA_DIRECTORY_ID,
+          client_id: env.BOOTSTRAP_SSO_CLIENT_ID,
+        } as never)},
+        'sso-entra:sso',
+        true,
+        ${owner.id}
+      )
+      ON CONFLICT (tenant_id, provider) DO UPDATE
+        SET config = excluded.config,
+            secret_vault_id = excluded.secret_vault_id,
+            enabled = excluded.enabled,
+            updated_at = now()
+    `
+
+    for (const domain of bootstrapSsoDomains) {
+      await tx`
+        INSERT INTO auth.sso_email_domains (domain, tenant_id)
+        VALUES (${domain}, ${id})
+        ON CONFLICT (domain) DO NOTHING
+      `
+    }
+
     return id
   })) as unknown as string
 
+  // SSO client secret has no inherent expiry; pick a far-future date so the
+  // vault row remains valid until the operator rotates the secret.
+  await vault.put(tenantId, 'sso-entra', 'sso', {
+    accessToken: env.BOOTSTRAP_SSO_CLIENT_SECRET,
+    refreshToken: null,
+    scopes: [],
+    expiresAt: new Date('2099-01-01T00:00:00Z'),
+    meta: { kind: 'sso-client-secret' },
+  })
+
   if (!SEED_MODE_OFFLINE) {
-    const bundle = await entra.acquireAppOnly(env.BOOTSTRAP_ENTRA_TENANT_ID, [
+    const bundle = await entra.acquireAppOnly(env.BOOTSTRAP_ENTRA_DIRECTORY_ID, [
       'https://graph.microsoft.com/.default',
     ])
-    await vault.put(tenantId, 'entra', `app:${env.ENTRA_CLIENT_ID}`, bundle)
+    await vault.put(tenantId, 'entra', `app:${env.PLATFORM_CONNECTOR_CLIENT_ID}`, bundle)
   }
 
   await audit.recordAudit({

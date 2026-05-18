@@ -1,77 +1,86 @@
 import '@testing-library/jest-dom/vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { LoginPage } from './LoginPage'
 
-describe('LoginPage', () => {
-  it('renders default Microsoft and Google buttons', () => {
-    render(<LoginPage returnTo="/tenants" />)
-    expect(screen.getByRole('button', { name: /sign in with microsoft/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /sign in with google/i })).toBeInTheDocument()
+function mockFetchSequence(
+  handlers: Array<(url: string, init?: RequestInit) => Response>,
+): typeof fetch {
+  let i = 0
+  return ((url, init) => {
+    const h = handlers[i++]
+    if (!h) throw new Error('unexpected extra fetch')
+    return Promise.resolve(h(url as string, init as RequestInit))
+  }) as typeof fetch
+}
+
+describe('LoginPage State A (no last-login cookie)', () => {
+  let originalFetch: typeof fetch
+  beforeEach(() => {
+    originalFetch = globalThis.fetch
+    Object.defineProperty(document, 'cookie', { value: '', configurable: true, writable: true })
+    Object.defineProperty(window, 'location', { value: { href: '' }, writable: true })
+  })
+  afterEach(() => {
+    globalThis.fetch = originalFetch
   })
 
-  it('honors the providers prop', () => {
-    render(<LoginPage providers={['google']} />)
-    expect(
-      screen.queryByRole('button', { name: /sign in with microsoft/i }),
-    ).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /sign in with google/i })).toBeInTheDocument()
+  it('shows email input; discover hit then start navigates', async () => {
+    globalThis.fetch = mockFetchSequence([
+      () =>
+        new Response(
+          JSON.stringify({ ok: true, provider: 'entra', tenantSlug: 'acme', displayName: 'Acme' }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      () =>
+        new Response(JSON.stringify({ url: 'https://login.microsoftonline.com/x' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+    ])
+    render(<LoginPage returnTo="/" />)
+    const input = screen.getByLabelText(/work email/i)
+    await userEvent.type(input, 'alice@acme.com')
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }))
+    await waitFor(() =>
+      expect(window.location.href).toMatch(/^https:\/\/login\.microsoftonline\.com/),
+    )
   })
 
-  it('uses a custom title when provided', () => {
-    render(<LoginPage title="Welcome back" />)
-    expect(screen.getByRole('heading', { name: /welcome back/i })).toBeInTheDocument()
+  it('shows an error on discover miss', async () => {
+    globalThis.fetch = mockFetchSequence([
+      () =>
+        new Response(JSON.stringify({ ok: false, error: 'no_workspace_for_email' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+    ])
+    render(<LoginPage returnTo="/" />)
+    await userEvent.type(screen.getByLabelText(/work email/i), 'alice@unknown.test')
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/no workspace/i)
+  })
+})
+
+describe('LoginPage State B (last-login cookie present)', () => {
+  beforeEach(() => {
+    const payload = {
+      email: 'alice@acme.com',
+      provider: 'entra',
+      tenantDisplayName: 'Acme',
+      ts: 1700000000,
+    }
+    const b64 = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url')
+    Object.defineProperty(document, 'cookie', {
+      get: () => `seta_last_login=${b64}.mac`,
+      configurable: true,
+    })
   })
 
-  it('disables both SSO buttons while sign-in is pending', async () => {
-    const user = userEvent.setup()
-    const fetchImpl = vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch
-    render(<LoginPage signInOptions={{ fetch: fetchImpl }} />)
-
-    const msBtn = screen.getByRole('button', { name: /sign in with microsoft/i })
-    const googleBtn = screen.getByRole('button', { name: /sign in with google/i })
-    await user.click(msBtn)
-
-    expect(msBtn).toBeDisabled()
-    expect(googleBtn).toBeDisabled()
-  })
-
-  it('shows an error banner when sign-in fails', async () => {
-    const user = userEvent.setup()
-    const fetchImpl = vi.fn(
-      async () => new Response('boom', { status: 500 }),
-    ) as unknown as typeof fetch
-    render(<LoginPage signInOptions={{ fetch: fetchImpl }} />)
-
-    await user.click(screen.getByRole('button', { name: /sign in with microsoft/i }))
-
-    const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/couldn't sign you in|failed/i)
-  })
-
-  it('dismisses the error banner when the close button is clicked', async () => {
-    const user = userEvent.setup()
-    const fetchImpl = vi.fn(
-      async () => new Response('boom', { status: 500 }),
-    ) as unknown as typeof fetch
-    render(<LoginPage signInOptions={{ fetch: fetchImpl }} />)
-
-    await user.click(screen.getByRole('button', { name: /sign in with microsoft/i }))
-    await screen.findByRole('alert')
-    await user.click(screen.getByRole('button', { name: /dismiss/i }))
-
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-  })
-
-  it('renders the build SHA in the footer when provided', () => {
-    render(<LoginPage buildSha="abc1234" />)
-    expect(screen.getByText(/abc1234/)).toBeInTheDocument()
-  })
-
-  it('renders the logo image when logoUrl is provided', () => {
-    render(<LoginPage logoUrl="/console/seta-logo.svg" />)
-    const img = screen.getByRole('img', { name: /seta/i })
-    expect(img).toHaveAttribute('src', '/console/seta-logo.svg')
+  it('renders "Continue as <email>" primary button', () => {
+    render(<LoginPage returnTo="/" />)
+    expect(screen.getByRole('button', { name: /continue as alice@acme\.com/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /use a different account/i })).toBeInTheDocument()
   })
 })

@@ -20,14 +20,7 @@ import {
   plannerConnector,
 } from '@seta/connector-ms365-planner'
 import { createConnectorAdminRoutes, createConnectorRegistry } from '@seta/connector-registry'
-import {
-  createSessionStore,
-  createSsoRoutes,
-  EntraSsoProvider,
-  GoogleSsoProvider,
-  isSuperadmin,
-  requireSession,
-} from '@seta/identity'
+import { createSessionStore, createSsoRoutes, isSuperadmin, requireSession } from '@seta/identity'
 import { onError, rateLimit, Unauthorized } from '@seta/middleware'
 import { createGraphFetch } from '@seta/ms-graph'
 import { mockTeamsHandler, routes as teamsRoutes } from '@seta/ms-teams'
@@ -54,7 +47,7 @@ import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { agentMemory, agentRegistry } from './agent'
 import { sql } from './db'
-import { deployedApps, enabledSsoProviders, env } from './env'
+import { deployedApps, env } from './env'
 import { lastAppMiddleware, verifyLastApp } from './last-app-middleware'
 
 // ── Infrastructure ────────────────────────────────────────────────────────────
@@ -76,22 +69,12 @@ const registry = createConnectorRegistry(async (tenantId, connectorId) =>
 registry.register(plannerConnector)
 registry.register(directoryConnector)
 
-const entra = new EntraProvider({
-  clientId: env.ENTRA_CLIENT_ID,
-  clientSecret: env.ENTRA_CLIENT_SECRET,
+const platformConnectorOAuth = new EntraProvider({
+  clientId: env.PLATFORM_CONNECTOR_CLIENT_ID,
+  clientSecret: env.PLATFORM_CONNECTOR_CLIENT_SECRET,
 })
 
-// ── SSO providers + routes ────────────────────────────────────────────────────
-
-const entraSso = new EntraSsoProvider({
-  clientId: env.ENTRA_CLIENT_ID,
-  clientSecret: env.ENTRA_CLIENT_SECRET,
-  tenant: env.ENTRA_SSO_TENANT,
-})
-const googleSso = new GoogleSsoProvider({
-  clientId: env.GOOGLE_CLIENT_ID,
-  clientSecret: env.GOOGLE_CLIENT_SECRET,
-})
+// ── SSO routes ────────────────────────────────────────────────────────────────
 
 const meContext = createMeContextProvider({
   sql: sql as never,
@@ -99,8 +82,6 @@ const meContext = createMeContextProvider({
 })
 
 const sso = createSsoRoutes({
-  providers: { entra: entraSso, google: googleSso },
-  enabledProviders: enabledSsoProviders(),
   sql,
   sessionCookie: {
     name: 'seta_sess',
@@ -112,6 +93,29 @@ const sso = createSsoRoutes({
   meContext,
   tenancy: { findOrAttachUser: (uid) => findOrAttachUser(sql as never, uid) },
   verifyLastApp: (raw) => verifyLastApp(raw, env.SESSION_HMAC_KEY),
+  getClientSecret: async ({ tenantId, vaultId }) => {
+    if (!vaultId) throw new Error('sso config has no secret_vault_id')
+    const [providerId, accountKey] = vaultId.split(':') as ['sso-entra', string]
+    const bundle = await vault.get(tenantId, providerId, accountKey)
+    if (!bundle) throw new Error(`vault miss for ${tenantId}/${vaultId}`)
+    return bundle.accessToken
+  },
+  getTenantBrief: async (tenantId) => {
+    const rows =
+      (await sql`SELECT slug, display_name FROM tenant.tenants WHERE id = ${tenantId} LIMIT 1`) as Array<{
+        slug: string
+        display_name: string
+      }>
+    const r = rows[0]
+    return r ? { slug: r.slug, displayName: r.display_name } : null
+  },
+  autoJoinOnDomain: async ({ userId, tenantId }) => {
+    await sql`
+      INSERT INTO tenant.tenant_members (user_id, tenant_id, role, source)
+      VALUES (${userId}, ${tenantId}, 'member', 'sso_domain_match')
+      ON CONFLICT DO NOTHING
+    `
+  },
 })
 
 // ── Tenancy routes ────────────────────────────────────────────────────────────
@@ -281,7 +285,7 @@ app.route('/', sso)
 app.route(
   '/oauth',
   createOAuthRoutes({
-    providers: { entra },
+    providers: { entra: platformConnectorOAuth },
     registry,
     stateStore,
     vault,
@@ -301,7 +305,9 @@ app.route(
 // Shared with createOAuthRoutes — same provider, same state store, same union.
 const buildConsentUrl: Parameters<typeof createConnectorAdminRoutes>[0]['buildConsentUrl'] =
   async ({ tenantId, providerId, connectorIds, tenantHint }) => {
-    const providers: Record<string, typeof entra> = { entra }
+    const providers: Record<string, typeof platformConnectorOAuth> = {
+      entra: platformConnectorOAuth,
+    }
     const provider = providers[providerId]
     if (!provider) throw new Error(`unknown provider '${providerId}'`)
     const union = registry.scopeUnion(connectorIds)
@@ -354,7 +360,9 @@ async function boot() {
   logger.info('agent profiles seeded')
 
   const getAppToken = async (tenantId: string): Promise<string> => {
-    const bundle = await entra.acquireAppOnly(tenantId, ['https://graph.microsoft.com/.default'])
+    const bundle = await platformConnectorOAuth.acquireAppOnly(tenantId, [
+      'https://graph.microsoft.com/.default',
+    ])
     return bundle.accessToken
   }
 

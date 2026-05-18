@@ -9,6 +9,11 @@ export type OidcIdToken = {
 
 export interface SsoProvider {
   readonly id: 'entra' | 'google'
-  authorizeUrl(opts: { state: string; pkce: string; redirectUri: string }): string
+  authorizeUrl(opts: {
+    state: string
+    pkce: string
+    redirectUri: string
+    loginHint?: string
+  }): string
   exchangeCode(opts: { code: string; pkce: string; redirectUri: string }): Promise<OidcIdToken>
 }

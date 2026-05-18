@@ -22,6 +22,20 @@
       "when": 1779031372855,
       "tag": "0002_illegal_quasar",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779080698343,
+      "tag": "0003_sso_byo_idp",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1779080729580,
+      "tag": "0004_sso_rls",
+      "breakpoints": true
     }
   ]
 }
