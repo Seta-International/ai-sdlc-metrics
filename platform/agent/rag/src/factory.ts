@@ -1,4 +1,5 @@
 import { createIngest } from './ingest.js'
+import { createRetrieve } from './retrieve.js'
 import type { RagApi, RagDeps } from './types.js'
 
 /**
@@ -6,17 +7,10 @@ import type { RagApi, RagDeps } from './types.js'
  *
  * Composition root (e.g. `apps/api/src/main.ts`) creates this once at
  * boot and binds it to the FAQ Agent's tool registry.
- *
- * - `ingest` is fully implemented here (see `ingest.ts`).
- * - `retrieve` is implemented in Plan E.
  */
 export function createAgentRag(deps: RagDeps): RagApi {
-  const ingest = createIngest({ sql: deps.sql, embeddings: deps.embeddings })
-
   return {
-    ingest,
-    async retrieve() {
-      throw new Error('createAgentRag.retrieve: not implemented yet (see Plan E)')
-    },
+    ingest: createIngest({ sql: deps.sql, embeddings: deps.embeddings }),
+    retrieve: createRetrieve({ sql: deps.sql, embeddings: deps.embeddings }),
   }
 }
