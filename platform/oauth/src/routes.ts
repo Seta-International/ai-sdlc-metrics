@@ -1,7 +1,7 @@
 import type { AuditWriter } from '@seta/audit'
 import type { ConnectorRegistry } from '@seta/connector-registry'
 import { BadRequest, ServiceUnavailable } from '@seta/middleware'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { OAuthProvider } from './provider'
@@ -20,6 +20,17 @@ export type OAuthRoutesDeps = {
     connectorIds: string[]
     scopesGranted: { delegated: string[]; application: string[] }
   }) => Promise<void>
+  /**
+   * If provided, the admin-consent callback redirects to this URL instead
+   * of rendering inline HTML. The composition root uses it to send the
+   * admin back to the Workspace SPA's consent-landing route.
+   */
+  onConsentRedirect?: (input: {
+    tenantId: string
+    connectorIds: string[]
+    ok: boolean
+    error?: string
+  }) => string
 }
 
 const ConsentUrlBody = z.object({
@@ -117,6 +128,16 @@ export function createOAuthRoutes(deps: OAuthRoutesDeps) {
       })
     })
 
+    if (deps.onConsentRedirect) {
+      return c.redirect(
+        deps.onConsentRedirect({
+          tenantId,
+          connectorIds: stateRow.connectorIds,
+          ok: true,
+        }),
+      )
+    }
+
     return c.html(`<!doctype html><html><body>
 <h1>Connected</h1>
 <p>Your team can now @ mention SetaAgent in Microsoft Teams.</p>
@@ -129,7 +150,7 @@ export function createOAuthRoutes(deps: OAuthRoutesDeps) {
 
     const { tenantId, partitionKey } = z
       .object({
-        tenantId: z.string().uuid(),
+        tenantId: z.uuid(),
         partitionKey: z.string().min(1),
       })
       .parse(await c.req.json())
@@ -153,7 +174,7 @@ export function createOAuthRoutes(deps: OAuthRoutesDeps) {
 
     const body = z
       .object({
-        tenantId: z.string().uuid(),
+        tenantId: z.uuid(),
         userAssertion: z.string().min(1),
         scopes: z.array(z.string()).min(1),
       })

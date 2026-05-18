@@ -5,14 +5,18 @@ import { LRUCache } from 'lru-cache'
 const log = logger.child({ component: 'bot-token' })
 const cache = new LRUCache<'token', string>({ max: 1, ttl: 55 * 60 * 1000 })
 
-export async function getBotToken(botId: string, botSecret: string): Promise<string> {
+export async function getBotToken(
+  botId: string,
+  botSecret: string,
+  tenantId: string,
+): Promise<string> {
   const cached = cache.get('token')
   if (cached) {
     log.debug({}, 'bot-token.cache-hit')
     return cached
   }
 
-  const res = await fetch('https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token', {
+  const res = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
     method: 'POST',
     body: new URLSearchParams({
       grant_type: 'client_credentials',

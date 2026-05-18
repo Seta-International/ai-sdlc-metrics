@@ -24,7 +24,7 @@
     "@seta/ms-graph": "workspace:*",
     "@seta/oauth": "workspace:*",
     "@seta/observability": "workspace:*",
-    "@seta/tenant": "workspace:*",
+    "@seta/tenancy": "workspace:*",
     "drizzle-orm": "0.45.2",
     "zod": "4.4.3"
   },

@@ -19,7 +19,9 @@
    - **Subscription / Resource group:** use your dev resource group
    - **Pricing tier:** F0 (free, 10 k messages/month — sufficient for dev)
    - **Microsoft App ID:** select **Create new Microsoft App ID**
-   - **Type of app:** Multi-tenant
+   - **Type of app:** Single Tenant (Azure now only allows Single Tenant for new Azure Bot resources)
+     - After creation, open the **App Registration** → **Authentication** → Supported account types → set to **"Accounts in any organizational directory (Any Azure AD directory — Multi-tenant)"** → **Save**. This makes the app usable across customer tenants while the Azure Bot resource itself stays in your tenant.
+     - In the Bot resource **Tenant access** setting, select **Allow all tenants** (required so the bot accepts messages from any customer's Microsoft 365 tenant)
 3. **Review + create** → **Create**.
 4. Once deployed, open the resource → **Configuration** → note the **Microsoft App ID** → this is `MS_BOT_ID`.
 
@@ -48,13 +50,13 @@ ngrok http 8080
 
 > **Note:** The ngrok URL changes on every restart (free tier). Re-paste it into the Azure Bot after each restart.
 
-## 5. Build and sideload the Teams app manifest
+## 5. Build and install the Teams app manifest
 
 ```bash
 # Set MS_BOT_ID in your shell so the build script can substitute it
 export MS_BOT_ID=<Application ID from step 1>
 
-pnpm --filter @seta/teams build:manifest
+pnpm --filter @seta/ms-teams build:manifest
 # Produces: modules/channels/teams/dist/seta-agent.zip
 ```
 
@@ -81,8 +83,11 @@ Add to `apps/api/.env.local` (git-ignored — never commit):
 ```env
 MS_BOT_ID=<Application ID from step 1>
 MS_BOT_SECRET=<client secret from step 2>
+MS_BOT_TENANT_ID=<Directory (tenant) ID of the Azure AD tenant where the bot's App Registration lives>
 TEAMS_SKIP_JWT_VERIFY=true    # dev only — remove this line when 13.3 ships
 ```
+
+> **Where to find `MS_BOT_TENANT_ID`:** Azure Portal → Azure Active Directory → Overview → Directory (tenant) ID.
 
 ## 8. Verify the setup
 
@@ -101,6 +106,17 @@ Then open the 1:1 chat with SetaAgent in Teams and send `show my tasks` — you 
 
 ---
 
+## Troubleshooting: bot replies return 401
+
+Bot replies fail with `401 {"message":"Authorization has been denied for this request."}` when the token endpoint used to acquire the bot token doesn't match the tenant the Azure Bot was registered in.
+
+Two things must be correct:
+
+1. **`MS_BOT_TENANT_ID`** in `.env.local` must be the Directory (tenant) ID of the Azure AD tenant where the bot's App Registration lives (Azure AD → Overview → Directory (tenant) ID). The bot token is fetched from `https://login.microsoftonline.com/{MS_BOT_TENANT_ID}/oauth2/v2.0/token` — using the wrong value or leaving it blank causes Bot Connector to reject every reply.
+2. **App Registration** → **Authentication** → Supported account types must be **"Accounts in any organizational directory (Multi-tenant)"** — this lets the bot receive messages from any customer tenant even though the Azure Bot resource itself is single-tenant.
+
+---
+
 ## Reference: manifest substitution variables
 
 | Variable | Source |
@@ -113,7 +129,7 @@ Then open the 1:1 chat with SetaAgent in Teams and send `show my tasks` — you 
 
 | Task | New env vars |
 |---|---|
-| 13.1 | `MS_BOT_ID`, `MS_BOT_SECRET`, `TEAMS_SKIP_JWT_VERIFY` |
+| 13.1 | `MS_BOT_ID`, `MS_BOT_SECRET`, `MS_BOT_TENANT_ID`, `TEAMS_SKIP_JWT_VERIFY` |
 | 13.2 | (none — uses vars from 13.1) |
 | 13.3 | Remove `TEAMS_SKIP_JWT_VERIFY` |
 | 13.4 | (none — OBO uses `MS_BOT_ID` + oauth infrastructure from Epic 1) |

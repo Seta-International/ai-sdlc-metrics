@@ -46,7 +46,7 @@ flows through this package.
   - JWT verification (Bot Framework, inbound SSO ID tokens) — that's
     `jose` inside `modules/channels/teams` and the future SSO product.
   - User/session/api-key persistence — `@seta/auth`.
-  - Tenant identity propagation / ALS — `@seta/tenant`.
+  - Tenant identity propagation / ALS — `@seta/tenancy`.
   - Connector scope definitions or consent-required gating —
     `@seta/connector-registry`. This package consumes
     `registry.scopeUnion` / `registry.get` but does not own scope sets.
@@ -125,7 +125,7 @@ Implemented and shipped on `main`:
     audit rows.
   - `@seta/connector-registry` — `ConnectorRegistry` for scope union and
     provider-id validation on `/consent-url`.
-  - `@seta/tenant` — listed in `package.json` deps but **not currently
+  - `@seta/tenancy` — listed in `package.json` deps but **not currently
     imported** in `src/*`. Intended for the consent callback path (where
     the tenant arrives in the query string and the route enters
     `tenantContext.run` before calling `vault.put`). Verify before
@@ -270,13 +270,13 @@ Implemented and shipped on `main`:
    shipped here because oauth was the first consumer. Mirror question
    from `@seta/auth` SCOPE.md Open Question 1: pick one home, move in a
    single PR, no shim (CLAUDE.md "No legacy, no backward compat").
-2. **Tenant ALS not yet wired in routes.** `@seta/tenant` is a declared
+2. **Tenant ALS not yet wired in routes.** `@seta/tenancy` is a declared
    dep but no `src/*.ts` imports `tenantContext`. The callback path
    doesn't enter `tenantContext.run` before calling `vault.put` —
    `withTenantTx` saves us at the SQL layer, but downstream observability
    tooling (`@seta/observability` logger child reading
    `getTenantId()` — setup.md §8) will miss the tag. Either remove the
-   `@seta/tenant` dep or wire the route handlers through it.
+   `@seta/tenancy` dep or wire the route handlers through it.
 3. **`uuid@14.0.0` in deps but unused.** Audit before next change —
    either drop it via `pnpm --filter @seta/oauth remove uuid` or
    document the planned consumer.

@@ -1,13 +1,19 @@
 import 'dotenv/config'
 import { z } from 'zod'
 
-const Env = z.object({
+export const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().default(8080),
   DATABASE_URL: z.string().url(),
   PUBLIC_BASE_URL: z.string().url(),
+  PUBLIC_STUDIO_URL: z.string().url(),
   ENTRA_CLIENT_ID: z.string().min(1),
   ENTRA_CLIENT_SECRET: z.string().min(1),
+  ENTRA_SSO_TENANT: z.string().min(1).default('common'),
+  GOOGLE_CLIENT_ID: z.string().min(1),
+  GOOGLE_CLIENT_SECRET: z.string().min(1),
+  SESSION_HMAC_KEY: z.string().min(32, 'must be ≥32 chars'),
+  SESSION_TTL_SEC: z.coerce.number().int().positive().default(86400),
   KMS_PROVIDER: z.enum(['aws', 'env']).default('env'),
   DEV_DEK_BASE64: z.string().optional(),
   AWS_REGION: z.string().optional(),
@@ -26,10 +32,35 @@ const Env = z.object({
   CONTINUATION_TTL_MIN: z.coerce.number().int().positive().default(15),
   MS_BOT_ID: z.string().min(1),
   MS_BOT_SECRET: z.string().min(1),
+  MS_BOT_TENANT_ID: z.string().min(1),
   TEAMS_SKIP_JWT_VERIFY: z.coerce.boolean().default(false),
   PLANNER_SYNC_INTERVAL_MS: z.coerce.number().int().positive().default(180_000),
   OPENAI_EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
   AGENT_EMBEDDINGS_PROVIDER: z.enum(['openai', 'azure-openai', 'none']).default('none'),
+  SETA_SEED_TENANT_ID: z.uuid(),
+  SETA_SEED_TENANT_SLUG: z.string().min(1),
+  SETA_SEED_TENANT_NAME: z.string().min(1),
+  SETA_SEED_SUPERADMIN_EMAILS: z.string().default(''),
+  SETA_APPS_DEPLOYED: z.string().default('studio'),
+  SSO_ENTRA_ENABLED: z.coerce.boolean().default(true),
+  SSO_GOOGLE_ENABLED: z.coerce.boolean().default(true),
 })
 
-export const env = Env.parse(process.env)
+export const env = EnvSchema.parse(process.env)
+
+export const deployedApps = () =>
+  env.SETA_APPS_DEPLOYED.split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+export const superadminEmails = () =>
+  env.SETA_SEED_SUPERADMIN_EMAILS.split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+export const enabledSsoProviders = (): Array<'entra' | 'google'> => {
+  const out: Array<'entra' | 'google'> = []
+  if (env.SSO_ENTRA_ENABLED) out.push('entra')
+  if (env.SSO_GOOGLE_ENABLED) out.push('google')
+  return out
+}

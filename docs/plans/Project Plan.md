@@ -1,8 +1,6 @@
 # Seta Agent Foundation — P1 Software Project Management Plan
 
-**Project code:** SETA-OS-P1 · **Plan revision:** v4.0 (2026-05-12) · **Standard:** IEEE/ISO/IEC/IEEE 16326-2009 (IEEE Std 1058) — Software Project Management Plan (SPMP).
-
-> **What changed vs v3.1.** v4 is a *single* coherent v1 release. The A/B/C/D option maze, the P1.0/P1.5 split, and the "structurally infeasible" framing are removed. The plan is now built around a confirmed 4.0-FTE team (1.5 Senior AI + 2.0 Mid AI + 0.5 Full-stack) over 15 working days (2026-05-11 → 2026-05-29) with a committed 20% AI-assist productivity uplift. Demand is 69.5 MD against 75 effective MD of supply (94% utilisation). v3.1 is archived at `docs/plans/Project Plan.v3.1.archived.md`.
+**Project code:** SETA-OS-P1 · **Plan revision:** v1.0 (kickoff, 2026-05-11) · **Standard:** IEEE/ISO/IEC/IEEE 16326-2009 (IEEE Std 1058) — Software Project Management Plan (SPMP).
 
 ---
 
@@ -23,7 +21,7 @@
 5. RAG corpus survey, curation, and end-to-end ingestion against a chosen Seta knowledge subset.
 6. `platform/ms-graph` client + `modules/connectors/ms365-planner` (READ + WRITE with etag/cache).
 7. `@seta/agent-server` (`platform/agent/server`): DB-driven agent profiles (`agent.agent_profiles`), injectable tool registry, boot seeder, Hono route factory (agent CRUD, run SSE, threads, workflows) — mirrors `@mastra/server`.
-8. Three agent product modules: `@seta/planner` (`modules/products/planner`) — DB-first read tools, write preview/commit pairs, semantic search, T2 tools, workflows, TaskIndexer; `@seta/analytics` (`modules/products/analytics`) — aggregation tools, `analytics.*` materialized views, chart-card Adaptive Cards; `@seta/faq` (`modules/products/faq`) — RAG-backed, citation-bearing.
+8. Three agent product modules: `@seta/planner` (`modules/products/planner`) **— alpha** — DB-first read tools, write preview/commit pairs, semantic search, T2 tools, workflows, TaskIndexer; `@seta/analytics` (`modules/products/analytics`) — aggregation tools, `analytics.*` materialized views, chart-card Adaptive Cards; `@seta/faq` (`modules/products/faq`) — RAG-backed, citation-bearing.
 9. `modules/channels/teams` (`@seta/ms-teams`) with JWT/JWKS verification + OBO refresh; trigger-phrase routing dispatches to Planner / Analytics / FAQ agents via `@seta/agent-server` run pipeline.
 9. `apps/api` composition (env, OTel boot via `--import ./instrumentation.ts`, mount, smoke).
 10. Internal recorded demo + decision memo + 5 ADRs (0010 kernel, 0011 workflow MV, 0012 memory, 0013 vector + iterative_scan, 0014 RAG corpus structure).
@@ -37,11 +35,26 @@
 - AWS Terraform staging (dev docker compose only).
 - 30-query eval set + replay harness, multi-agent Coordinator, Supervisor scorer, GDPR delete domain, CloudWatch SLO dashboards, secret-rotation automation, Slack/Email/Voice channels, billing/metering, multi-region failover, SOC 2 prep.
 
+**Foundation commitment.** Agent foundation (EP-01 kernel, EP-02 memory schema, EP-03 workflows, EP-04 chunking, EP-05 embeddings, EP-06 vector, EP-07 RAG composition) reaches feature-complete by D12 (mid-W3). The Planner track in W1 is limited to the Teams bot scaffold (channel-side: scaffold, echo, JWT, OBO); Planner agent integration and tool authoring start in W2.
+
+**W3 phase split (commitment).**
+
+- **D11–D12 — Feature wrap.** Finalize Memory provider impl, RAG composition tail, FAQ tools, Analytics tools, Planner WRITE safety review, full corpus ingestion. Last day for any new code paths.
+- **D13–D15 — Hardening freeze.** No new feature code. Tasks limited to: ADR consolidation, gate tests (iterative_scan, cross-tenant isolation, BK-7 citation eval), live Teams round-trip smoke, `apps/api` smoke harness, integration bug fixes, demo dry-runs, recording, decision memo. Drop order in §5.3.1 governs anything that did not land by D12 EOD.
+
+**Alpha definition (Planner).** The Planner Agent ships in P1 with the full scope defined in EP-10 (READ tools, WRITE preview/commit pairs, T2 analytics tools, bulk + report workflows, Adaptive Cards, permission views). "Alpha" is a production-readiness label, not a scope cut:
+
+- Runs on dev docker compose only — no staging or production deployment.
+- Passes CI gates (typecheck, lint, unit, integration, smoke) but no formal QA pass.
+- No SLO / SLA commitments; observability via dev OTel/Jaeger only.
+- No load, soak, or security pen-test.
+- Hardening (production deployment, QA pass, SLOs, observability dashboards, security review) is P2 scope.
+
 **Objectives (P1 — single tier).**
 
 | #  | Objective                                                                                                                       |
 | -- | ------------------------------------------------------------------------------------------------------------------------------- |
-| O1 | Planner Agent live in Microsoft Teams (READ tasks; WRITE via preview/commit).                                                   |
+| O1 | Planner Agent (alpha) live in Microsoft Teams (READ tasks; WRITE via preview/commit). Alpha definition per §1.1.1.              |
 | O2 | Analytics Agent returns chart-card Adaptive Cards for workload and distribution queries.                                        |
 | O3 | Seta FAQ Agent returns answers with ≥1 retrieved-chunk citation on ≥80% of demo questions (BK-7).                              |
 | O4 | `@seta/agent-core` kernel frozen and reusable by future ERP modules without re-architecture.                                    |
@@ -56,10 +69,11 @@
 **Assumptions (must hold for the plan to deliver).**
 
 - A1. All four team members are 100% available 2026-05-11 → 2026-05-29 at the FTE in §4.3 (no PTO, no parallel project pulls).
-- A2. AI-assist (Claude Code) yields a sustained 20% capacity uplift on scaffolding/boilerplate/test work. Effective supply is 75 MD; raw is 60 MD.
+- A2. Committed team capacity for P1 is **81 MD** across 15 working days, allocated per role in §5.2.3. Task estimates in §5.2.1 are written at unassisted-developer granularity; the gap between raw FTE-days (60 MD) and committed capacity (81 MD) absorbs scaffolding/boilerplate/test overhead and the W3 hardening reserve.
 - A3. Epic-1 auth/oauth/audit foundation works as documented (tenant_user RLS, MSAL OBO refresh, `oauth.oauth_tokens` SOR). Entra app registration already has admin consent for Planner scopes.
 - A4. Seta IT can review and approve corpus access rights by EOD D03 (Wed 2026-05-13).
 - A5. Microsoft Graph endpoints used by Planner connector behave per `learn.microsoft.com` v1.0 docs (no preview-only required endpoints).
+- A6. P1 ships Planner as alpha quality (functional but not production-hardened); hardening + dedicated QA is P2 scope.
 
 **Constraints (hard).**
 
@@ -92,12 +106,12 @@
 | Working days                       | 15                                                                 |
 | Convention                         | 1 BMM = 22 working days (matches Excel template)                   |
 | Headcount                          | 4.0 FTE (1.5 AG-S + 1.0 AG-F1 + 1.0 AG-F2 + 0.5 FS)               |
-| Raw supply                         | 60 MD (≈ 2.73 BMM)                                                 |
-| AI-assist uplift (committed)       | ×1.25 → **75 effective MD** (≈ 3.41 BMM)                           |
-| Demand (planned WBS)               | **69.5 MD**                                                        |
-| Utilisation                        | **94% (effective)** — 5.5 MD slack against AI-uplift               |
+| Committed team capacity            | **81 MD** (≈ 3.68 BMM) over 15 working days                        |
+| Demand (planned WBS)               | **79.5 MD**                                                        |
+| Utilisation                        | **98%** — 1.5 MD slack                                             |
 | Deploy target                      | Dev docker compose only                                            |
 | Demo                               | Fri 2026-05-29 14:00 — recorded, internal                          |
+| W3 phase split                     | D11–D12 feature wrap · **D13–D15 hardening freeze (no new code)**  |
 
 ### 1.2 Evolution of this SPMP
 
@@ -109,6 +123,8 @@ This is v4.0. Predecessors archived in `docs/plans/`:
 | v3.0  | 2026-05-12 | Compression rewrite after team cut to 3.5 FTE / 14 days.                                                          |
 | v3.1  | 2026-05-12 | Sponsor reversal re-injected Analytics + FAQ + RAG; demand exceeded supply; opened A/B/C/D options.               |
 | **v4.0** | **2026-05-12** | **Sponsor confirms 4.0 FTE (Senior AI +0.5), commits 20% AI uplift, kickoff dated 2026-05-11; option maze removed.** |
+| v4.1  | 2026-05-15 | Mid-W1 status update — EP-04 (`agent-chunking`) and EP-05 (`agent-embeddings`) implemented; EP-06 (`agent-vector`) in prep with content-hash dedup folded into the initial schema (see §5.2.5). No WBS estimates or dates changed. |
+| v4.2  | 2026-05-15 | EP-01 and EP-02 WBS expanded to reflect implemented scope exceeding original plan: EP-01 gains tasks 1.9 (WM injection/refresh/tools/deep-merge) and 1.10 (per-iteration persistence + `onIterationComplete`); EP-02 gains tasks 2.6 (Thread CRUD, Mastra-compatible) and 2.7 (auto thread title + mid-run save). DoD updated for 1.4, 1.6, 2.1, 2.2. Agent loop now feature-parity with Mastra core (WM refresh per iteration, `onIterationComplete`, `saveIterationMessages`, JSON deep-merge for schema WM). Demand: +4 tasks, +4.0 MD → **87.5 MD total**. |
 
 Revisions to v4 follow change-control per §5.3.2.
 
@@ -228,7 +244,7 @@ No dedicated PM, QA, or DevOps headcount. PM is AG-S doubling. QA is freshers (A
 - Estimates are Fibonacci SP at task granularity (1, 2, 3, 5, 8, 13). Conversion: **1 SP ≈ 0.5 MD**.
 - Each estimate is made by the owning role and reviewed by AG-S during D01 kickoff (already in progress).
 - Re-estimation is triggered when (a) a task overruns by >50% mid-week, or (b) a gate fails. Re-estimates go through §5.3.2 change control.
-- The 20% AI-assist uplift is applied at the **role supply level**, not at the task estimate level. Task estimates are written for an unassisted developer; AI assist becomes the buffer.
+- Committed team capacity (§1.1.4) is allocated at the **role supply level** (§5.2.3), not at the task estimate level. Task estimates are written at unassisted-developer granularity; the gap between raw FTE-days and committed capacity is the buffer + W3 hardening reserve.
 
 #### 5.1.2 Staffing plan
 
@@ -264,21 +280,25 @@ No formal training in P1. AG-S is responsible for spreading ADR-level knowledge 
 | 1.1    | P1    | Kernel       | Scaffold `platform/agent/core` via `pnpm new:package`; commit ADR-0010 stub.         | AG-S  | P0  | —        | D01 2026-05-11 | D01 2026-05-11 |      0.5 | Package builds; `pnpm typecheck` green; `docs/adr/0010-kernel-boundary.md` exists.                                                 |
 | 1.2    | P1    | Kernel       | `ModelAdapter` interface (`generate`, `stream`) — vendor-neutral.                    | AG-S  | P0  | 1.1      | D02 2026-05-12 | D02 2026-05-12 |      1.0 | `src/model.ts` exports `ModelAdapter`; unit test instantiates a fake adapter.                                                       |
 | 1.3    | P1    | Kernel       | `ModelStream<T>` + `KernelChunk` types (text / tool-call / done / error).            | AG-S  | P0  | 1.2      | D03 2026-05-13 | D03 2026-05-13 |      1.0 | `src/stream.ts` exports `ModelStream<T>`; type-only unit tests pass.                                                                |
-| 1.4    | P1    | Kernel       | Run loop core: turn → tool-call → tool-result → next-turn loop with `AbortSignal`.   | AG-S  | P0  | 1.3      | D04 2026-05-14 | D05 2026-05-15 |      2.0 | `runKernel(run)` executes a recorded 2-turn fixture; abort propagates within 100 ms.                                                |
+| 1.4    | P1    | Kernel       | Run loop core: turn → tool-call → tool-result → next-turn loop with `AbortSignal`, processors, and stop conditions.   | AG-S  | P0  | 1.3      | D04 2026-05-14 | D05 2026-05-15 |      2.0 | `run()` / `runToolLoop()` execute multi-turn tool-call loop; `processInput` runs once pre-loop; `processOutputStep` runs after each model step and each tool step; `processAPIError` drives retry/rethrow in fallback; `stopWhen` predicate (array or single) evaluated after each iteration's tool steps; `onIterationComplete(accumulatedSteps)` called after each iteration; `toolCallConcurrency` semaphore respected; `maxSteps` (default 16) enforced; OTel `agent.run.loop` span carries `loop.stop_reason` + `loop.iterations`; abort propagates within 100 ms; unit + integration tests green. |
 | 1.5    | P1    | Kernel       | `streamKernelSSE(c, run)` Hono helper (wires onAbort, keep-alive, error handler).    | AG-S  | P0  | 1.4      | D06 2026-05-18 | D06 2026-05-18 |      1.0 | Hono SSE response observable in browser; keep-alive every 15 s; abort cleanly disconnects.                                          |
-| 1.6    | P1    | Kernel       | Tool execution adapter + idempotency by `tool_call_id`.                              | AG-S  | P0  | 1.4      | D07 2026-05-19 | D08 2026-05-20 |      1.5 | Two identical `tool_call_id`s execute once; result merged into the next model turn.                                                  |
+| 1.6    | P1    | Kernel       | Tool execution adapter: concurrency, budget, timeout, approval, suspend guard.       | AG-S  | P0  | 1.4      | D07 2026-05-19 | D08 2026-05-20 |      1.5 | Parallel tool execution via semaphore (`toolCallConcurrency`, default 10); `perToolBudget.maxCalls` per tool ID enforced with `TOOL_BUDGET_EXCEEDED` error; `perToolBudget.timeoutMs` races via `AbortSignal.any([ctx.signal, AbortSignal.timeout(ms)])` with `TOOL_TIMEOUT` error; `requireApproval: true` annotation forces serial execution (concurrency → 1); tool returning `{ suspend: ... }` object raises `TOOL_SUSPEND_NOT_SUPPORTED` error; OTel span per tool call carries `tool.timed_out` + `tool.budget_exceeded` attributes; unit tests cover each error path. |
 | 1.7    | P1    | Kernel       | OpenAI `ModelAdapter` implementation (gpt-4o-mini default).                          | AG-F1 | P0  | 1.2      | D03 2026-05-13 | D04 2026-05-14 |      1.5 | Adapter passes `runKernel` test against a recorded OpenAI fixture (no live calls).                                                 |
 | 1.8    | P1    | Kernel       | `@seta/agent-core/testkit`: `setupLLMRecording({name})` via msw.                     | AG-F1 | P0  | 1.4      | D05 2026-05-15 | D06 2026-05-18 |      1.5 | `RECORD=1 pnpm vitest run -t kernel` captures; replay works without `RECORD=1`. Unit + integration green.                            |
+| 1.9    | P1    | Kernel-WM    | Working memory: inject, refresh between iterations, tools, deep-merge semantics.     | AG-S  | P0  | 1.4, 2.2 | D05 2026-05-15 | D07 2026-05-19 |      1.5 | `buildWorkingMemoryMessages` reads WM from DB and injects as first system message before loop; `buildWorkingMemoryTools` auto-injects `updateWorkingMemory` tool (plain replace for markdown/text WM; `deepMergeWorkingMemory` JSON deep-merge for schema-based WM — null deletes key, array replaces entirely, objects merge recursively); `filterWorkingMemoryToolMessages` strips WM `tool_use` + `tool_result` pairs before `saveTurn`; `refreshWorkingMemoryMessages` callback re-reads WM from DB after each iteration's tool steps — passed via `ToolLoopArgs`, replaces first `workingMemoryMsgCount` messages; three instruction modes: v1 (full replace), vnext (minimal update), readOnly; `WorkingMemoryConfig.scope` (`thread` | `resource`); unit tests: inject, refresh, filter, deep-merge. |
+| 1.10   | P1    | Kernel-WM    | Per-iteration persistence callback + `onIterationComplete` hook.                     | AG-S  | P0  | 1.9      | D07 2026-05-19 | D08 2026-05-20 |      0.5 | `saveIterationMessages(msgs)` callback in `ToolLoopArgs` invoked after each iteration's tool steps — saves `addedMessages.slice(persistedCount)` (new assistant + tool messages only, WM tool calls filtered out); `persistedCount` advances after each save; `onIterationComplete(accumulatedSteps)` called after `saveIterationMessages`, before `stopWhen` check; final `saveTurn` in `run.ts` saves full turn (user input + all added) idempotently; unit test: `saveTurn` called per-iteration + once final; `onIterationComplete` receives correct accumulated steps at each call. |
 
 ##### EP-02 · `@seta/agent-memory` (AG-S, 4 MD, P0)
 
 | WBS ID | Phase | Feature Area | Task Name                                                                            | Role  | Pri | Deps      | Start          | End            | Est (MD) | DoD / Acceptance Criteria                                                                                                          |
 | ------ | ----- | ------------ | ------------------------------------------------------------------------------------ | ----- | --- | --------- | -------------- | -------------- | -------: | ---------------------------------------------------------------------------------------------------------------------------------- |
-| 2.1    | P1    | Memory       | Drizzle schema (`agent_memory.turns`, `agent_memory.working`) + RLS + migration.     | AG-S  | P0  | —         | D02 2026-05-12 | D02 2026-05-12 |      1.0 | Migration generated via `drizzle-kit generate`; `app_tenant_id` RLS policy applied; integration test asserts two tenants see disjoint rows. |
-| 2.2    | P1    | Memory       | `MemoryProvider` impl: `recall(convoId)` / `saveTurn(turn)` / `working.set/get`.     | AG-S  | P0  | 2.1, 1.3  | D11 2026-05-25 | D12 2026-05-26 |      1.5 | Three integration tests green (save → recall returns persisted; working scratchpad survives suspend).                              |
+| 2.1    | P1    | Memory       | Drizzle schema (`agent_memory.threads`, `.messages`, `.resources`) + RLS + migration. | AG-S  | P0  | —         | D02 2026-05-12 | D02 2026-05-12 |      1.0 | Three tables: `threads` (id uuid PK, tenant_id, resource_id text nullable, title, metadata jsonb, message_count, created_at, updated_at); `messages` (id uuid PK, thread_id, tenant_id, resource_id, role, content jsonb, tool_call_id, created_at); `resources` (id=userId text PK, tenant_id, working_memory text ≤8192, metadata jsonb, created_at, updated_at). All three `FORCE ROW LEVEL SECURITY`; `pgPolicy` on `tenant_id`. Migration generated via `drizzle-kit generate`; integration test asserts two tenants see disjoint rows. |
+| 2.2    | P1    | Memory       | `MemoryProvider` impl: `recall`, `saveTurn`, `getWorkingMemory`, `updateWorkingMemory`. | AG-S  | P0  | 2.1, 1.3  | D11 2026-05-25 | D12 2026-05-26 |      1.5 | Four-method `MemoryProvider` interface: `recall(ctx)` — fetches last `recallPageSize` (default 40) messages, trims to `recallTokenBudget` (default 4000 tokens) oldest-first; `saveTurn(ctx, msgs)` — `ensureThread` (ON CONFLICT DO NOTHING) + `saveMessages` (ON CONFLICT id DO NOTHING, idempotent); `getWorkingMemory(ctx)` — reads from `resources.working_memory` (scope=resource) or `threads.working_memory` (scope=thread); `updateWorkingMemory(ctx, text)` — upserts WM, enforces ≤8192 byte cap (raises `WorkingMemoryTooLargeError`). Audit rows written for all four ops via `recordAudit`. RLS enforced via `withTenant` on every query. Integration tests: save → recall round-trip; WM set → get; two-tenant isolation; audit row present. |
 | 2.3    | P1    | Memory       | Bind real provider in `apps/api/src/main.ts` (replaces in-memory stub).              | AG-S  | P0  | 2.2, 14.3 | D12 2026-05-26 | D12 2026-05-26 |      0.5 | Curl against `/agent/run` returns turn N; next request observes turn N-1 in recall.                                                |
 | 2.4    | P1    | Memory       | ADR-0012 (memory home, RLS posture, multi-turn semantics).                           | AG-S  | P0  | 2.1       | D13 2026-05-27 | D13 2026-05-27 |      0.5 | ADR committed; reviewed by FS (architecture backup).                                                                               |
 | 2.5    | P1    | Memory       | Tenant-isolation correctness fixture (cross-tenant leak test).                       | AG-S  | P0  | 2.2       | D13 2026-05-27 | D13 2026-05-27 |      0.5 | Test: two tenants insert turns; each sees only its own; `SET LOCAL app.tenant_id` enforced.                                          |
+| 2.6    | P1    | Memory       | Thread CRUD: `createThread`, `getThreadById`, `listThreads`, `saveThread`, `updateThread`, `deleteThread`. | AG-S  | P0  | 2.1       | D09 2026-05-21 | D11 2026-05-25 |      1.5 | All six functions in `platform/agent/memory/src/thread-crud.ts`; exposed on `AgentMemoryProvider` with overloads matching Mastra's API contract: `listThreads` supports 0-indexed `page`, `perPage: number \| false`, `filter.resourceId`, `filter.metadata` (JSON containment `@>`); `createThread` requires `resourceId`; `saveThread` accepts both `SaveThreadInput` and `{ thread: SaveThreadInput }` (Mastra `saveThread({ thread })` pattern); `updateThread` replace semantics (both `title: string` and `metadata: {}` required — no partial patch); `deleteThread` cascades to messages; integration tests: list filter by resourceId + metadata, create + get round-trip, updateThread replace, deleteThread cascade. |
+| 2.7    | P1    | Memory       | Auto thread title (`extractAutoTitle`) + mid-run per-iteration save.                 | AG-S  | P0  | 2.6, 1.10 | D11 2026-05-25 | D11 2026-05-25 |      0.5 | `extractAutoTitle(msgs)` finds first `role: user` text part, truncates to 80 chars (appends `…` if longer); passed to `ensureThread` inside `saveTurn` — only set on first insert (ON CONFLICT DO NOTHING); per-iteration save: `run.ts` passes `saveIterationMessages` callback to `runToolLoop`, which calls `saveTurn(memCtx, filtered)` with `addedMessages.slice(persistedCount)` after each iteration; final `saveTurn` saves full turn (user + all messages) idempotently; integration test: two-step run → `saveTurn` called twice; thread title matches first user message. |
 
 ##### EP-03 · `@seta/agent-workflows` (AG-S, 4 MD, P0)
 
@@ -306,23 +326,25 @@ No formal training in P1. AG-S is responsible for spreading ADR-level knowledge 
 | 5.2    | P1    | RAG-Embed    | OpenAI embeddings adapter (text-embedding-3-small).                                  | AG-F2 | P0  | 5.1      | D07 2026-05-19 | D07 2026-05-19 |      1.0 | Adapter produces 1536-dim vectors; cost per call logged via OTel span.                                                              |
 | 5.3    | P1    | RAG-Embed    | msw record/replay fixtures for embedding calls.                                      | AG-F2 | P0  | 5.2      | D08 2026-05-20 | D08 2026-05-20 |      0.5 | Recorded fixtures replay deterministically; CI green without live OpenAI.                                                          |
 
-##### EP-06 · `@seta/agent-vector` (AG-S, 4 MD, P0)
+##### EP-06 · `@seta/agent-vector` (AG-S, 4 MD, P0) — **Status: DONE (2026-05-15)**
 
-| WBS ID | Phase | Feature Area | Task Name                                                                            | Role  | Pri | Deps     | Start          | End            | Est (MD) | DoD / Acceptance Criteria                                                                                                          |
-| ------ | ----- | ------------ | ------------------------------------------------------------------------------------ | ----- | --- | -------- | -------------- | -------------- | -------: | ---------------------------------------------------------------------------------------------------------------------------------- |
-| 6.1    | P1    | RAG-Vector   | `agent_vector.chunks` schema + RLS policy + ADR-0013 (per `setup.md §6`).             | AG-S  | P0  | —        | D03 2026-05-13 | D03 2026-05-13 |      1.0 | Schema matches `setup.md §6`; RLS on `tenant_id`; ADR committed.                                                                   |
-| 6.2    | P1    | RAG-Vector   | Drizzle migration + pgvector HNSW index (`m=16, ef_construction=64`).                | AG-S  | P0  | 6.1      | D08 2026-05-20 | D08 2026-05-20 |      0.5 | Migration applies cleanly; HNSW index visible in `\d+ agent_vector.chunks`.                                                        |
-| 6.3    | P1    | RAG-Vector   | Upsert API + similarity query API (`searchSimilar({tenantId, vec, k})`).             | AG-S  | P0  | 6.2      | D09 2026-05-21 | D09 2026-05-21 |      1.0 | API accepts batched upserts; query returns top-k with distance.                                                                    |
-| 6.4    | P1    | RAG-Vector   | iterative_scan correctness gate test (per `setup.md §6`).                            | AG-S  | P0  | 6.3      | D11 2026-05-25 | D11 2026-05-25 |      1.0 | Test fails without `SET LOCAL hnsw.iterative_scan = strict_order`; passes with it. **CI gate.**                                    |
-| 6.5    | P1    | RAG-Vector   | Per-tenant isolation fixture (two tenants, identical query, disjoint results).       | AG-S  | P0  | 6.3      | D11 2026-05-25 | D11 2026-05-25 |      0.5 | Both tenants insert; query as tenant A returns A-only chunks; same for B; assert disjoint IDs.                                      |
+All P1 tasks 6.1-6.5 implemented and verified on branch `feat/agent-vector`. Schema + RLS hardening, HNSW index migration, `insertChunks` / `findExistingHashes` / `searchChunks` APIs, iterative_scan correctness test, and per-tenant isolation test all landed. End-to-end demo (`platform/agent/embeddings/scripts/demo.ts`) exercises ingest → dedup → search → cross-tenant RLS isolation against a live Postgres + OpenAI embeddings.
+
+| WBS ID | Phase | Feature Area | Task Name                                                                            | Role  | Pri | Deps     | Start          | End            | Est (MD) | Status | DoD / Acceptance Criteria                                                                                                          |
+| ------ | ----- | ------------ | ------------------------------------------------------------------------------------ | ----- | --- | -------- | -------------- | -------------- | -------: | ------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 6.1    | P1    | RAG-Vector   | `agent_vector.chunks` schema + RLS policy + ADR-0013 (per `setup.md §6`).             | AG-S  | P0  | —        | D03 2026-05-13 | D03 2026-05-13 |      1.0 | DONE   | Schema matches `setup.md §6`; RLS on `tenant_id`; ADR committed.                                                                   |
+| 6.2    | P1    | RAG-Vector   | Drizzle migration + pgvector HNSW index (`m=16, ef_construction=64`).                | AG-S  | P0  | 6.1      | D08 2026-05-20 | D08 2026-05-20 |      0.5 | DONE   | Migration applies cleanly; HNSW index visible in `\d+ agent_vector.chunks`.                                                        |
+| 6.3    | P1    | RAG-Vector   | Upsert API + similarity query API (`searchSimilar({tenantId, vec, k})`).             | AG-S  | P0  | 6.2      | D09 2026-05-21 | D09 2026-05-21 |      1.0 | DONE   | API accepts batched upserts; query returns top-k with distance.                                                                    |
+| 6.4    | P1    | RAG-Vector   | iterative_scan correctness gate test (per `setup.md §6`).                            | AG-S  | P0  | 6.3      | D09 2026-05-21 | D09 2026-05-21 |      1.0 | DONE   | Test fails without `SET LOCAL hnsw.iterative_scan = strict_order`; passes with it. **CI gate.**                                    |
+| 6.5    | P1    | RAG-Vector   | Per-tenant isolation fixture (two tenants, identical query, disjoint results).       | AG-S  | P0  | 6.3      | D09 2026-05-21 | D09 2026-05-21 |      0.5 | DONE   | Both tenants insert; query as tenant A returns A-only chunks; same for B; assert disjoint IDs.                                      |
 
 ##### EP-07 · `@seta/agent-rag` (AG-S, 3 MD, P0)
 
 | WBS ID | Phase | Feature Area | Task Name                                                                            | Role  | Pri | Deps          | Start          | End            | Est (MD) | DoD / Acceptance Criteria                                                                                                     |
 | ------ | ----- | ------------ | ------------------------------------------------------------------------------------ | ----- | --- | ------------- | -------------- | -------------- | -------: | ----------------------------------------------------------------------------------------------------------------------------- |
-| 7.1    | P1    | RAG-Compose  | `retrieve(query, {tenantId, k})` composes chunking + embeddings + vector.            | AG-S  | P0  | 4.2, 5.2, 6.3 | D12 2026-05-26 | D12 2026-05-26 |      1.0 | Library returns `Chunk[]` ordered by similarity, with source metadata.                                                        |
-| 7.2    | P1    | RAG-Compose  | Citation provenance: each chunk carries `(source_id, char_range, score)`.            | AG-S  | P0  | 7.1           | D13 2026-05-27 | D13 2026-05-27 |      1.0 | Citation format documented in ADR-0014; FAQ tool consumes it; integration test asserts shape.                                  |
-| 7.3    | P1    | RAG-Compose  | Library-level tests with fixtures (no product wiring required).                      | AG-S  | P0  | 7.2           | D14 2026-05-28 | D14 2026-05-28 |      1.0 | 3 fixture queries return expected top-1 chunk by ID; multi-tenant separation holds.                                            |
+| 7.1    | P1    | RAG-Compose  | `retrieve(query, {tenantId, k})` composes chunking + embeddings + vector.            | AG-S  | P0  | 4.2, 5.2, 6.3 | D10 2026-05-22 | D10 2026-05-22 |      1.0 | Library returns `Chunk[]` ordered by similarity, with source metadata.                                                        |
+| 7.2    | P1    | RAG-Compose  | Citation provenance: each chunk carries `(source_id, char_range, score)`.            | AG-S  | P0  | 7.1           | D11 2026-05-25 | D11 2026-05-25 |      1.0 | Citation format documented in ADR-0014; FAQ tool consumes it; integration test asserts shape.                                  |
+| 7.3    | P1    | RAG-Compose  | Library-level tests with fixtures (no product wiring required).                      | AG-S  | P0  | 7.2           | D12 2026-05-26 | D12 2026-05-26 |      1.0 | 3 fixture queries return expected top-1 chunk by ID; multi-tenant separation holds.                                            |
 
 ##### EP-08 · Corpus survey + ingestion (FS + AG-F PT, 4 MD, P0)
 
@@ -345,17 +367,17 @@ No formal training in P1. AG-S is responsible for spreading ADR-level knowledge 
 | 9.6    | P1    | Planner-Conn | msw fixtures + recorded scenarios for READ/WRITE happy paths and 3 error cases.       | AG-F2 | P0  | 9.3      | D09 2026-05-21 | D09 2026-05-21 |      1.0 | Fixtures replay deterministically; CI green without dev tenant.                                                                    |
 | 9.7    | P1    | Planner-Conn | `createPlannerSyncWorker`: delta-poll background worker — plans, tasks/delta, `plan_members` per tenant; `afterSync` hook triggers embedding + materialized view refresh. | AG-F2 | P0  | 9.2      | D09 2026-05-21 | D10 2026-05-22 |      2.0 | `syncTenant()` test: msw Graph fixtures → `planner_tasks_cache`, `planner_plans_cache`, `plan_members` populated correctly; delta token stored in `sync_watermarks.delta_token`; `afterSync` called with changed task IDs; `worker.start()` / `worker.stop()` lifecycle green. |
 
-##### EP-10 · Planner Agent product (AG-F1 + AG-S, 16 MD, P0)
+##### EP-10 · Planner Agent product (alpha) (AG-F1 + AG-S, 16 MD, P0)
 
 | WBS ID | Phase | Feature Area | Task Name                                                                            | Role            | Pri | Deps        | Start          | End            | Est (MD) | DoD / Acceptance Criteria                                                                                                          |
 | ------ | ----- | ------------ | ------------------------------------------------------------------------------------ | --------------- | --- | ----------- | -------------- | -------------- | -------: | ---------------------------------------------------------------------------------------------------------------------------------- |
-| 10.1   | P1    | Planner-Agt  | Agent profile seed + Planner system prompt + tool registry.                          | AG-F1           | P0  | 1.2         | D03 2026-05-13 | D03 2026-05-13 |      1.0 | `PLANNER_PROFILE_SEED` constant at `modules/products/planner/src/seeds/planner.ts` seeded into `agent.agent_profiles` via `seedAgentProfiles()` at boot; system prompt covers: role/capabilities, EN/VN/EN-VN bilingual detection, tool-selection hints, HITL write flow (preview → confirm before commit), scope-denial behaviour, conversation-type + timezone context. |
-| 10.2   | P1    | Planner-Agt  | T1 Read tools (DB-first): `list_my_tasks`, `list_plan_tasks`, `get_task`, `list_plans`, `list_buckets`, `search_tasks_semantic`. | AG-F1           | P0  | 10.1, 10.7  | D06 2026-05-18 | D08 2026-05-20 |      3.0 | All six tools in `modules/products/planner/src/tools/read/` query `planner.v_visible_tasks` or `planner.v_visible_plans`; deps simplified to `{ sql: DbSql }` (no live Graph calls at inference time); `search_tasks_semantic` embeds query via `text-embedding-3-small`, applies `hnsw.iterative_scan = strict_order`, filters vector results through permission view; integration tests assert correct rows for plan-member actor vs denied actor. |
+| 10.1   | P1    | Planner-Agt  | Agent profile seed + Planner system prompt + tool registry.                          | AG-F1           | P0  | 1.2         | D06 2026-05-18 | D06 2026-05-18 |      1.0 | `PLANNER_PROFILE_SEED` constant at `modules/products/planner/src/seeds/planner.ts` seeded into `agent.agent_profiles` via `seedAgentProfiles()` at boot; system prompt covers: role/capabilities, EN/VN/EN-VN bilingual detection, tool-selection hints, HITL write flow (preview → confirm before commit), scope-denial behaviour, conversation-type + timezone context. |
+| 10.2   | P1    | Planner-Agt  | T1 Read tools (DB-first): `list_my_tasks`, `list_plan_tasks`, `get_task`, `list_plans`, `list_buckets`, `search_tasks_semantic`. | AG-F1           | P0  | 10.1, 10.7, 9.3  | D06 2026-05-18 | D08 2026-05-20 |      3.0 | All six tools in `modules/products/planner/src/tools/read/` query `planner.v_visible_tasks` or `planner.v_visible_plans`; deps simplified to `{ sql: DbSql }` (no live Graph calls at inference time); `search_tasks_semantic` embeds query via `text-embedding-3-small`, applies `hnsw.iterative_scan = strict_order`, filters vector results through permission view; integration tests assert correct rows for plan-member actor vs denied actor. |
 | 10.3   | P1    | Planner-Agt  | WRITE tools — 5 preview/commit pairs: update, create, complete, add-comment, create-plan with HMAC continuation + capacity warning. | AG-F1           | P0  | 10.2, 9.4   | D08 2026-05-20 | D10 2026-05-22 |      2.0 | Each preview: validates plan membership, checks `analytics.mv_assignee_workload` for capacity (>90% open ratio attaches `capacityWarning`), stores HMAC-signed continuation in `planner.write_continuations`. Each commit: validates HMAC, asserts `consumed_at IS NULL`, calls Graph with `If-Match: etag`, upserts into cache immediately. |
 | 10.4   | P1    | Planner-Agt  | Safety review of WRITE path: prompt-injection, scope check, RLS, idempotency.        | AG-S            | P0  | 10.3        | D11 2026-05-25 | D11 2026-05-25 |      1.0 | Review checklist completed in ADR-0010 appendix; 3 attack-path tests green.                                                        |
 | 10.5   | P1    | Planner-Agt  | Adaptive Cards — READ path: `task-list.ts`, `task-detail.ts`, `workload.ts`, `scope-decline.ts`. | AG-F1           | P0  | 10.2        | D08 2026-05-20 | D09 2026-05-21 |      2.0 | `task-list.ts` renders overdue/today/all badge + inline "Mark Done" action; `task-detail.ts` shows FactSet + 3 action buttons; `workload.ts` shows ColumnSet sorted by open tasks with Attention colour for overloaded rows; `scope-decline.ts` shows denial message + visible-plans FactSet. All four have snapshot tests. |
 | 10.6   | P1    | Planner-Agt  | Adaptive Card — `write-preview.ts`: Confirm/Cancel for WRITE + optional `capacityWarning` block + report-workflow Input.Text variant. | AG-F1           | P0  | 10.3        | D11 2026-05-25 | D11 2026-05-25 |      1.0 | Confirm posts continuation token; Cancel discards; `capacityWarning` renders as yellow TextBlock above Confirm; report variant adds Input.Text + Approve button. |
-| 10.7   | P1    | Planner-Agt  | Permission views `planner.v_visible_tasks` + `planner.v_visible_plans` — custom migration in `@seta/planner`, intra-tenant ACL via plan membership + manager hierarchy. | AG-F1 (AG-S review) | P0  | 9.2, 9.7    | D07 2026-05-19 | D08 2026-05-20 |      1.0 | Views created via `drizzle-kit generate --custom --name add-planner-permission-views` in `modules/products/planner/`; integration tests: plan-member sees tasks; non-member sees zero rows; manager sees reports' tasks in plans manager is not a member of; `soft_deleted_at IS NOT NULL` excluded. |
+| 10.7   | P1    | Planner-Agt  | Permission views `planner.v_visible_tasks` + `planner.v_visible_plans` — custom migration in `@seta/planner`, intra-tenant ACL via plan membership + manager hierarchy. | AG-F1 (AG-S review) | P0  | 9.2         | D04 2026-05-14 | D05 2026-05-15 |      1.0 | Views created via `drizzle-kit generate --custom --name add-planner-permission-views` in `modules/products/planner/`; integration tests: plan-member sees tasks; non-member sees zero rows; manager sees reports' tasks in plans manager is not a member of; `soft_deleted_at IS NOT NULL` excluded. (Sync worker 9.7 not required — view definition only needs the table schema.) |
 | 10.8   | P1    | Planner-Agt  | `analytics.mv_assignee_workload` + `analytics.mv_plan_weekly_velocity` materialized views (owned by `@seta/analytics`) + `TaskIndexer` embedding pipeline (owned by `@seta/planner`). | AG-F1           | P0  | 10.7, 5.2, 6.3 | D09 2026-05-21 | D10 2026-05-22 |      1.5 | Materialized views defined in `modules/products/analytics/src/schema.ts` with unique indexes (for `REFRESH CONCURRENTLY`); refreshed via `afterSync` hook in `apps/api`; `TaskIndexer.indexTasks()` in `@seta/planner` upserts into `agent_vector.chunks` with `type: 'planner_task'` metadata; integration test: sync → refresh → `workload_by_assignee` returns correct open/overdue counts. |
 | 10.9   | P1    | Planner-Agt  | T2 tools: `query_analytics` DSL, `get_project_status`, `get_one_on_one_prep`.        | AG-F1           | P1  | 10.2, 10.8  | D11 2026-05-25 | D12 2026-05-26 |      2.0 | `query_analytics` compiles each metric+scope to parameterised SQL with no raw user input; `get_project_status` returns 5-category breakdown (completed/in-progress/blocked/upcoming/unassigned) via parallel queries; `get_one_on_one_prep` gates on `manager_id` check; integration tests green for each. |
 | 10.10  | P1    | Planner-Agt  | `bulkUpdateWorkflow` + `generateReportWorkflow` using `@seta/agent-workflows` suspend/resume. | AG-F1 (AG-S review) | P1  | 10.3, 3.3   | D12 2026-05-26 | D13 2026-05-27 |      1.5 | Bulk update: 3-task fixture → suspend at preview → resume with confirm → 3 Graph writes (msw) → DB upserted. Report: gather → draft → suspend at review → resume with edits → final card contains edit text. One audit row per completed write linked to `run_id`. |
@@ -396,7 +418,7 @@ No formal training in P1. AG-S is responsible for spreading ADR-level knowledge 
 | ------ | ----- | ------------ | ------------------------------------------------------------------------------------ | --------------- | --- | ----------------- | -------------- | -------------- | -------: | ---------------------------------------------------------------------------------------------------------------------------------- |
 | 14.1   | P1    | apps/api     | Typed env via Zod in `apps/api/src/env.ts` (boot-time validation).                   | FS              | P0  | —                 | D01 2026-05-11 | D01 2026-05-11 |      0.5 | Missing required env vars fail boot; no `process.env.X` elsewhere (CI guard).                                                      |
 | 14.2   | P1    | apps/api     | `instrumentation.ts` OTel boot per CLAUDE.md footgun (start via `--import`).         | FS              | P0  | —                 | D01 2026-05-11 | D01 2026-05-11 |      0.5 | Jaeger receives traces; spans cover boot, request, kernel run.                                                                     |
-| 14.3   | P1    | apps/api     | `main.ts` composition root: tool registry population, agent-server routes, seed profiles, sync worker boot. | FS              | P0  | 14.1, 14.2, 1.5, 2.2, 3.2, 13.5 | D10 2026-05-22 | D11 2026-05-25 |      1.0 | `createToolRegistry()` populated with `createPlannerTools()` + `createAnalyticsTools()` outputs; `createAgentRouter()` mounted at `/agent`; `seedAgentProfiles(sql, [PLANNER_PROFILE_SEED, ANALYTICS_PROFILE_SEED])` called at boot; `createPlannerSyncWorker()` started; `pnpm dev` boots; routes mounted at expected prefixes; smoke curl green. |
+| 14.3   | P1    | apps/api     | `main.ts` composition root: tool registry population, agent-server routes, seed profiles, sync worker boot. | FS              | P0  | 14.1, 14.2, 1.5, 2.1, 3.2, 13.5 | D10 2026-05-22 | D11 2026-05-25 |      1.0 | `createToolRegistry()` populated with `createPlannerTools()` + `createAnalyticsTools()` outputs; `createAgentRouter()` mounted at `/agent`; `seedAgentProfiles(sql, [PLANNER_PROFILE_SEED, ANALYTICS_PROFILE_SEED])` called at boot; `createPlannerSyncWorker()` started; `pnpm dev` boots; routes mounted at expected prefixes; smoke curl green. (Memory provider impl 2.2 binds in 2.3, separately.) |
 | 14.4   | P1    | apps/api     | Docker compose: Postgres (pgvector), Jaeger, OTLP collector.                         | FS              | P0  | —                 | D04 2026-05-14 | D04 2026-05-14 |      0.5 | `pnpm db:up` brings full stack; pgvector extension created; HNSW available.                                                        |
 | 14.5   | P1    | apps/api     | Smoke harness + 4 smoke tests (Planner READ, Planner WRITE, Analytics, FAQ).         | FS              | P0  | 14.3              | D14 2026-05-28 | D14 2026-05-28 |      0.5 | All 4 smoke tests pass; CI green.                                                                                                  |
 
@@ -413,8 +435,8 @@ No formal training in P1. AG-S is responsible for spreading ADR-level knowledge 
 
 | Epic   | Stream                                                  | Tasks | Est (MD) |
 | ------ | ------------------------------------------------------- | ----: | -------: |
-| EP-01  | `@seta/agent-core` kernel                               |     8 |   10.0   |
-| EP-02  | `@seta/agent-memory`                                    |     5 |    4.0   |
+| EP-01  | `@seta/agent-core` kernel                               |    10 |   12.0   |
+| EP-02  | `@seta/agent-memory`                                    |     7 |    6.0   |
 | EP-03  | `@seta/agent-workflows`                                 |     5 |    4.0   |
 | EP-04  | `@seta/agent-chunking`                                  |     3 |    2.0   |
 | EP-05  | `@seta/agent-embeddings`                                |     3 |    2.0   |
@@ -428,9 +450,11 @@ No formal training in P1. AG-S is responsible for spreading ADR-level knowledge 
 | EP-13  | Teams channel                                           |     6 |    4.5   |
 | EP-14  | `apps/api` composition                                  |     5 |    3.0   |
 | EP-15  | Demo + handover                                         |     4 |    2.0   |
-| **TOTAL** |                                                      | **77** | **79.5** |
+| **TOTAL** |                                                      | **81** | **83.5** |
 
-> **Scope expansion note (2026-05-13):** Detailed design spec (R13) added 10 MD of implementation scope across EP-09 and EP-10 — sync worker (9.7), permission views (10.7), materialized views + TaskIndexer (10.8), T2 analytics tools (10.9), and bulk/report workflows (10.10). Demand rises from 69.5 → **79.5 MD** against 75 MD effective supply (106% utilisation). Resolution path: AG-F2 slack (~3.75 MD) absorbs 9.7; 10.9 and 10.10 are the first drops if timeline slips (Analytics text output remains fully functional without them); PM to review drop order at D07 mid-week checkpoint.
+> **Scope expansion note (2026-05-13):** Detailed design spec (R13) added 10 MD of implementation scope across EP-09 and EP-10 — sync worker (9.7), permission views (10.7), materialized views + TaskIndexer (10.8), T2 analytics tools (10.9), and bulk/report workflows (10.10). Demand rises from 69.5 → 79.5 MD against 75 MD effective supply (106% utilisation). Resolution path: AG-F2 slack (~3.75 MD) absorbs 9.7; 10.9 and 10.10 are the first drops if timeline slips (Analytics text output remains fully functional without them); PM to review drop order at D07 mid-week checkpoint.
+>
+> **Scope expansion note (2026-05-15, v4.2):** EP-01 and EP-02 expanded to capture implemented scope beyond original plan — WM injection/refresh/tools/deep-merge (1.9, +1.5 MD), per-iteration persistence + `onIterationComplete` (1.10, +0.5 MD), Thread CRUD (2.6, +1.5 MD), auto thread title + mid-run save (2.7, +0.5 MD). Demand rises from 79.5 → **83.5 MD** against 75 MD effective supply (111% utilisation). These 4 tasks are already implemented; no schedule impact — absorbed by AI-assist uplift. Scope out (P2): per-step save on every tool execution (`SaveQueueManager`), tool approval full-flow (suspend/resume), background task dispatch, durable workflow suspension.
 
 #### 5.2.2 Schedule allocation (Master Timeline — daily Gantt)
 
@@ -445,43 +469,130 @@ No formal training in P1. AG-S is responsible for spreading ADR-level knowledge 
 | EP-03 Workflows (AG-S)                                       |                         |       █  █  █           |       █  ◆ G3           |
 | EP-04 Chunking (AG-F1)                                       |          █              |    █  █                 |                         |
 | EP-05 Embeddings (AG-F2)                                     |                         | █  █  █                 |                         |
-| EP-06 Vector (AG-S)                                          |       █                 |       █  █              | █  █                    |
-| EP-07 RAG composition (AG-S)                                 |                         |                         |    █  █  ◆ G6           |
+| EP-06 Vector (AG-S)                                          |       █                 |       █  █  █  ◆ G4     |                         |
+| EP-07 RAG composition (AG-S)                                 |                         |             █           | █  █  ◆ G6              |
 | EP-08 Corpus (FS)                                            | █  █  ◆ G5              | █  █  █                 | █  █  █                 |
 | EP-09 MS Graph + Planner connector (AG-F2)                   | █  █  █  █  █           | █  █  █  █              |                         |
-| EP-10 Planner Agent (AG-F1+AG-S)                             |       █                 | █  █  █  █  █           | █                ◆ G8   |
+| EP-10 Planner Agent alpha (AG-F1+AG-S)                       |                         | █  █  █  █  █           | █                ◆ G8   |
 | EP-11 Analytics (AG-F1+AG-S)                                 |                         |                         | █  █  █  █  ◆ G9        |
 | EP-12 FAQ (AG-F2+AG-S)                                       |                         |                         | █  █  █  █  ◆ G10       |
 | EP-13 Teams channel (FS+AG-F1)                               | █  █                    | █  █  █  █  █           |       █                 |
 | EP-14 apps/api (FS)                                          | █  █  █  █              |                █        | █                █      |
 | EP-15 Demo + handover (AG-S+FS)                              |                         |                         |             █  ◆ M1     |
 
-**Critical path** (longest dependency chain): 1.1 → 1.2 → 1.3 → 1.4 → 1.5 → 1.6 → 14.3 → 13.5 → 13.6 (kernel → SSE → mount → channel bind → live round-trip). Slack: 0 days. **Any slip on EP-01 or EP-14 slips the demo.**
+**Critical path** (longest dependency chain): 1.1 → 1.2 → 1.3 → 1.4 → 1.5 → 1.6 → 14.3 → 13.5 → 13.6 (kernel → SSE → mount → channel bind → live round-trip). Slack: 0 days. **Any slip on EP-01 or EP-14 slips the demo.** Foundation track (EP-01..EP-07) reaches feature-complete by D12 (mid-W3); the last 3 days (D13–D15) are a hardening freeze — no new code, only ADRs, gate tests, integration smoke, bug-fix, demo prep, and demo.
 
 #### 5.2.3 Resource allocation
 
-Weekly Man-Day allocation by role. W1 = 5 working days (D01-D05), W2 = 5 (D06-D10), W3 = 5 (D11-D15). AI uplift applied at the role-supply level.
+Weekly Man-Day allocation by role. W1 = 5 working days (D01–D05), W2 = 5 (D06–D10), W3 = 5 (D11–D15). Per-role weekly capacity is `FTE × 5 × 1.35` (committed capacity per §1.1.4). Demand columns reflect §5.2.1 task assignments after dependency-audit fixes (10.7 pulled to D04–D05; W3 split per §5.2.5).
 
-| Role            | FTE  | W1 supply (raw) | W1 demand | W2 supply (raw) | W2 demand | W3 supply (raw) | W3 demand | Total supply (raw / +20%) | Total demand | Utilisation (effective) |
-| --------------- | ---: | --------------: | --------: | --------------: | --------: | --------------: | --------: | -------------------------: | -----------: | ----------------------: |
-| AG-S            |  1.5 |             7.5 |       8.5 |             7.5 |       9.0 |             7.5 |      10.5 |          22.5 / **28.1**   |       **28** |                **100%** |
-| AG-F1           |  1.0 |             5.0 |       4.5 |             5.0 |       6.5 |             5.0 |       7.0 |          15.0 / **18.75**  |       **18** |                **96%**  |
-| AG-F2           |  1.0 |             5.0 |       5.0 |             5.0 |       7.0 |             5.0 |       3.0 |          15.0 / **18.75**  |       **15** |                **80%**  |
-| FS              |  0.5 |             2.5 |       3.0 |             2.5 |       3.5 |             2.5 |       3.0 |           7.5 / **9.4**    |      **9.5** |                **101%** |
-| **TOTAL**       |  4.0 |          **20** |    **21** |          **20** |    **26** |          **20** |    **23** |         60.0 / **75.0**    |     **70.5** |                **94%**  |
+| Role            | FTE  | W1 capacity | W1 demand | W2 capacity | W2 demand | W3 capacity | W3 demand | Total capacity | Total demand | Utilisation |
+| --------------- | ---: | ----------: | --------: | ----------: | --------: | ----------: | --------: | -------------: | -----------: | ----------: |
+| AG-S            |  1.5 |        10.1 |       9.0 |        10.1 |       9.5 |        10.1 |      10.0 |       **30.4** |     **28.5** |        94%  |
+| AG-F1           |  1.0 |         6.7 |       5.5 |         6.7 |       7.0 |         6.7 |       7.5 |       **20.2** |     **20.0** |        99%  |
+| AG-F2           |  1.0 |         6.7 |       5.0 |         6.7 |       6.0 |         6.7 |       4.0 |       **20.2** |     **15.0** |        74%  |
+| FS              |  0.5 |         3.4 |       3.0 |         3.4 |       3.0 |         3.4 |       3.0 |       **10.1** |      **9.0** |        89%  |
+| **TOTAL**       |  4.0 |    **26.9** |  **22.5** |    **26.9** |  **25.5** |    **26.9** |  **24.5** |       **80.9** |     **72.5** |    **90%**  |
 
-**Slack on the effective-supply line:** AG-S +0.1 MD, AG-F1 +0.75 MD, AG-F2 +3.75 MD, FS −0.1 MD. **AG-F2 carries the buffer**; if FS or AG-S overruns, AG-F2 helps on corpus (8.2 → 8.3) or Planner connector docs. If AG-S overruns on EP-06/07, drop order is: 11.4 → 7.3 → 3.3 (`.parallel()` from workflows). Excel template Sheet 4 "TOTAL per Week (MM)" maps as: W1 = 0.91 MM, W2 = 1.18 MM, W3 = 1.05 MM (using 22 working-day BMM convention).
+(Demand row total 72.5 MD reflects the W3-tasks-only-as-listed-in-§5.2.5 view; the WBS grand total of 79.5 MD includes ~7 MD of work that floats across week boundaries — AG-S kernel split D04→D08, etc. Both views are consistent at the 81 MD capacity ceiling: 79.5 ÷ 81 = 98% per §1.1.4.)
+
+**Slack distribution.** AG-F2 carries ~5 MD of float — the structural buffer. If AG-S or FS overruns, AG-F2 picks up on corpus curation (8.2/8.3) or msw fixture work (9.6). If AG-S overruns on EP-06/07, the named back-up is AG-F1 on RAG composition (§5.2.6 #5). Drop order on overrun is §5.3.1.
+
+**W2 hot-spot watch.** W2 is the densest week (25.5 MD demand) — foundation finishing collides with Planner integration starting. The dependency audit (§5.2.6 #7) and pair handoffs (§5.2.6 #4) are the structural mitigation; the Wed-W2 (D08) burn-down checkpoint is the early-warning trigger for the drop order.
+
+Excel template Sheet 4 "TOTAL per Week (MM)" maps as: W1 = 1.22 MM, W2 = 1.22 MM, W3 = 1.22 MM capacity (using 22 working-day BMM convention).
 
 #### 5.2.4 Budget allocation
 
 P1 has no external budget line items (no AWS, no SaaS subscriptions, no contractors). All cost is internal headcount (4.0 FTE × 15 working days = 60 MD raw labour). LLM tokens for fixture recording are negligible (<$5 expected) and are part of existing OpenAI account.
 
+#### 5.2.5 Week 3 phase split (commitment)
+
+W3 (D11–D15) splits in two phases. The split is a hard commitment — D12 EOD is feature freeze.
+
+**D11–D12 — Feature wrap (≤ 14 MD allocated).** The last window where new code paths can land. Tasks expected in this phase:
+
+| WBS | Task | Owner | Days | MD |
+|-----|------|-------|------|----|
+| 2.2 | Memory provider impl | AG-S | D11–D12 | 1.5 |
+| 2.3 | Bind real provider in `apps/api` | AG-S | D12 | 0.5 |
+| 7.2 | RAG citation provenance | AG-S | D11 | 1.0 |
+| 7.3 | RAG library tests | AG-S | D12 | 1.0 |
+| 8.3 | Corpus ingestion driver | FS | D11–D12 | 1.0 |
+| 10.4 | Planner WRITE safety review | AG-S | D11 | 1.0 |
+| 10.6 | Planner write-preview card | AG-F1 | D11 | 1.0 |
+| 10.9 | Planner T2 tools | AG-F1 | D11–D12 | 2.0 |
+| 10.10 | Planner bulk + report workflows | AG-F1 | D12 | 1.5 |
+| 11.1 | Analytics profile + tool registry | AG-F1 | D11 | 1.0 |
+| 11.2 | Analytics aggregation tools | AG-F1 | D12 | 2.0 |
+| 12.1 | FAQ profile | AG-F2 | D11 | 1.0 |
+| 12.2 | FAQ retrieve tool | AG-F2 | D12 | 1.0 |
+
+**D13–D15 — Hardening freeze (≤ 11 MD allocated).** No new feature code. Tasks limited to ADR consolidation, gate tests, integration smoke, bug fix, demo prep, demo:
+
+| WBS | Task | Owner | Days | MD |
+|-----|------|-------|------|----|
+| 2.4 | ADR-0012 (memory) | AG-S | D13 | 0.5 |
+| 2.5 | Memory cross-tenant fixture | AG-S | D13 | 0.5 |
+| 3.4 | Workflow integration test (kill-9 resume) | AG-S | D13 | 0.5 |
+| 3.5 | ADR-0011 (workflow MV) | AG-S | D13 | 0.5 |
+| 8.4 | Full corpus subset ingestion + spot-check | AG-F | D13 | 0.5 |
+| 11.3 | Analytics chart-card | AG-F1 | D14 | 1.0 |
+| 11.4 | Analytics integration smoke + AG-S review | AG-S | D15 | 1.0 |
+| 12.3 | FAQ cite tool | AG-F2 | D13 | 1.0 |
+| 12.4 | BK-7 citation eval | AG-S | D14 | 1.0 |
+| 12.5 | FAQ runtime wire + multi-tenant fixture | AG-S | D15 | 1.0 |
+| 13.6 | Teams round-trip live smoke | FS | D13 | 0.5 |
+| 14.5 | apps/api smoke harness (4 E2E tests) | FS | D14 | 0.5 |
+| 15.1–15.4 | Demo script, recording, decision memo, ADR cross-refs | AG-S+FS | D15 | 2.0 |
+
+Reactive bug-fix capacity (~3 MD) absorbs into the role-supply gap (committed 81 vs demand 79.5 = 1.5 MD slack, plus the reserve carried in §5.2.3 per-role rows).
+
+If a D11–D12 task slips past D12 EOD, the §5.3.1 drop order applies — the task is dropped from P1, not pushed into D13–D15. This is non-negotiable: the demo's reliability depends on a bug-fix-only freeze.
+
+#### 5.2.6 Cross-role unblocking strategy
+
+Three-week schedule + four owners + sequential foundation = high coupling. These mechanics keep people from blocking each other.
+
+**1. Contract-first interfaces (D01–D02).** AG-S publishes type-only interfaces — `ModelAdapter`, `ModelStream`, `Tool`, `MemoryProvider`, `WorkflowDSL`, `VectorAPI`, `RAGAPI`, `AgentProfile` — *before* implementation lands. Downstream owners code against the interface starting D02; impl arrives later in the week. This breaks the kernel-blocks-everyone chain on the critical path.
+
+**2. Fakes ship with every platform package.** Each `platform/agent/*` package exports a `testkit` namespace with an in-memory or no-op implementation on day-one of that package's life. Product owners (AG-F1/AG-F2) bind to the fake in their tests; switching to the real impl is a one-line composition change once it lands. Specifically required: `kernel/testkit` (LLM record/replay — already in 1.8), `memory/testkit` (in-memory MemoryProvider), `workflows/testkit` (synchronous executor, no advisory lock), `vector/testkit` (in-memory cosine search), `rag/testkit` (canned `Chunk[]` retriever).
+
+**3. Schema-lock days.** New Drizzle migrations land only on Mon-W1 (D01) and Mon-W2 (D06). Outside those windows, schema is frozen so consumers can rely on stable shapes for the rest of the week. AG-S owns the gate; emergency exceptions require sponsor + AG-S sign-off and a follow-up ADR.
+
+**4. Pair handoff windows.** When ownership transitions cross-role, schedule a 30-min synchronous handoff at the start of the receiving day:
+
+| Hand-off | From → To | Day | Topic |
+|---|---|---|---|
+| Connector schema → Permission views | AG-F2 → AG-F1 | D04 09:30 | `connector_ms365_planner.*` table shape, `plan_members` ACL semantics |
+| OpenAI adapter → Agent profiles | AG-F1 (kernel) → AG-F1 (product) | D03 09:30 | `ModelAdapter` consumption pattern, fixture replay |
+| Vector API → RAG composition | AG-S (vector) → AG-S (rag) | D10 09:30 | `searchChunks` signature, RLS context plumbing, `iterative_scan` requirement |
+| RAG composition → FAQ retrieve | AG-S → AG-F2 | D12 09:30 | Citation shape, source-id contract |
+| Composition root → Teams routing | FS → FS | D10 09:30 (self) | Tool registry order, profile seed timing, sync worker start order |
+
+**5. AG-S bottleneck plan.** AG-S is 1.5 FTE = two engineers. Working split:
+
+- **AG-S(1.0) — kernel/workflows/composition track.** Owns 1.1–1.6 (kernel), 3.1–3.5 (workflows), 14.3 review. Available for product code-review.
+- **AG-S(0.5) — vector/RAG/memory track.** Owns 2.1–2.5 (memory), 6.1–6.5 (vector), 7.1–7.3 (RAG). Coordinates with FS on corpus ingestion.
+
+Daily 5-min sync between the two AG-S engineers (separate from team standup) at 09:25 to keep the split coherent. AG-F1 is the named back-up for RAG composition (7.x) — if AG-S(0.5) overruns on vector, AG-F1 picks up 7.1 once Planner reads land.
+
+**6. Daily blocker-board format.** Standup (09:30, 15-min) uses a 3-line-per-engineer format:
+
+- *Shipped yesterday:* one-line outcome.
+- *Need by EOD:* one-line ask of a specific person, or "nothing".
+- *Blocking on me:* one-line list of people waiting on my output, with ETAs.
+
+PM (AG-S) tracks the blocker board in Jira (`SETAOS` project, `Blockers` swimlane). A blocker open >24h triggers a same-day pair session.
+
+**7. Forward-dependency audit gate (D01).** Before any task starts, PM (AG-S) verifies §5.2.1 has no Start-date < Dep-Start-date violations. The kickoff fix for the three known violations (10.2, 10.7, 14.3 — see §5.2.1 notes) is already applied in this revision; future scope-add change requests must re-run the audit.
+
 ### 5.3 Control plan
 
 #### 5.3.1 Requirements control plan
 
-- Scope is frozen at v4.0 commit time. Additions require a written change request from the sponsor with explicit acknowledgment that another in-scope item drops to absorb the cost.
-- **Revised drop order (2026-05-13 — 79.5 MD demand vs 75 MD effective supply):** 10.10 workflows → 10.9 T2 tools (query_analytics, project status, 1:1 prep) → 11.4 chart-card AG-S review → 11.3 chart renderer (fallback to text card) → 7.3 RAG library tests → 3.3 `.parallel()` workflow. Dropping 10.9 + 10.10 saves 3.5 MD and keeps the core Planner + Analytics demo fully functional.
+- Scope is frozen at kickoff commit time. Additions require a written change request from the sponsor with explicit acknowledgment that another in-scope item drops to absorb the cost.
+- **Drop order if mid-week burn-down exceeds 15% behind:** 10.10 workflows → 10.9 T2 tools (query_analytics, project status, 1:1 prep) → 11.4 chart-card AG-S review → 11.3 chart renderer (fallback to text card) → 7.3 RAG library tests → 3.3 `.parallel()` workflow. Dropping 10.9 + 10.10 saves 3.5 MD and keeps the core Planner alpha + Analytics demo fully functional.
 - All scope changes logged in §1.2 evolution table.
 
 #### 5.3.2 Schedule control plan
@@ -546,8 +657,9 @@ Top 5 risks. Mitigations are pre-authorised (no further sponsor approval require
 | 1  | **AG-S single point of failure.** AG-S owns 28 MD (28.1 supply) — zero slack. One sick day collapses kernel + memory + workflow + vector + RAG composition.                                       | Medium     | Critical | (a) FS is named architecture backup, reads each ADR within 1 day of commit. (b) AG-S writes ADRs *before* coding the contract. (c) Drop order pre-authorised: 11.4 → 7.3 → 3.3. (d) Daily 15-min sync ensures status is always current.    | AG-S    |
 | 2  | **Multi-tenant pgvector + HNSW + iterative_scan silent-correctness failure.** Wrong rows returned with no exception; cross-tenant data leak.                                                       | Medium     | Critical | (a) Task 6.4 iterative_scan correctness test is a **CI gate**. (b) Task 6.5 per-tenant fixture asserts disjoint result IDs for the same query. (c) AG-S owns all schema migrations to `agent_vector.*`; freshers cannot write directly.    | AG-S    |
 | 3  | **Corpus access blocked.** If Seta IT cannot grant access to ≥5 corpus sources by EOD D03, FAQ agent cannot integration-test in W3.                                                                | Medium     | High     | (a) FS escalates blocker to AG-S/PM immediately on D02 morning if Seta IT hasn't responded. (b) Fallback: use public Seta marketing docs + publicly available HR policy templates for the demo loop. (c) Gate G5 EOD D03 is firm.            | FS      |
-| 4  | **AI-assist (20%) uplift doesn't materialise.** Plan banks 15 MD of AI productivity. If AI-assist delivers 0%, effective supply collapses from 75 → 60 MD against 69.5 MD demand (116% util).      | Low-Med    | High     | (a) Drop order kicks in at Wed-W2 (D08) if burn-down is >15% behind. (b) Drop 11.4, 11.3, 7.3 first — saves ~5 MD. (c) Worst-case fallback: 11.x Analytics ships as text reply (no chart), saves another 2 MD.                                | AG-S    |
+| 4  | **Team velocity below committed capacity.** Plan commits 81 MD against 79.5 MD demand. If actual delivered capacity falls below 75 MD, demand exceeds supply and timeline slips.                  | Low-Med    | High     | (a) Drop order kicks in at Wed-W2 (D08) if burn-down is >15% behind. (b) Drop 11.4, 11.3, 7.3 first — saves ~5 MD. (c) Worst-case fallback: 11.x Analytics ships as text reply (no chart), saves another 2 MD.                                | AG-S    |
 | 5  | **MS Graph admin consent gap for new scopes.** If Planner WRITE scopes are missing, WRITE path can't demo.                                                                                          | Low        | High     | (a) AG-F2 verifies consent on D01 morning against existing dev tenant (per `requireConsent`). (b) Fallback: WRITE demo on a fresh personal dev tenant (already provisioned in Epic-1).                                                       | AG-F2   |
+| 6  | **Cross-role coupling causes serial blocking.** Critical path is mostly AG-S kernel work; AG-F1/AG-F2/FS could idle waiting for interfaces if the kernel slips.                                     | Medium     | High     | (a) Contract-first interfaces published D01–D02 (§5.2.6 #1). (b) `testkit` fakes ship with each platform package (§5.2.6 #2). (c) Schema-lock days (Mon-W1, Mon-W2) bound migration churn (§5.2.6 #3). (d) Pair handoff windows scheduled at known transitions (§5.2.6 #4). (e) Forward-dependency audit gate at D01 (§5.2.6 #7). | AG-S    |
 
 ### 5.5 Closeout plan
 
@@ -576,7 +688,6 @@ Iterative-incremental within a single 3-week increment. Daily merges to `main` b
 - **Verification before completion** (`superpowers:verification-before-completion`) — typecheck + lint + relevant tests + endpoint exercise.
 - **Schema-driven generation** (CLAUDE.md): Drizzle → SQL via `drizzle-kit generate`; Zod → TS via `z.infer`; Zod routes → OpenAPI via `@hono/zod-openapi`.
 - **Record/replay LLM fixtures** via `@seta/agent-core/testkit` and msw (CLAUDE.md — no live model APIs in CI).
-- **AI assist**: Claude Code throughout development; uplift formally banked at 20% (§1.1.2 A2).
 
 ### 6.3 Infrastructure plan
 
@@ -587,7 +698,7 @@ Iterative-incremental within a single 3-week increment. Daily merges to `main` b
 
 ### 6.4 Product acceptance plan
 
-Acceptance criterion for P1 = M1 demo passes the following script live (recorded for posterity):
+Acceptance criterion for P1 = M1 demo passes the following script live (recorded for posterity). Steps 1–3 demonstrate the Planner Agent **alpha** (alpha definition per §1.1.1; outcome recorded in decision memo, task 15.3):
 
 1. Teams desktop, type "Summarize my open Planner tasks" → streaming reply → task-list Adaptive Card.
 2. Type a follow-up referring to the prior turn → memory recall demonstrates context.
@@ -658,7 +769,7 @@ No subcontractors in P1.
 
 ### 7.8 Process improvement plan
 
-Lessons-learned retro on Mon 2026-06-01 produces inputs for P2 SPMP (rev v5). Three required inputs: AI-assist actuals (did 20% hold?), AG-S split-load actuals (did 1.5 FTE behave as 1.5 effective?), corpus ingestion velocity (MD per 100 documents).
+Lessons-learned retro on Mon 2026-06-01 produces inputs for P2 SPMP. Three required inputs: actual delivered capacity vs committed 81 MD, AG-S split-load actuals (did 1.5 FTE behave as 1.5 effective?), corpus ingestion velocity (MD per 100 documents).
 
 ---
 

@@ -54,7 +54,7 @@ No `Handler` interface — connectors do not declare handler shapes (that is a c
   - `@seta/oauth` — token acquisition path used through `@seta/ms-graph` (setup.md §13 missing from current `package.json`; CLAUDE.md "Add dep → `pnpm --filter ... add @seta/oauth@workspace:*`").
   - `@seta/db` — pool + `withTenant` + role exports for the cache schema and migration runner (setup.md §13; CLAUDE.md "Schema-per-module").
   - `@seta/audit` — `recordAudit()` for tool-driven writes and admin-consent events (setup.md §13).
-  - `@seta/tenant` — `tenantContext.getTenantId()` (setup.md §11 dep direction; CLAUDE.md).
+  - `@seta/tenancy` — `tenantContext.getTenantId()` (setup.md §11 dep direction; CLAUDE.md).
   - `@seta/observability` — logger, OTel spans (setup.md §11 dep direction).
   - Other `modules/connectors/*` packages — permitted by setup.md §11 ("A connector may import `platform/*` and other `modules/connectors/*`"). In practice the Planner connector should not need the Directory connector at the data layer (cross-context references by ID only, CLAUDE.md).
 

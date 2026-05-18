@@ -18,16 +18,14 @@
   ],
   "dependencies": {
     "@seta/agent-core": "workspace:*",
-    "@seta/agent-embeddings": "workspace:*",
     "@seta/agent-server": "workspace:*",
-    "@seta/agent-vector": "workspace:*",
     "@seta/agent-workflows": "workspace:*",
     "@seta/connector-ms365-directory": "workspace:*",
     "@seta/connector-ms365-planner": "workspace:*",
     "@seta/db": "workspace:*",
     "@seta/middleware": "workspace:*",
     "@seta/observability": "workspace:*",
-    "@seta/tenant": "workspace:*",
+    "@seta/tenancy": "workspace:*",
     "drizzle-orm": "0.45.2",
     "p-queue": "8.1.0",
     "zod": "4.4.3"

@@ -1,6 +1,6 @@
 # SCOPE — platform/agent/vector  (@seta/agent-vector — P1)
 
-> **Status:** **P1 — own package `@seta/agent-vector` lands under `platform/agent/vector/`.** The package.json + `src/` + `migrations/` are NOT created in this PR; this SCOPE.md is the P1 contract and the directory placeholder. The package is created in a follow-up PR via `pnpm new:package` — see CLAUDE.md "CLI-only — packages and dependencies".
+> **Status:** **P1 — implemented.** Schema, migrations, errors, and integration harness landed in plan 1. Ingest path (`insertChunks`, `findExistingHashes`) and search path (`searchChunks`) land in plans 2 and 3 of the implementation series.
 >
 > **P1 scope override (2026-05-12):** setup.md §6 originally framed `@seta/agent-vector` as a P2 RAG primitive (the canonical pgvector pattern at `docs/setup.md:444-475` is prefaced with "When `@seta/agent-vector` lands in P2"). The spike report `09-memory.md:30, :60, :68` echoed the deferral. User-directed scope change: the **Seta FAQ Agent** requires RAG in P1, so the vector store moves to P1 alongside chunking / embeddings / rag. setup.md §6's P2 framing stays as-written; this SCOPE.md is the override citation point.
 
@@ -13,11 +13,13 @@ Critical correctness detail: pgvector's HNSW prefilter does NOT understand RLS /
 ## Responsibilities
 
 - **Owns:**
-  - The `agent_vector` Postgres schema — `agent_vector.chunks(id uuid pk, tenant_id uuid not null, source_id uuid not null, content text not null, embedding vector(1536))` plus the HNSW index `chunks_embedding_idx USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 128)`. RLS policy per setup.md §3 (tenant-isolation select / modify policies referencing `current_setting('app.tenant_id', true)::uuid`).
+  - The `agent_vector` Postgres schema — `agent_vector.chunks(id uuid pk, tenant_id uuid not null, source_id uuid not null, content text not null, content_hash char(64) not null, token_count integer not null, embedding vector(1536) not null, created_at timestamptz not null default now())` plus the unique index `chunks_tenant_source_hash_unique (tenant_id, source_id, content_hash)` and the HNSW index `chunks_embedding_idx USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 128)`. RLS policy per setup.md §3 (tenant-isolation select / modify policies referencing `current_setting('app.tenant_id', true)::uuid`).
   - Drizzle schema file (`src/schema/chunks.ts`), `drizzle.config.ts` (with `schemaFilter: ['agent_vector']`), and `migrations/` directory per CLAUDE.md "Schema-per-module (DDD)".
   - The `searchChunks(query: number[], k = 8, minSim = 0.3)` query that issues the three `SET LOCAL` HNSW tuning statements inside the `withTenant` transaction (setup.md §6 canonical pattern at lines 486-500).
   - Insert / upsert path for ingest — `insertChunks(rows: NewChunk[])` accepting batches.
   - The build-time SQL for index creation + the documented `maintenance_work_mem = '8GB'` / `max_parallel_maintenance_workers = 7` one-shot for bulk-build performance (setup.md §6 build-tuning block at lines 505-513).
+  - `findExistingHashes(sourceId, hashes)` — dedup pre-check used by `@seta/agent-rag.ingest`.
+  - `VectorQueryFailedError`, `VectorInsertFailedError` (extending `AgentError`).
 - **Does NOT own:**
   - Embedding generation — `@seta/agent-embeddings`. This package consumes `number[]` query vectors at the public boundary.
   - Chunking — `@seta/agent-chunking`. Inputs to `insertChunks` are pre-chunked.
@@ -34,38 +36,29 @@ Critical correctness detail: pgvector's HNSW prefilter does NOT understand RLS /
 ## Public interface (when implementation lands — P1)
 
 ```ts
-// declared in @seta/agent-vector/src/index.ts
+import type { DbSql } from '@seta/db'
 import type { InferSelectModel, InferInsertModel } from 'drizzle-orm'
 import { chunks } from './schema/chunks.js'
 
 export type Chunk = InferSelectModel<typeof chunks>
 export type NewChunk = InferInsertModel<typeof chunks>
 
-export interface SearchHit {
-  id: string
-  content: string
-  similarity: number   // 0..1, where 1 = identical (= 1 - cosineDistance)
-}
+export interface SearchHit { id: string; content: string; similarity: number }
+export interface SearchOptions { k?: number; minSim?: number }
 
-export function searchChunks(
-  query: number[],          // 1536-dim — matches @seta/agent-embeddings EMBEDDING_DIMENSIONS
-  k?: number,               // default 8
-  minSim?: number,          // default 0.3 — filter floor before LIMIT
-): Promise<SearchHit[]>
+export function searchChunks(sql: DbSql, query: number[], opts?: SearchOptions): Promise<SearchHit[]>
+export function insertChunks(sql: DbSql, rows: NewChunk[]): Promise<void>
+export function findExistingHashes(sql: DbSql, sourceId: string, hashes: string[]): Promise<Set<string>>
 
-export function insertChunks(rows: NewChunk[]): Promise<void>
-// Batch insert; caller is responsible for tenant_id on each row
-// (the package asserts tenant_id matches tenantContext.getTenantId() at boundary).
-
-// Drizzle exports for cross-package fixture construction
-export { chunks, agentVectorSchema } from './schema/chunks.js'
+export { chunks, agentVectorSchema } from './schema.js'
+export { VectorQueryFailedError, VectorInsertFailedError } from './errors.js'
 ```
 
 `tenantId` is never a function parameter — read from `tenantContext.getTenantId()` per CLAUDE.md ("Tenant id is never a function parameter"). RLS is the backstop; `withTenant` is the primary enforcement.
 
 ## Imports (when implementation lands — P1)
 
-- **Allowed internal:** `@seta/db` (pool + `withTenant` + role exports + migration runner integration), `@seta/tenant` (context reads), `@seta/agent-embeddings` (the `EMBEDDING_DIMENSIONS = 1536` constant only — keeps the dimension contract one-sided).
+- **Allowed internal:** `@seta/db` (pool + `withTenant` + role exports + migration runner integration), `@seta/tenancy` (context reads), `@seta/agent-embeddings` (the `EMBEDDING_DIMENSIONS = 1536` constant only — keeps the dimension contract one-sided), `@seta/observability` (structured logging), `@seta/agent-core` (`AgentError` base for `VectorQueryFailedError`, `VectorInsertFailedError`).
 - **Forbidden:** any `modules/channels/*`, any `modules/products/*`, `apps/*`. `@seta/middleware` route helpers (Hono / OpenAPI) are forbidden — this is a library, not a route module. The `@seta/middleware/errors` subpath (`DomainError` base) is allowed and is the canonical project contract per CLAUDE.md. No model SDKs. No HTTP server framework.
 - **External (pinned per setup.md §13):** `drizzle-orm@0.45.2`, `postgres@3.4.9` (transitively via `@seta/db`), `zod@4.4.3` (for `NewChunk` runtime refinement at the public surface).
 
@@ -80,6 +73,13 @@ Setup.md §11 dep direction confirms: `platform/agent/vector → platform/db`.
 - **All persistence through `withTenant`** — RLS is the backstop; never query the raw `sql` client. Setup.md §6 line 478 footgun #3: "the query goes through `withTenant`, so RLS still applies to vector search".
 - **Schema-per-module migrations** — `drizzle-kit generate` produces `migrations/*.sql` in this package; the top-level runner in `@seta/db` applies them in `OWNER_ORDER`. Never hand-edit migration SQL (CLAUDE.md "Schema-driven").
 - **Build-time tuning documented, not enforced at runtime** — `maintenance_work_mem = '8GB'` and `max_parallel_maintenance_workers = 7` (setup.md §6 lines 511-512) are operator-applied SET statements for the bulk-build session; the migration ships with `m = 16, ef_construction = 128` `WITH (...)` defaults baked in.
+- **Dedup by `(tenant_id, source_id, content_hash)` enforced at the unique
+  index.** Caller (`@seta/agent-rag`) computes the sha256 hex hash and supplies
+  it as `NewChunk.contentHash`. `insertChunks` uses `ON CONFLICT DO NOTHING`
+  so concurrent inserts cannot deadlock or throw.
+- **Drizzle builder for `insertChunks` and `findExistingHashes`; raw
+  `tx\`SELECT…\`` for `searchChunks`.** pgvector operators (`<=>`) and
+  `SET LOCAL hnsw.*` tuning are SQL-specific and stay explicit.
 - **No cross-schema FKs** — `chunks.source_id` references an FAQ-corpus row by id, not by FK. CLAUDE.md "Schema-per-module — no cross-schema foreign keys; cross-context references by ID only".
 - **1536d is hard-coded** — matches OpenAI `text-embedding-3-small`. Changing the model is a coordinated schema migration (different `vector(N)` column + index rebuild).
 
@@ -92,6 +92,10 @@ Setup.md §11 dep direction confirms: `platform/agent/vector → platform/db`.
 - **Do NOT cache search results in-process** — cross-request tenant leak risk. Caching is the consumer's concern (and even there, only with tenant-scoped LRU keys).
 - **Do NOT add Cohere rerank-v3 calls here** — explicit P2 per setup.md §6. The reranker, when it lands, sits in `@seta/agent-rag`, not in the vector layer.
 - **Do NOT add an FTS column to `chunks`** — FTS lives at the table level in the FAQ corpus owner (the consuming product's source-of-truth table). Vector and FTS results are unioned at the RAG layer via RRF (setup.md §6 "RRF fusion suffices").
+- **Do NOT hash inside `insertChunks`.** Dedup must happen before the OpenAI
+  embedding call so duplicates can be filtered out of the paid API request.
+- **Do NOT log chunk content.** Embeddings encode FAQ-corpus PII. Log only
+  counts, tenant id, source id, and hashes.
 - **Do NOT cross-schema FK** into `@seta/agent`'s `agent.write_continuations`, `@seta/agent-memory`'s `agent_memory.*`, or any product schema — reference by id (CLAUDE.md "Schema-per-module"; setup.md §3:123).
 
 ## Test strategy (when implementation lands)
@@ -105,10 +109,13 @@ Setup.md §11 dep direction confirms: `platform/agent/vector → platform/db`.
 
 ## Open questions
 
-1. **`agent_vector` schema name confirmed.** Setup.md §3 line 117's "future" schema list (referenced in `platform/agent/memory/SCOPE.md` open question #5) should be amended in a follow-up setup.md PR to include `agent_vector` alongside `agent_memory` and `agent_workflows`.
-2. **`@seta/db` `OWNER_ORDER` placement.** The runner list in `platform/db/SCOPE.md` must include `agent_vector` (added after `agent_memory` if memory depends on vector for P2 semantic recall — which it does shape-wise, even though P1 wiring is dormant; otherwise free placement). See `platform/db/SCOPE.md` for the canonical order.
+1. **Schema name confirmed.** `agent_vector` lands as the eleventh owner.
+2. **`OWNER_ORDER` placement decided.** `agent_vector` is appended after
+   `agent_workflows` (no inter-dependency; placement is by package-name
+   convention within the `agent_*` group).
 3. **`source_id` polymorphism** — chunks can come from FAQ articles, Planner task descriptions (future), Teams transcripts (future). `source_id` is an opaque UUID with no FK; the consumer table owns the resolution. Confirm this matches the FAQ corpus structure when RAG-survey output lands.
-4. **`ef_search` per-tenant override** — setup.md §6 line 517 hints at "bump to 200 for low-cardinality tenants". Should `searchChunks` accept a per-call `efSearch?: number` override, or pin to 100 in P1? Default: pin to 100, revisit after telemetry.
+4. **`efSearch` per-call override.** Pinned at 100 in P1. Revisit after
+   FAQ-corpus telemetry; low-cardinality tenants may benefit from 200.
 5. **`hnsw.max_scan_tuples = 20000` worst-case latency budget** — confirm against telemetry once FAQ corpus size is known.
 6. **Recall vs latency target** — setup.md §6 line 515: "1536-d cosine, ~1M vectors, 95th-percentile recall ≥0.95". Confirm the FAQ corpus is ≤ 1M chunks; if larger, the tuning parameters change.
 

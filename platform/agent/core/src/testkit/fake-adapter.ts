@@ -1,5 +1,9 @@
 import type { ModelAdapter } from '../models/adapter'
-import type { AdapterRequest, KernelChunk, KernelMessage, ModelStream, RunCtx } from '../types'
+import type { KernelChunk } from '../types/chunk'
+import type { AdapterRequest } from '../types/config'
+import type { KernelMessage } from '../types/message'
+import type { RunCtx } from '../types/run'
+import type { ModelStream } from '../types/stream'
 
 export interface FakeAdapterScript {
   chunks: KernelChunk[]

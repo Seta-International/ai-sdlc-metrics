@@ -29,6 +29,9 @@ export interface ToolLoopArgs {
   opts: RunLoopOptions
   initialMessages: KernelMessage[]
   tools: Tool[]
+  workingMemoryMsgCount?: number
+  refreshWorkingMemoryMessages?: () => Promise<KernelMessage[]>
+  saveIterationMessages?: (messages: KernelMessage[]) => Promise<void>
 }
 
 type LoopStopReason =
@@ -49,6 +52,7 @@ export async function* runToolLoop(
   const addedMessages: KernelMessage[] = []
   let messages = initialMessages
   let modelStepCount = 0
+  let persistedCount = 0
 
   const loopSpan = trace
     .getTracer('@seta/agent-core')
@@ -158,6 +162,18 @@ export async function* runToolLoop(
         }
       }
 
+      if (opts.onIterationComplete) {
+        await opts.onIterationComplete(accumulatedSteps)
+      }
+
+      if (args.saveIterationMessages) {
+        const iterMsgs = addedMessages.slice(persistedCount)
+        if (iterMsgs.length > 0) {
+          await args.saveIterationMessages(iterMsgs)
+          persistedCount = addedMessages.length
+        }
+      }
+
       if (opts.stopWhen) {
         const predicates = Array.isArray(opts.stopWhen) ? opts.stopWhen : [opts.stopWhen]
         let results: boolean[]
@@ -183,6 +199,11 @@ export async function* runToolLoop(
           endSpan('stop_when')
           return addedMessages
         }
+      }
+
+      if (args.workingMemoryMsgCount && args.refreshWorkingMemoryMessages) {
+        const refreshed = await args.refreshWorkingMemoryMessages()
+        messages = [...refreshed, ...messages.slice(args.workingMemoryMsgCount)]
       }
     }
   } finally {

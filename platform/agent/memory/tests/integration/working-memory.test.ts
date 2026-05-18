@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { withTenant } from '@seta/db'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import postgres from 'postgres'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { WorkingMemoryTooLargeError } from '../../src/errors'
@@ -129,7 +129,12 @@ describe('working memory', () => {
       await tenantContext.run({ tenantId: TENANT, userId: 'alice' }, async () => {
         await withTenant(testSql(), TENANT, async (tx) => {
           await expect(
-            upsertWorkingMemoryByResource(tx, TENANT, 'alice', 'a'.repeat(WORKING_MEMORY_BYTE_CAP + 1)),
+            upsertWorkingMemoryByResource(
+              tx,
+              TENANT,
+              'alice',
+              'a'.repeat(WORKING_MEMORY_BYTE_CAP + 1),
+            ),
           ).rejects.toBeInstanceOf(WorkingMemoryTooLargeError)
         })
       })

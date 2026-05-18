@@ -1,0 +1,64 @@
+/* platform/ui/src/tokens/tokens.css */
+:root {
+  /* Primary */
+  --color-primary: #5e6ad2;
+  --color-primary-hover: #828fff;
+  --color-primary-focus: #5e69d1;
+  --color-primary-subtle: #eef0fb;
+  --color-on-primary: #ffffff;
+
+  /* Canvas */
+  --color-canvas: #ffffff;
+  --color-canvas-soft: #f7f8f8;
+  --color-canvas-subtle: #f1f2f4;
+
+  /* Text on light canvas */
+  --color-ink: #1a1a2e;
+  --color-ink-secondary: #3d3d5c;
+  --color-ink-mute: #62666d;
+  --color-ink-subtle: #8a8f98;
+
+  /* Sidebar (dark navy) */
+  --color-sidebar-bg: #1c1e54;
+  --color-sidebar-surface-1: #232558;
+  --color-sidebar-surface-2: #2d2f6b;
+  --color-sidebar-hairline: rgba(255, 255, 255, 0.08);
+  --color-on-sidebar: #f7f8f8;
+  --color-on-sidebar-muted: #d0d6e0;
+  --color-on-sidebar-subtle: #8a8f98;
+
+  /* Agent panel */
+  --color-agent-bg: #fafafa;
+  --color-agent-surface: #f1f2f4;
+
+  /* Borders */
+  --color-hairline: #e5e7eb;
+  --color-hairline-strong: #c8cdd5;
+
+  /* Shadow base */
+  --color-shadow-base: rgba(15, 23, 42, 0.08);
+
+  /* Semantic */
+  --color-success: #27a644;
+  --color-success-soft: #dcfce7;
+  --color-warning: #d97706;
+  --color-warning-soft: #fef3c7;
+  --color-error: #dc2626;
+  --color-error-soft: #fee2e2;
+  --color-info: #5e6ad2;
+  --color-info-soft: #eef0fb;
+  --color-neutral: #8a8f98;
+  --color-neutral-soft: #f1f2f4;
+
+  /* Auth overlay (login only) */
+  --color-overlay: rgba(0, 0, 0, 0.45);
+}
+
+html,
+body {
+  font-feature-settings: "ss01";
+}
+
+.tnum {
+  font-feature-settings: "tnum";
+}

@@ -4,8 +4,8 @@ import { OWNER_ORDER } from './migrate'
 describe('migration runner', () => {
   it('applies owners in dependency order', () => {
     expect([...OWNER_ORDER]).toEqual([
-      'auth',
-      'tenant',
+      'identity',
+      'tenancy',
       'directory',
       'oauth',
       'audit',
@@ -14,7 +14,15 @@ describe('migration runner', () => {
       'agent',
       'agent_memory',
       'agent_workflows',
+      'agent_vector',
     ])
+  })
+
+  it('places tenancy after identity', () => {
+    const identityIdx = OWNER_ORDER.indexOf('identity')
+    const tenancyIdx = OWNER_ORDER.indexOf('tenancy')
+    expect(identityIdx).toBeGreaterThanOrEqual(0)
+    expect(tenancyIdx).toBe(identityIdx + 1)
   })
 
   it('places agent_memory after agent', () => {
@@ -29,5 +37,12 @@ describe('migration runner', () => {
     const wfIdx = OWNER_ORDER.indexOf('agent_workflows')
     expect(memIdx).toBeGreaterThanOrEqual(0)
     expect(wfIdx).toBeGreaterThan(memIdx)
+  })
+
+  it('places agent_vector after agent_workflows', () => {
+    const wfIdx = OWNER_ORDER.indexOf('agent_workflows')
+    const vecIdx = OWNER_ORDER.indexOf('agent_vector')
+    expect(wfIdx).toBeGreaterThanOrEqual(0)
+    expect(vecIdx).toBeGreaterThan(wfIdx)
   })
 })

@@ -19,10 +19,18 @@ import {
   createPlannerSyncWorker,
   plannerConnector,
 } from '@seta/connector-ms365-planner'
-import { createConnectorRegistry } from '@seta/connector-registry'
-import { onError, Unauthorized } from '@seta/middleware'
+import { createConnectorAdminRoutes, createConnectorRegistry } from '@seta/connector-registry'
+import {
+  createSessionStore,
+  createSsoRoutes,
+  EntraSsoProvider,
+  GoogleSsoProvider,
+  isSuperadmin,
+  requireSession,
+} from '@seta/identity'
+import { onError, rateLimit, Unauthorized } from '@seta/middleware'
 import { createGraphFetch } from '@seta/ms-graph'
-import { createTeamsHandler } from '@seta/ms-teams'
+import { mockTeamsHandler, routes as teamsRoutes } from '@seta/ms-teams'
 import {
   createKmsClient,
   createOAuthRoutes,
@@ -31,22 +39,24 @@ import {
   EntraProvider,
 } from '@seta/oauth'
 import { logger } from '@seta/observability'
+import { createContinuationStore, createPlannerTools, PLANNER_PROFILE_SEED } from '@seta/planner'
 import {
-  createContinuationStore,
-  createPlannerTools,
-  createTaskIndexer,
-  PLANNER_PROFILE_SEED,
-} from '@seta/planner'
-import {
+  createMeContextProvider,
+  createTenancyRoutes,
+  findOrAttachUser,
   getActiveTenantIds,
   isConnectorConsented,
   recordConsent,
+  type TenantMembershipRole,
   tenantContext,
-} from '@seta/tenant'
+} from '@seta/tenancy'
+import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { agentMemory, agentRegistry } from './agent'
 import { sql } from './db'
-import { env } from './env'
+import { deployedApps, enabledSsoProviders, env, superadminEmails } from './env'
+import { lastAppMiddleware, verifyLastApp } from './last-app-middleware'
+import { runSeed } from './seed'
 
 // ── Infrastructure ────────────────────────────────────────────────────────────
 
@@ -72,13 +82,65 @@ const entra = new EntraProvider({
   clientSecret: env.ENTRA_CLIENT_SECRET,
 })
 
-// ── Tool registry ─────────────────────────────────────────────────────────────
+// ── SSO providers + routes ────────────────────────────────────────────────────
 
-const embeddingsStub = {
-  embed: async (): Promise<never> => {
-    throw new Error('No embeddings provider configured')
+const entraSso = new EntraSsoProvider({
+  clientId: env.ENTRA_CLIENT_ID,
+  clientSecret: env.ENTRA_CLIENT_SECRET,
+  tenant: env.ENTRA_SSO_TENANT,
+})
+const googleSso = new GoogleSsoProvider({
+  clientId: env.GOOGLE_CLIENT_ID,
+  clientSecret: env.GOOGLE_CLIENT_SECRET,
+})
+
+const meContext = createMeContextProvider({
+  sql: sql as never,
+  deployedApps: deployedApps(),
+})
+
+const sso = createSsoRoutes({
+  providers: { entra: entraSso, google: googleSso },
+  enabledProviders: enabledSsoProviders(),
+  sql,
+  sessionCookie: {
+    name: 'seta_sess',
+    hmacKey: env.SESSION_HMAC_KEY,
+    ttlSec: env.SESSION_TTL_SEC,
+    secure: env.NODE_ENV === 'production',
   },
-} as never
+  redirectBase: env.PUBLIC_BASE_URL,
+  meContext,
+  tenancy: { findOrAttachUser: (uid) => findOrAttachUser(sql as never, uid) },
+  verifyLastApp: (raw) => verifyLastApp(raw, env.SESSION_HMAC_KEY),
+})
+
+// ── Tenancy routes ────────────────────────────────────────────────────────────
+
+const sessionStore = createSessionStore(sql)
+const requireSessionMiddleware = requireSession({
+  cookieName: 'seta_sess',
+  hmacKey: env.SESSION_HMAC_KEY,
+  sessionStore,
+})
+
+const tenancyRoutes = createTenancyRoutes({
+  sql: sql as never,
+  requireSession: requireSessionMiddleware,
+  membershipLookup: async (userId: string) => {
+    const rows = (await sql`
+      SELECT role FROM tenant.tenant_members
+      WHERE user_id = ${userId} AND tenant_id = ${tenantContext.getTenantId()}
+      LIMIT 1
+    `) as Array<{ role: TenantMembershipRole }>
+    return rows[0] ?? null
+  },
+  invalidateUserSessions: (uid: string) => sessionStore.deleteByUserId(uid),
+  isSuperadmin: (uid: string) => isSuperadmin(sql as never, uid),
+  audit,
+})
+
+// ── Tool registry ─────────────────────────────────────────────────────────────
 
 const continuationStore = createContinuationStore({
   sql: sql as never,
@@ -121,8 +183,6 @@ const plannerTools = createPlannerTools({
   buildGraph: () => graph,
   continuationStore,
   etagStore,
-  embeddings: embeddingsStub,
-  vector: embeddingsStub,
   ttlMinutes: env.CONTINUATION_TTL_MIN,
   batchConcurrency: env.PLANNER_BATCH_CONCURRENCY,
 })
@@ -170,21 +230,54 @@ const agentRouter = createAgentRouter({
   adapters: agentRegistry,
 })
 
-// ── Teams handler ─────────────────────────────────────────────────────────────
-
-const teamsHandler = createTeamsHandler({
-  sql: sql as never,
-  toolRegistry,
-  memory: threadStore,
-  workflowEngine,
-  adapters: agentRegistry,
-})
-
 // ── Hono app ──────────────────────────────────────────────────────────────────
 
 const app = new Hono().onError(onError)
 
+app.use(
+  '*',
+  lastAppMiddleware({ hmacKey: env.SESSION_HMAC_KEY, secure: env.NODE_ENV === 'production' }),
+)
+
+if (env.NODE_ENV === 'development') {
+  app.get('/', (c) => c.redirect('/console/'))
+
+  const FRONTEND_PORTS: Record<string, number> = {
+    console: 5174,
+    studio: 5180,
+  }
+  for (const [prefix, port] of Object.entries(FRONTEND_PORTS)) {
+    app.all(`/${prefix}/*`, async (c) => {
+      const target = `http://localhost:${port}${c.req.path}${c.req.url.includes('?') ? `?${c.req.url.split('?')[1]}` : ''}`
+      const init: RequestInit = {
+        method: c.req.method,
+        headers: c.req.raw.headers,
+      }
+      if (c.req.method !== 'GET' && c.req.method !== 'HEAD') {
+        init.body = c.req.raw.body
+        ;(init as { duplex?: string }).duplex = 'half'
+      }
+      const upstream = await fetch(target, init)
+      return upstream
+    })
+    app.all(`/${prefix}`, async (c) => {
+      const target = `http://localhost:${port}/${prefix}`
+      return fetch(target, { method: c.req.method, headers: c.req.raw.headers })
+    })
+  }
+}
+
 app.get('/healthz', (c) => c.json({ ok: true }))
+
+const ipKey = (c: Context) => c.req.header('x-forwarded-for') ?? 'anon'
+const userKey = (c: Context) => (c.get('userId') as string | undefined) ?? 'anon'
+
+app.use('/sso/login/*', rateLimit({ rps: 5, burst: 20, key: ipKey }))
+app.use('/sso/callback/*', rateLimit({ rps: 5, burst: 30, key: ipKey }))
+app.use('/members*', rateLimit({ rps: 10, burst: 30, key: userKey }))
+app.use('/admin/*', rateLimit({ rps: 10, burst: 30, key: userKey }))
+
+app.route('/', sso)
 
 app.route(
   '/oauth',
@@ -197,31 +290,80 @@ app.route(
     redirectBase: env.PUBLIC_BASE_URL,
     onConsented: async ({ tenantId, connectorIds, scopesGranted }) =>
       recordConsent(sql as never, { tenantId, connectorIds, scopesGranted }),
+    onConsentRedirect: ({ connectorIds, ok, error }) => {
+      const cid = connectorIds[0] ?? 'unknown'
+      const params = new URLSearchParams({ ok: ok ? '1' : '0' })
+      if (error) params.set('error', error)
+      return `${env.PUBLIC_STUDIO_URL}/studio/connectors/${cid}/consent?${params.toString()}`
+    },
   }),
 )
 
+// Shared with createOAuthRoutes — same provider, same state store, same union.
+const buildConsentUrl: Parameters<typeof createConnectorAdminRoutes>[0]['buildConsentUrl'] =
+  async ({ tenantId, providerId, connectorIds, tenantHint }) => {
+    const providers: Record<string, typeof entra> = { entra }
+    const provider = providers[providerId]
+    if (!provider) throw new Error(`unknown provider '${providerId}'`)
+    const union = registry.scopeUnion(connectorIds)
+    const state = await stateStore.mint({ providerId, connectorIds })
+    const url = provider.buildAdminConsentUrl({
+      scopes: union.application.concat(union.delegated),
+      redirectUri: `${env.PUBLIC_BASE_URL}/oauth/${providerId}/callback`,
+      state,
+      tenantHint: tenantHint ?? tenantId,
+    })
+    return { url, state }
+  }
+
+app.route(
+  '/',
+  createConnectorAdminRoutes({
+    registry,
+    isConsented: async (tenantId, connectorId) =>
+      isConnectorConsented(sql as never, tenantId, connectorId),
+    lookupMembership: async ({ userId, tenantId }) => {
+      const rows = (await sql`
+        SELECT role FROM tenant.tenant_members
+        WHERE user_id = ${userId} AND tenant_id = ${tenantId}
+        LIMIT 1
+      `) as Array<{ role: 'owner' | 'admin' | 'member' }>
+      return rows[0] ?? null
+    },
+    buildConsentUrl,
+  }),
+)
+
+app.route('/', tenancyRoutes)
+
 app.route('/agent', agentRouter)
 
-app.post('/teams/messages', async (c) => {
-  const tenantId = c.req.header('x-tenant-id') ?? tenantContext.getTenantId()
-  const userId = c.req.header('x-user-id') ?? ''
-  const activity = await c.req.json()
-  if (activity.type !== 'message') return c.json({ ok: true })
-  const result = await teamsHandler(activity, { tenantId, userId })
-  return c.json(result)
-})
+app.route(
+  '/teams',
+  teamsRoutes(mockTeamsHandler, {
+    botId: env.MS_BOT_ID,
+    botSecret: env.MS_BOT_SECRET,
+    botTenantId: env.MS_BOT_TENANT_ID,
+    skipJwtVerify: env.TEAMS_SKIP_JWT_VERIFY,
+  }),
+)
 
 // ── Boot: seed agent profiles ─────────────────────────────────────────────────
 
 async function boot() {
+  await runSeed({
+    sql: sql as never,
+    tenant: {
+      id: env.SETA_SEED_TENANT_ID,
+      slug: env.SETA_SEED_TENANT_SLUG,
+      name: env.SETA_SEED_TENANT_NAME,
+    },
+    superadminEmails: superadminEmails(),
+  })
+  logger.info({ tenantId: env.SETA_SEED_TENANT_ID }, 'tenant seed applied')
+
   await seedAgentProfiles(sql as never, [PLANNER_PROFILE_SEED, ANALYTICS_PROFILE_SEED])
   logger.info('agent profiles seeded')
-
-  const taskIndexer = createTaskIndexer({
-    sql: sql as never,
-    embeddings: embeddingsStub,
-    vector: embeddingsStub,
-  })
 
   const getAppToken = async (tenantId: string): Promise<string> => {
     const bundle = await entra.acquireAppOnly(tenantId, ['https://graph.microsoft.com/.default'])
@@ -233,11 +375,7 @@ async function boot() {
     graph,
     getAppToken,
     intervalMs: env.PLANNER_SYNC_INTERVAL_MS,
-    afterSync: async (changedTaskIds) => {
-      const tenantId = tenantContext.getTenantId()
-      if (changedTaskIds.length > 0) {
-        await taskIndexer.indexTasks(tenantId, changedTaskIds)
-      }
+    afterSync: async (_changedTaskIds) => {
       await refreshAnalyticsViews(sql as never)
     },
   })
@@ -249,16 +387,25 @@ async function boot() {
 
 // ── Server start ──────────────────────────────────────────────────────────────
 
-const server = serve({ fetch: app.fetch, port: env.PORT }, async (info) => {
-  logger.info({ port: info.port }, 'api listening')
-  await boot().catch((err) => logger.error({ err }, 'boot failed'))
-})
-
-const shutdown = (signal: string) => async () => {
-  logger.info({ signal }, 'shutting down')
-  await new Promise<void>((resolve) => server.close(() => resolve()))
-  await sql.end()
-  process.exit(0)
+export function buildApp() {
+  return app
 }
-process.on('SIGTERM', shutdown('SIGTERM'))
-process.on('SIGINT', shutdown('SIGINT'))
+
+export { sql, sso }
+
+const isMain = import.meta.url === `file://${process.argv[1]}`
+if (isMain) {
+  const server = serve({ fetch: app.fetch, port: env.PORT }, async (info) => {
+    logger.info({ port: info.port }, 'api listening')
+    await boot().catch((err) => logger.error({ err }, 'boot failed'))
+  })
+
+  const shutdown = (signal: string) => async () => {
+    logger.info({ signal }, 'shutting down')
+    await new Promise<void>((resolve) => server.close(() => resolve()))
+    await sql.end()
+    process.exit(0)
+  }
+  process.on('SIGTERM', shutdown('SIGTERM'))
+  process.on('SIGINT', shutdown('SIGINT'))
+}

@@ -5,7 +5,7 @@ import {
   queryVisiblePlanIds,
 } from '@seta/connector-ms365-planner'
 import { logger } from '@seta/observability'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import { z } from 'zod'
 import type { AnalyticsToolDeps } from './workload_by_assignee'
 

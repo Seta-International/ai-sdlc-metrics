@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { createPool, withTenant } from '@seta/db'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { AgentMemoryProvider } from '../../src/provider'
 import { ensureMigrations, TEST_DATABASE_URL, testSql, truncateMemoryTables } from './_helpers'

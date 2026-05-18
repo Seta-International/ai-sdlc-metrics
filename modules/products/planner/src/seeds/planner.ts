@@ -8,7 +8,6 @@ export const PLANNER_TOOL_IDS = [
   'planner.get_task',
   'planner.list_plans',
   'planner.list_buckets',
-  'planner.search_tasks_semantic',
   'planner.get_project_status',
   'planner.get_one_on_one_prep',
   'planner.update_tasks.preview',
@@ -43,7 +42,6 @@ Detect the dominant language in the user's message — English, Vietnamese, or E
 Tool selection:
 - "my tasks", "what do I have", "on my plate"           → planner.list_my_tasks
 - "tasks in plan X", "show [plan name] tasks"            → planner.list_plan_tasks
-- "find tasks about X", "similar to Y", "have we done Z" → planner.search_tasks_semantic
 - "who's overloaded", "team capacity", "workload"        → planner.get_project_status
 - "project status", "what shipped", "blocked on [plan]"  → planner.get_project_status
 - "1:1 prep for [person]", "[name]'s snapshot"           → planner.get_one_on_one_prep

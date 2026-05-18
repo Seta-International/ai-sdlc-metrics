@@ -31,7 +31,7 @@ run before any application import; see setup.md §8 "OTel init order").
     would be the bug.
   - **Request-scoped child loggers** (`requestLogger(reqId, tenantId)` per setup.md §8).
     That helper belongs to `@seta/middleware`, which wires the per-request child onto
-    `c.var.log` and reads tenant id from `@seta/tenant`'s ALS. This package stays
+    `c.var.log` and reads tenant id from `@seta/tenancy`'s ALS. This package stays
     request-agnostic.
   - **Concrete alert transports** (Slack webhook, PagerDuty, SMTP). Each ships in its own
     package; this package only defines `AlertSink` and the `MultiSink` fan-out.
@@ -96,7 +96,7 @@ Planned (setup.md §8 + Phase-1 spike):
   `@seta/*`.
 - **Forbidden:**
   - `@seta/middleware` — would invert: middleware imports `logger` from here.
-  - `@seta/tenant` — request context belongs at the HTTP seam (middleware), not in the
+  - `@seta/tenancy` — request context belongs at the HTTP seam (middleware), not in the
     logger. Per `07-request-context.md` § "Deliberately avoid", logger reads tenant id
     from the *bound child*, not by reaching into ALS.
   - any `modules/*` — CLAUDE.md "Boundaries": `platform/*` depends on nothing in `modules/`.
@@ -172,7 +172,7 @@ Planned (setup.md §8 + Phase-1 spike):
   dep is not yet installed. Need to decide whether prod logs flow over OTLP or stay on
   stdout for a sidecar collector.
 - **`requestLogger(reqId, tenantId?)` location.** setup.md §8:673 places the helper here;
-  Phase-1 `07-request-context.md` keeps `@seta/tenant` as the ALS reader. Pragmatic
+  Phase-1 `07-request-context.md` keeps `@seta/tenancy` as the ALS reader. Pragmatic
   resolution: helper lives in `@seta/middleware` (it knows the Hono `c`), takes a logger +
   ids as args, calls `logger.child(...)`.
 - **`alert-sink` integration with `@seta/audit`.** Setup.md §3 splits alerts (operator

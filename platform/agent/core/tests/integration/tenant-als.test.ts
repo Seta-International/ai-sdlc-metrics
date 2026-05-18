@@ -10,7 +10,7 @@ import {
   run,
 } from '@seta/agent-core'
 import { setupLLMRecording } from '@seta/agent-core/testkit'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 const RECORDINGS_DIR = path.resolve(__dirname, '../../__recordings__')

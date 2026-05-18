@@ -1,0 +1,39 @@
+{
+  "name": "@seta/identity",
+  "version": "0.1.0",
+  "description": "Identity: SSO flow, users, sessions, API keys, superadmins",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --sourcemap",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "license": "Apache-2.0",
+  "type": "module",
+  "private": true,
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@hono/zod-openapi": "1.4.0",
+    "@seta/db": "workspace:*",
+    "@seta/middleware": "workspace:*",
+    "@seta/observability": "workspace:*",
+    "dotenv": "17.4.2",
+    "drizzle-orm": "0.45.2",
+    "hono": "4.12.18",
+    "jose": "6.2.3",
+    "postgres": "3.4.9",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@seta/tsconfig": "workspace:*",
+    "@types/node": "^25.7.0",
+    "drizzle-kit": "0.31.10",
+    "tsup": "8.5.1",
+    "typescript": "6.0.3",
+    "vitest": "4.1.6"
+  }
+}

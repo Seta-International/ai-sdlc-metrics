@@ -1,6 +1,6 @@
 import type { Tool } from '@seta/agent-core'
 import { logger } from '@seta/observability'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import { z } from 'zod'
 
 const log = logger.child({ component: 'planner.list_my_tasks' })

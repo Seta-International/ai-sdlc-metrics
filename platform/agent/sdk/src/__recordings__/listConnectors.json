@@ -1,0 +1,19 @@
+{
+  "request": { "method": "GET", "url": "/tenants/00000000-0000-0000-0000-0000000000a1/connectors" },
+  "response": {
+    "status": 200,
+    "body": [
+      {
+        "id": "ms365-planner",
+        "providerId": "entra",
+        "displayName": "Microsoft Planner",
+        "description": "Sync Planner tasks.",
+        "customerFacingRationale": "Required so the agent can read tasks.",
+        "requiredScopes": { "delegated": ["Tasks.Read"], "application": ["Tasks.Read.All"] },
+        "capabilities": { "syncable": true, "writes": false },
+        "status": "pending",
+        "lastConsentedAt": null
+      }
+    ]
+  }
+}

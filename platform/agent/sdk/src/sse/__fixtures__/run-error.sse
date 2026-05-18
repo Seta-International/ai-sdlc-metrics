@@ -1,0 +1,6 @@
+event: text
+data: {"type":"text","delta":"working"}
+
+event: error
+data: {"type":"error","error":{"id":"e1","code":"TOOL_FAILED","domain":"TOOL","category":"THIRD_PARTY","message":"boom"}}
+

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { KernelMessage, MemoryContext } from '@seta/agent-core'
-import { tenantContext } from '@seta/tenant'
+import { tenantContext } from '@seta/tenancy'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { AgentMemoryProvider } from '../../src/provider'
 import { ensureMigrations, testSql, truncateMemoryTables } from './_helpers'

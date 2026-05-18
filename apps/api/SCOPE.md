@@ -46,7 +46,7 @@ gracefully on SIGTERM/SIGINT.
     no application tables".
   - Auth verification, tenant extraction, error mapping, request-id, rate-limit
     middleware — those are factories from `@seta/middleware` / `@seta/auth` /
-    `@seta/tenant` / `@seta/observability` that the composition root installs,
+    `@seta/tenancy` / `@seta/observability` that the composition root installs,
     not implements.
   - Any logic conditional on `process.env.X` outside `env.ts` — CLAUDE.md
     "Never read `process.env.X` elsewhere".
@@ -58,8 +58,11 @@ gracefully on SIGTERM/SIGINT.
 - `src/env.ts` — Zod schema parsing `process.env` once at module load via
   `Env.parse(process.env)`. Fields: `NODE_ENV` (enum, default `development`),
   `PORT` (coerced number, default `8080`), `DATABASE_URL`, `PUBLIC_BASE_URL`,
-  `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET`, `KMS_PROVIDER` (enum `'aws'|'env'`,
-  default `'env'`), `DEV_DEK_BASE64?`, `AWS_REGION?`, `KMS_KEY_ARN?`. The file
+  `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET`, `ENTRA_SSO_TENANT` (default
+  `common`), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_HMAC_KEY`
+  (≥32 chars), `SESSION_TTL_SEC` (default `86400`), `KMS_PROVIDER` (enum
+  `'aws'|'env'`, default `'env'`), `DEV_DEK_BASE64?`, `AWS_REGION?`,
+  `KMS_KEY_ARN?`. The file
   also `import 'dotenv/config'` for local development. **Single export: `env`.**
 - `src/instrumentation.ts` — currently a placeholder (`export {}`) loaded via
   `--import`. The file exists so the OTel boot pattern is correct from day one
@@ -93,9 +96,20 @@ gracefully on SIGTERM/SIGINT.
 
 Endpoints currently mounted:
 - `GET  /healthz`
+- `POST /sso/login/:provider`, `GET /sso/callback/:provider`, `POST /sso/logout`,
+  `GET /me` — surface owned by `@seta/identity` `createSsoRoutes`.
 - `GET  /oauth/*` and `POST /oauth/*` — surface owned by `@seta/oauth`
   `createOAuthRoutes`; covers admin-consent URL issuance and the OAuth
-  callback per CLAUDE.md "Connector consent" + setup.md §4.
+  callback per CLAUDE.md "Connector consent" + setup.md §4. The callback
+  optionally redirects to `${PUBLIC_STUDIO_URL}/tenants/:id/connectors/:cid/consent`
+  via the `onConsentRedirect` hook (PR-4 — wires Studio's consent landing).
+- `GET  /tenants` — surface owned by `@seta/tenancy` `createTenantRoutes`;
+  returns the membership rows joined from `tenant.tenant_members`.
+- `GET  /tenants/:id/connectors`, `POST /tenants/:id/connectors/:cid/consent-url`
+  — surface owned by `@seta/connector-registry` `createConnectorAdminRoutes`.
+  Each route is gated by a `tenant.tenant_members` lookup; the consent-url
+  endpoint delegates to a composition-root closure that reuses the same
+  provider + state-store as `/oauth/:provider/consent-url`.
 
 ## Public interface
 
@@ -103,6 +117,10 @@ This is an app, not a library — the "public interface" is HTTP and env.
 
 **HTTP endpoints (current).**
 - `GET /healthz` — liveness, returns `{ ok: true }`.
+- `POST /sso/login/:provider` — issues PKCE handshake URL (provider ∈ `entra | google`).
+- `GET  /sso/callback/:provider` — exchanges code, sets `seta_sess` cookie, 302 redirects.
+- `POST /sso/logout` — clears session.
+- `GET  /me` — returns `{ user, tenants, csrfToken }` or 401 RFC 7807 problem JSON.
 - `GET|POST /oauth/...` — admin-consent + callback routes mounted from
   `@seta/oauth`. Exact subpaths are owned by `createOAuthRoutes`; this
   package only owns the `/oauth` mount prefix.
@@ -122,8 +140,14 @@ This is an app, not a library — the "public interface" is HTTP and env.
 | `PORT` | number (coerced) | `8080` | no |
 | `DATABASE_URL` | URL | — | yes |
 | `PUBLIC_BASE_URL` | URL | — | yes |
+| `PUBLIC_STUDIO_URL` | URL | — | yes — Studio origin used by oauth `onConsentRedirect` |
 | `ENTRA_CLIENT_ID` | non-empty string | — | yes |
 | `ENTRA_CLIENT_SECRET` | non-empty string | — | yes |
+| `ENTRA_SSO_TENANT` | non-empty string | `common` | no |
+| `GOOGLE_CLIENT_ID` | non-empty string | — | yes |
+| `GOOGLE_CLIENT_SECRET` | non-empty string | — | yes |
+| `SESSION_HMAC_KEY` | string (≥32 chars) | — | yes |
+| `SESSION_TTL_SEC` | positive int | `86400` | no |
 | `KMS_PROVIDER` | `'aws' \| 'env'` | `env` | no |
 | `DEV_DEK_BASE64` | string | — | no (required when `KMS_PROVIDER=env`) |
 | `AWS_REGION` | string | — | no (required when `KMS_PROVIDER=aws`) |
@@ -144,7 +168,7 @@ read by `@opentelemetry/sdk-node` itself, not by `env.ts` (setup.md §8).
   `@seta/connector-ms365-directory`, `@seta/connector-ms365-planner`,
   `@seta/connector-registry`, `@seta/db`, `@seta/directory`, `@seta/middleware`,
   `@seta/ms-graph`, `@seta/oauth`, `@seta/observability`, `@seta/teams`,
-  `@seta/tenant`.
+  `@seta/tenancy`.
 - **External (pinned per setup.md §13 `@seta/api` block):**
   - `hono@4.12.18` (router)
   - `@hono/node-server@2.0.2` (Node adapter — `serve`)
