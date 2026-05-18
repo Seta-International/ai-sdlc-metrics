@@ -30,7 +30,7 @@ For **real SSO login** you need two Entra app registrations (different purposes)
 
 | App | Vars | Purpose |
 | --- | --- | --- |
-| Platform connector app | `PLATFORM_CONNECTOR_CLIENT_ID` / `_SECRET` | Graph API access (Planner, Directory). Seta-operated multi-tenant app; customer admin grants admin-consent once. |
+| Platform connector app | `PLATFORM_CONNECTOR_CLIENT_ID` / `_SECRET` | A single multi-tenant Entra app reg, owned by Seta. Each customer's admin grants admin-consent in their own M365 tenant; the connector subsystem then reads THAT customer's Planner / Directory / etc. Each customer has their own M365 data — this app is just the shared credential used to call Graph on their behalf. |
 | Per-tenant SSO app | `BOOTSTRAP_SSO_CLIENT_ID` / `_SECRET`, `BOOTSTRAP_ENTRA_DIRECTORY_ID`, `BOOTSTRAP_SSO_EMAIL_DOMAINS` | User sign-in for the bootstrap tenant. Single-tenant; registered inside the tenant's own Entra directory. |
 
 See **First-time SSO setup** below for the step-by-step app-reg walkthrough.
