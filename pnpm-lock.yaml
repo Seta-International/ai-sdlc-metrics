@@ -80,6 +80,9 @@ importers:
       '@seta/identity':
         specifier: workspace:*
         version: link:../../platform/identity
+      '@seta/mailer':
+        specifier: workspace:*
+        version: link:../../platform/mailer
       '@seta/middleware':
         specifier: workspace:*
         version: link:../../platform/middleware

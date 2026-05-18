@@ -42,6 +42,7 @@ export const EnvSchema = z.object({
   OPENAI_EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
   AGENT_EMBEDDINGS_PROVIDER: z.enum(['openai', 'azure-openai', 'none']).default('none'),
   APPS_DEPLOYED: z.string().default('studio'),
+  MAILER_FROM_ADDRESS_DEFAULT: z.string().email().optional(),
 })
 
 export const env = EnvSchema.parse(process.env)
