@@ -135,6 +135,9 @@ importers:
 
   apps/console:
     dependencies:
+      '@seta/agent-sdk':
+        specifier: workspace:*
+        version: link:../../platform/agent/sdk
       '@seta/identity-client':
         specifier: workspace:*
         version: link:../../platform/identity-client

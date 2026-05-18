@@ -293,7 +293,7 @@ app.route(
       const cid = connectorIds[0] ?? 'unknown'
       const params = new URLSearchParams({ ok: ok ? '1' : '0' })
       if (error) params.set('error', error)
-      return `${env.PUBLIC_STUDIO_URL}/studio/connectors/${cid}/consent?${params.toString()}`
+      return `${env.PUBLIC_BASE_URL}/console/connectors/${cid}/consent?${params.toString()}`
     },
   }),
 )
