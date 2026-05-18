@@ -186,4 +186,71 @@ describe('@seta/agent-rag — ingest (integration)', () => {
       expect(rows2.length).toBe(after2)
     },
   )
+
+  it.skipIf(!shouldRun('ingest-partial-overlap'))(
+    'case 3: partial-overlap re-ingest embeds only the new chunk',
+    async () => {
+      recording = setupLLMRecording({
+        name: 'ingest-partial-overlap',
+        recordingsDir: RECORDINGS_DIR,
+      })
+      recording.start()
+      const tenantId = randomUUID()
+      const sourceId = randomUUID()
+      const rag = createAgentRag({ sql: testSql(), embeddings: buildEmbeddings() })
+
+      const A = 'first chunk content alpha'
+      const B = 'second chunk content beta'
+      const D = 'fourth chunk content delta'
+
+      await tenantContext.run({ tenantId }, async () => {
+        // Block 1: A and B are new; each embeds.
+        await rag.ingest(sourceId, A)
+        await rag.ingest(sourceId, B)
+        // Block 2: A and B dedup-hit (no embed); D is new (embeds).
+        await rag.ingest(sourceId, A)
+        await rag.ingest(sourceId, B)
+        await rag.ingest(sourceId, D)
+      })
+
+      const rows = await withTenant(testSql(), tenantId, async (tx) => {
+        return tx<{ content: string }[]>`
+          SELECT content FROM agent_vector.chunks
+          WHERE source_id = ${sourceId}
+          ORDER BY created_at ASC
+        `
+      })
+      expect(rows.map((r) => r.content)).toEqual([A, B, D])
+    },
+  )
+
+  it.skipIf(!shouldRun('ingest-cross-source'))(
+    'case 4: same content under two sourceIds inserts two rows',
+    async () => {
+      recording = setupLLMRecording({
+        name: 'ingest-cross-source',
+        recordingsDir: RECORDINGS_DIR,
+      })
+      recording.start()
+      const tenantId = randomUUID()
+      const src1 = randomUUID()
+      const src2 = randomUUID()
+      const rag = createAgentRag({ sql: testSql(), embeddings: buildEmbeddings() })
+      const text = 'cross-source content X'
+      await tenantContext.run({ tenantId }, async () => {
+        await rag.ingest(src1, text)
+        await rag.ingest(src2, text)
+      })
+      const rows = await withTenant(testSql(), tenantId, async (tx) => {
+        return tx<{ source_id: string }[]>`
+          SELECT source_id FROM agent_vector.chunks
+          WHERE source_id IN (${src1}, ${src2})
+          ORDER BY source_id ASC
+        `
+      })
+      expect(rows).toHaveLength(2)
+      const ids = rows.map((r) => r.source_id).sort()
+      expect(ids).toEqual([src1, src2].sort())
+    },
+  )
 })
