@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm'
 import {
   char,
   integer,
+  jsonb,
   pgPolicy,
   pgSchema,
   text,
@@ -29,6 +30,7 @@ export const chunks = agentVectorSchema.table(
     content: text('content').notNull(),
     contentHash: char('content_hash', { length: 64 }).notNull(),
     tokenCount: integer('token_count').notNull(),
+    span: jsonb('span').$type<{ startChar: number; endChar: number } | null>(),
     embedding: vector('embedding', { dimensions: EMBEDDING_DIMENSIONS }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
