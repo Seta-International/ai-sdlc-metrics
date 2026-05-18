@@ -21,6 +21,7 @@ import {
 } from '@seta/connector-ms365-planner'
 import { createConnectorAdminRoutes, createConnectorRegistry } from '@seta/connector-registry'
 import {
+  createMagicLinkRoutes,
   createSessionStore,
   createSsoAdminRoutes,
   createSsoRoutes,
@@ -334,10 +335,33 @@ const userKey = (c: Context) => (c.get('userId') as string | undefined) ?? 'anon
 
 app.use('/sso/login/*', rateLimit({ rps: 5, burst: 20, key: ipKey }))
 app.use('/sso/callback/*', rateLimit({ rps: 5, burst: 30, key: ipKey }))
+app.use('/sso/magic/request', rateLimit({ rps: 1, burst: 3, key: ipKey }))
+app.use('/sso/magic/consume', rateLimit({ rps: 2, burst: 10, key: ipKey }))
 app.use('/members*', rateLimit({ rps: 10, burst: 30, key: userKey }))
 app.use('/admin/*', rateLimit({ rps: 10, burst: 30, key: userKey }))
 
 app.route('/', sso)
+
+const magicLinkRoutes = createMagicLinkRoutes({
+  sql,
+  audit,
+  sessionCookie: {
+    name: 'seta_sess',
+    hmacKey: env.SESSION_HMAC_KEY,
+    ttlSec: env.SESSION_TTL_SEC,
+    secure: env.NODE_ENV === 'production',
+  },
+  redirectBase: env.PUBLIC_BASE_URL,
+  getMailerForTenant: getMailerFor,
+  getTenantBrief: async (tenantId) => {
+    const rows = (await sql`
+      SELECT slug, display_name FROM tenant.tenants WHERE id = ${tenantId} LIMIT 1
+    `) as Array<{ slug: string; display_name: string }>
+    const r = rows[0]
+    return r ? { slug: r.slug, displayName: r.display_name } : null
+  },
+})
+app.route('/', magicLinkRoutes)
 
 const ssoAdmin = createSsoAdminRoutes({ sql, audit, vault })
 app.use(
