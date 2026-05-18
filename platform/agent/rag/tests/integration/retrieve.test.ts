@@ -240,4 +240,40 @@ describe('@seta/agent-rag — retrieve (integration)', () => {
     expect(hits[0]!.vectorSimilarity).toBeCloseTo(1, 5)
     expect(hits[0]!.citation.span).toEqual({ startChar: 0, endChar: known.length })
   })
+
+  it('case 11: retrieve twice on identical query + corpus returns equal output', async () => {
+    const tenantId = randomUUID()
+    const sourceId = randomUUID()
+    const seeds = ['alpha bravo', 'charlie delta', 'echo foxtrot']
+    await tenantContext.run({ tenantId }, async () => {
+      await insertChunks(
+        testSql(),
+        seeds.map((s) => ({
+          tenantId,
+          sourceId,
+          content: s,
+          contentHash: sha256hex(s),
+          tokenCount: 2,
+          span: { startChar: 0, endChar: s.length },
+          embedding: seedEmbedding(s),
+        })),
+      )
+    })
+
+    const rag = createAgentRag({
+      sql: testSql(),
+      embeddings: {
+        async embed() {
+          return {
+            embeddings: [seedEmbedding('alpha bravo')],
+            usage: { promptTokens: 1, totalTokens: 1 },
+          }
+        },
+      },
+    })
+
+    const r1 = await tenantContext.run({ tenantId }, async () => rag.retrieve('q'))
+    const r2 = await tenantContext.run({ tenantId }, async () => rag.retrieve('q'))
+    expect(r2).toEqual(r1)
+  })
 })
