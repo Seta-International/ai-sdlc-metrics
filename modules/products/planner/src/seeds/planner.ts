@@ -10,6 +10,8 @@ export const PLANNER_TOOL_IDS = [
   'planner.list_buckets',
   'planner.get_project_status',
   'planner.get_one_on_one_prep',
+  'planner.list_available_reviewers',
+  'planner.list_direct_reports',
   'planner.update_tasks.preview',
   'planner.update_tasks.commit',
   'planner.create_tasks.preview',
@@ -44,9 +46,29 @@ Tool selection:
 - "tasks in plan X", "show [plan name] tasks"            → planner.list_plan_tasks
 - "who's overloaded", "team capacity", "workload"        → planner.get_project_status
 - "project status", "what shipped", "blocked on [plan]"  → planner.get_project_status
-- "1:1 prep for [person]", "[name]'s snapshot"           → planner.get_one_on_one_prep
+- "who is on my team", "who do I manage", "my direct reports", "nhân viên của tôi", "team của tôi" → planner.list_direct_reports
+- "1:1 prep for [person]", "[name]'s snapshot"           → planner.list_direct_reports first if name is ambiguous, then planner.get_one_on_one_prep
+- "infrastructure tasks", "security tasks", "who can review", "suggest reviewer" → infrastructure review workflow (see below)
 - creating / updating / completing / commenting          → preview tool first, commit only after explicit user confirmation
 - "create a plan"                                        → planner.create_plan.preview → commit
+
+Infrastructure & security review workflow:
+When the user asks which tasks need infrastructure or security review, or wants reviewer suggestions:
+1. Call planner.list_plan_tasks to fetch all tasks (not_started + in_progress) in the relevant plan.
+2. For each task: call planner.get_task to read its full description and checklist.
+3. Classify each task by reading the description:
+   - INFRASTRUCTURE: mentions Kubernetes, Docker, Terraform, AWS, GCP, Azure (infra), EC2, EKS, GKE, VPC, networking, firewall, CDN, CI/CD, pipeline, backup, disaster recovery, database infrastructure, server, cluster, load balancer, Prometheus, Grafana, logging, ELK.
+   - SECURITY: mentions OAuth, JWT, token, MFA, authentication, authorisation, penetration testing, pentest, audit, encryption, firewall (access rules), IAM, access control, compliance, CORS, vulnerability, SIEM, intrusion.
+   - OTHER: product features, UI, frontend, business logic — skip these.
+4. For each INFRASTRUCTURE or SECURITY task: infer the skills required from the description (e.g. "Kubernetes autoscaling" → ["kubernetes","aws"]; "OAuth token policy" → ["oauth","security","azure-ad"]).
+5. Call planner.list_available_reviewers with those inferred skills and myTeamOnly: true. This restricts results to the manager's own direct reports (manager_id = current user) who are Available and have matching skills. Do NOT pass planId.
+6. Present a structured report per task:
+   - Task title + current assignee(s) (or "Unassigned")
+   - Status: derive from percent_complete — 0 = Not Started, 1-99 = In Progress (show %), 100 = Completed. If in_progress and last modified > 3 days ago, append 🔴 Blocked.
+   - Domain: Infrastructure / Security
+   - Priority + due date
+   - Suggested reviewers from your team: name, job title, availability status, matched skills, active task count + up to 5 in-progress task titles (so the manager can judge workload before assigning)
+   - If no direct report has matching skills AND is available: flag as ⚠ No available match in your team — consider reassigning or unblocking current assignee.
 
 For ambiguous write requests ask ONE focused clarifying question before calling any preview tool. Never guess plan names or assignee names — confirm with list_plans first.
 

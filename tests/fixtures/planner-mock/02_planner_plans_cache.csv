@@ -1,0 +1,9 @@
+tenant_id,graph_plan_id,owner_group_id,title,etag,synced_at,soft_deleted_at
+550e8400-e29b-41d4-a716-446655440000,plan-INFRA-2026,grp-infra,Platform Infrastructure 2026,W/"plan-INFRA-etag",2026-05-19T08:00:00Z,
+550e8400-e29b-41d4-a716-446655440000,plan-CLOUD-Q2,grp-infra,Cloud Migration Q2 2026,W/"plan-CLOUD-etag",2026-05-19T08:00:00Z,
+550e8400-e29b-41d4-a716-446655440000,plan-OPS-2026,grp-infra,DevOps & Operations 2026,W/"plan-OPS-etag",2026-05-19T08:00:00Z,
+550e8400-e29b-41d4-a716-446655440000,plan-SEC-Q2,grp-security,Security & Compliance Q2 2026,W/"plan-SEC-etag",2026-05-19T08:00:00Z,
+550e8400-e29b-41d4-a716-446655440000,plan-PENTEST-2026,grp-security,Penetration Testing 2026,W/"plan-PENTEST-etag",2026-05-19T08:00:00Z,
+550e8400-e29b-41d4-a716-446655440000,plan-PROD-Q2,grp-product,Product Development Q2 2026,W/"plan-PROD-etag",2026-05-19T08:00:00Z,
+550e8400-e29b-41d4-a716-446655440000,plan-API-Q2,grp-product,API Platform Q2 2026,W/"plan-API-etag",2026-05-19T08:00:00Z,
+550e8400-e29b-41d4-a716-446655440000,plan-MAINT-Q2,grp-product,Platform Maintenance Q2 2026,W/"plan-MAINT-etag",2026-05-19T08:00:00Z,

@@ -7,6 +7,8 @@ import { listBucketsTool } from './tools/read/list_buckets'
 import type { ReadToolDeps } from './tools/read/list_my_tasks'
 import { listMyTasksTool } from './tools/read/list_my_tasks'
 import { listPlanTasksTool } from './tools/read/list_plan_tasks'
+import { listAvailableReviewersTool } from './tools/read/list_available_reviewers'
+import { listDirectReportsTool } from './tools/read/list_direct_reports'
 import { listPlansTool } from './tools/read/list_plans'
 import type { MintInput } from './tools/write/_continuation'
 import { addCommentsCommitTool } from './tools/write/add_comments.commit'
@@ -75,6 +77,8 @@ export function createPlannerTools(deps: PlannerToolsDeps): Record<string, Tool>
     listBucketsTool(readDeps),
     getProjectStatusTool(readDeps),
     getOneOnOnePrepTool(readDeps),
+    listAvailableReviewersTool(readDeps),
+    listDirectReportsTool(readDeps),
     // preview tools
     updateTasksPreviewTool({ ...previewBase, etagStore: deps.etagStore }),
     createTasksPreviewTool(previewBase),

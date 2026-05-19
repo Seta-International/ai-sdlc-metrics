@@ -109,6 +109,7 @@ export const planMembers = connectorMs365PlannerSchema.table(
     tenantId: uuid('tenant_id').notNull(),
     planId: text('plan_id').notNull(),
     userId: text('user_id').notNull(),
+    role: text('role').notNull().default('member'),
     syncedAt: timestamp('synced_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [primaryKey({ columns: [t.tenantId, t.planId, t.userId] })],
