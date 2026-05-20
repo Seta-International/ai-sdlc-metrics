@@ -641,31 +641,34 @@ The dataset contains all three leave statuses; only `approved` filters availabil
 
 ## 6. Mock-Data Volume Guidelines
 
-Sized to support the use case without being noisy. The explicit rows from Sections 4 and 5 occupy roughly half of each table; the rest is volume fill that should follow the same shape.
+Sized for a ~300-person org. The named cast from Sections 4 and 5 (`u001`–`u015`, `p001`–`p006`, `t001`–`t020`, `lv001`–`lv011`) stays exactly as written — those rows are the scenario anchors. Everything else is volume fill that follows the same shape and the rules below.
 
 | Table          | Rows                                                                 |
 |----------------|----------------------------------------------------------------------|
-| `users`        | ~30 — covering all 11 roles from `SCHEMA.md`, mixing broad-scope skills (DevOps, AI, Frontend), narrow technical ones (Spark, Kafka, NLP, ML, OOP), and a few alias-form spellings (`k8s`, `ts`, `postgres`) |
-| `plans`        | 6–8 — at least **one** infrastructure-focused plan, one zero-member orphan plan, one sparse-fields plan, plus non-infra plans for contrast |
-| `plan_members` | ~60–100 rows — most plans have 5–15 members; at least one plan deliberately has zero |
-| `buckets`      | 3–4 per plan (e.g. `To Do`, `In Progress`, `Done` — names vary)      |
-| `tasks`        | ~50 — at least **15** with `status='todo'` that are clearly infra-scoped; the rest a mix of statuses, plans, and topics. Title length should span from empty/short placeholders to multi-clause sentences |
-| `timesheet`    | ~25 leave entries — mix of past, current, and future windows; ~70% `approved`, ~25% `pending`, ~5% `rejected` |
+| `users`        | **~300** — covering all 11 roles from `SCHEMA.md`, mixing broad-scope skills (DevOps, AI, Frontend), narrow technical ones (Spark, Kafka, NLP, ML, OOP), and a meaningful share of alias-form spellings (`k8s`, `ts`, `postgres`) |
+| `plans`        | **~50** — at least **3–5** infrastructure-focused plans, **one** zero-member orphan plan, several sparse-fields plans, the rest non-infra for contrast |
+| `plan_members` | **~1,500–2,500 rows** — most plans have 15–40 members; many users belong to multiple plans (average ~6 plans/user); at least one plan deliberately has zero |
+| `buckets`      | 3–4 per plan → **~150–200 total** (e.g. `To Do`, `In Progress`, `Done` — names vary)      |
+| `tasks`        | **~600** — at least **80** with `status='todo'` that are clearly infra-scoped; the rest a mix of statuses, plans, and topics. Title length spans from empty/short placeholders to multi-clause sentences |
+| `timesheet`    | **~400 leave entries** — mix of past, current, and future windows; ~70% `approved`, ~25% `pending`, ~5% `rejected` |
 
 Cardinality rules of thumb for the infra-scoped todo tasks:
 
-- At least 3 should have **no** current assignee (`assignee_ids=""`).
-- At least 3 should have a `due_date` within the next 30 days.
-- Required skills across the set should collectively span: AWS, Kubernetes, Terraform, Linux, Monitoring, Security, Docker — so different tasks attract different candidates.
-- At least one infra-skilled user must have an `approved` leave entry overlapping `[2026-05-20, 2026-06-30]` so the availability filter is exercised.
+- At least **30** should have **no** current assignee (`assignee_ids=""`).
+- At least **30** should have a `due_date` within the next 30 days.
+- Required skills across the set should collectively span: AWS, Kubernetes, Terraform, Linux, Monitoring, Security, Docker, Spark, NLP, ML — so different tasks attract different candidates.
+- At least **5** infra-skilled users must have an `approved` leave entry overlapping `[2026-05-20, 2026-06-30]` so the availability filter is exercised at scale.
+- At least **15** infra-skilled users must remain available across the same window so the suggestion lists are non-trivial.
 
 Field-sparsity rules of thumb across all tasks:
 
-- **~60% of tasks should have `tags=""`** — empty tags is the common case in real data; the dataset must reflect that.
-- ~20% of tasks should have very short titles (≤ 3 words) or empty.
-- ~10% of tasks should have long, sentence-form titles.
+- **~60% of tasks should have `tags=""`** (~360 of ~600) — empty tags is the common case in real data; the dataset must reflect that.
+- ~20% of tasks should have very short titles (≤ 3 words) or empty (~120 of ~600).
+- ~10% of tasks should have long, sentence-form titles (~60 of ~600).
 - ~30% of plans should have `description=""`; ~40% should have `tags=""`.
-- ~15% of users should have at least one of `project` / `role` empty.
+- ~15% of users should have at least one of `project` / `role` empty (~45 of ~300).
+- ~5% of users should have `skills=""` (~15 of ~300) — these never appear as candidates.
+- ~10% of users should use alias-form skills (`k8s`, `ts`, `postgres`, etc.) so the alias map is exercised broadly, not just by `u015`.
 
 ---
 
