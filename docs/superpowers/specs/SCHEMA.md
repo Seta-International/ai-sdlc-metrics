@@ -152,20 +152,24 @@ One row per Entra group (Teams-backed M365 groups and security groups).
 
 | Group | Type | Purpose |
 |---|---|---|
-| Leadership Team | Unified | CEO, CTO, CDO, IC Execs |
-| Engineering All Hands | Unified | All PMs + developers |
-| Frontend Team | Unified | All Frontend Developers |
-| Backend Team | Unified | All Backend Developers |
-| Fullstack Team | Unified | All Fullstack Developers |
-| PMO Office | Unified | All PMO staff |
-| Product Management | Unified | All PMs |
-| HR & Talent | Unified | All Talent Acquisition staff |
-| IT & Infrastructure | Unified | All IT staff |
-| Infrastructure Review | Unified | Cross-functional review task force |
-| Cloud & DevOps | Unified | IT + cloud-skilled Backend engineers |
-| Data & Analytics | Unified | CDO + data-skilled Backend engineers |
-| Security Task Force | SecurityGroup | IT + select engineers |
+| Leadership Team | Unified | CEO, CTO, CDO, VP Engineering, IC Execs |
+| Engineering All Hands | Unified | All Engineering Managers, Tech Leads, PMs, and developers (FE/BE/FS/Mobile/DevOps/Data/AI) |
+| Frontend Team | Unified | All Frontend Developers (Junior/Mid/Senior) |
+| Backend Team | Unified | All Backend Developers (Junior/Mid/Senior) |
+| Fullstack Team | Unified | All Fullstack Developers (Junior/Mid/Senior) |
+| Mobile Team | Unified | All Mobile Developers (Junior/Mid/Senior) |
+| QA Team | Unified | All QA Engineers, QA Automation Engineers, QA Lead |
+| Design Team | Unified | UI/UX Designers, Senior UI/UX Designers, Design Lead |
+| PMO Office | Unified | PMO Lead and Analysts |
+| Product Management | Unified | All PMs, Senior PMs, Delivery Managers, Scrum Masters, Product Owners, Business Analysts |
+| HR & Talent | Unified | HR Manager, HR Generalists, HR Business Partners, Talent Acquisition |
+| IT & Infrastructure | Unified | All IT Engineers, DevOps Engineers, SREs, Cloud Engineers, IT Support, IT Administrator |
+| Infrastructure Review | Unified | Cross-functional review task force (CTO + senior infra ICs) |
+| Cloud & DevOps | Unified | DevOps + SRE + Cloud + cloud-skilled Backend engineers |
+| Data & AI | Unified | CDO + Data Engineers, Data Scientists, ML/MLOps/AI/Generative AI Engineers |
+| Security Task Force | SecurityGroup | Security Engineers + Security Lead + selected senior engineers |
 | Internal Communications | Unified | CEO + all IC Executives |
+| Business Operations | Unified | Account Managers, Sales Managers, Marketing, Finance, Operations, Office Admin |
 
 ---
 
