@@ -298,13 +298,16 @@ Each scenario fixes a concrete slice of the mock data and states what the assign
    - u001 → AWS (1 match)
    - u004 → 0 matches → drop
 5. *Availability vs `[2026-05-20, 2026-06-02]`*:
+   - u001 → `lv004` (2026-05-20 → 2026-05-20) overlaps (today is inside the window) → **unavailable**
    - u002 → `lv001` (2026-05-25 → 2026-06-10) overlaps → **unavailable**
+   - u003 → no approved leave → available
    - u005 → `lv002` (2026-06-20 → 2026-06-25) does not overlap → available
-   - u001, u003 → no approved leave → available
 
 **Expected suggestion list (top to bottom):**
-`u003` (2 matches, available) · `u005` (2 matches, available) · `u001` (1 match, available).
-`u002` filtered out by availability; `u004` filtered out by zero skill match.
+`u003` (2 matches, available) · `u005` (2 matches, available).
+`u002` filtered by availability (high skill, on leave); `u001` filtered by availability (today-only leave); `u004` filtered by zero skill match.
+
+Ordering rule used: descending skill-match count, then ascending `user_id` for ties.
 
 This scenario simultaneously exercises: skill ranking, availability cutoff, and "skilled-but-unavailable" filtering.
 
@@ -379,7 +382,139 @@ Demonstrates the two filters at the top of the use-case query: `status=todo` **a
 
 ---
 
-## 5. Mock-Data Volume Guidelines
+## 5. Edge Cases — Behavioral
+
+Scenarios beyond the happy path that exercise branches the use-case query doesn't otherwise reach. Every row referenced below is **valid** — clean foreign keys, valid JSON, in-range priorities. Only the *combinations* are unusual.
+
+### 5.0 Reference cast — additions
+
+These rows extend the cast defined in Section 4. The combined cast (Sections 4 + 5) is the **final** mock dataset. Scenarios 1–5 in Section 4 were computed against Section 4 data only; with Section 5 additions layered in, two scenarios shift — both shifts are called out in the relevant edges (E1 reshapes Scenario 1's suggestion list; the input task list referenced in Scenario 5 grows to include `t007`–`t014`, but the *exclusion principles* it asserts about `t004`/`t005`/`t006` still hold).
+
+**`users.csv` additions**
+
+| user_id | name              | project        | role          | skills                              |
+|---------|-------------------|----------------|---------------|-------------------------------------|
+| u009    | Đỗ Mỹ Linh        | SETA Internal  | PM            | *(empty string)*                    |
+| u010    | Bùi Hoàng Long    | SETA Internal  | IT Engineer   | `AWS,Kubernetes,Linux,Docker`       |
+| u011    | Trần Hồng Anh     | SETA Internal  | IT Engineer   | `Linux,Monitoring,Docker`           |
+
+**`plans.csv` additions**
+
+| plan_id | title                          | tags                      | owner |
+|---------|--------------------------------|---------------------------|-------|
+| p003    | DevOps Standalone Project      | `infrastructure,devops`   | u010  |
+
+**`plan_members.csv` additions**
+
+| plan_id | member_id |
+|---------|-----------|
+| p001    | u009      |
+| p001    | u011      |
+| p003    | u010      |
+
+**`buckets.csv` additions**
+
+| bucket_id | plan_id | name    |
+|-----------|---------|---------|
+| b005      | p003    | To Do   |
+| b006      | p003    | Done    |
+
+**`tasks.csv` additions**
+
+| task_id | plan_id | bucket_id | status | priority | assignee_ids                  | due_date    | title                                                | tags                                  |
+|---------|---------|-----------|--------|----------|-------------------------------|-------------|------------------------------------------------------|---------------------------------------|
+| t007    | p001    | b001      | todo   | 3        | *(empty)*                     | 2026-06-05  | Update operational runbook                           | `documentation,operations`            |
+| t008    | p001    | b001      | todo   | 5        | *(empty)*                     | 2026-06-08  | Audit CDN cache configuration for SPA deploys        | `infrastructure,frontend,review`      |
+| t009    | p001    | b001      | todo   | 1        | *(empty)*                     | 2026-05-10  | Patch CVE in nginx ingress                           | `infrastructure,security`             |
+| t010    | p003    | b005      | todo   | 3        | *(empty)*                     | 2026-06-12  | Bootstrap Terraform state backend                    | `infrastructure,terraform`            |
+| t011    | p001    | b001      | todo   | 1        | *(empty)*                     | 2026-05-20  | Rotate root credentials immediately                  | `infrastructure,security,urgent`      |
+| t012    | p001    | b001      | todo   | 5        | `u001,u002,u003,u004,u005`    | 2026-06-30  | Quarterly infra retro                                | `infrastructure,review`               |
+| t013    | p001    | b001      | todo   | 3        | *(empty)*                     | 2026-06-08  | Upgrade Kubernetes control plane                     | `infrastructure,kubernetes`           |
+| t014    | p001    | b001      | todo   | 5        | *(empty)*                     | 2026-07-01  | Modernize legacy mainframe COBOL batch jobs          | `infrastructure,legacy`               |
+
+`t007` description (the cell content): *"Document the steps to rotate IAM credentials and refresh Kubernetes secrets across the AWS production cluster."* — infra signal lives only here.
+
+**`timesheet.csv` additions**
+
+| leave_id | employee_id | start_date  | end_date    | type     | status   |
+|----------|-------------|-------------|-------------|----------|----------|
+| lv005    | u003        | 2026-06-02  | 2026-06-02  | personal | approved |
+| lv006    | u011        | 2026-05-20  | 2026-05-22  | sick     | approved |
+| lv007    | u002        | 2026-05-28  | 2026-06-02  | personal | pending  |
+
+---
+
+### 5.1 Availability boundaries
+
+**E1. Leave ends exactly on a task's due_date (inclusive overlap).**
+`lv005` covers `u003` on `2026-06-02` only. `t001.due_date = 2026-06-02`. Per the rule (`start_date <= due_date AND end_date >= today`), this overlaps. `u003` becomes unavailable for `t001`.
+
+*Cross-check with Scenario 1:* the Section 4 baseline list was `u003, u005`. With `lv005` active (full dataset), `u003` drops out — leaving `u005` as the sole suggestion for `t001`. Verifies that the boundary day is treated as inclusive on the upper end.
+
+**E2. Leave starts exactly on today.**
+`lv006` covers `u011` from `2026-05-20` (today) to `2026-05-22`. For any task with `due_date >= today`, `u011` is unavailable. Demonstrates the lower boundary of the availability window.
+
+**E3. Approved and pending leaves overlapping the same window.**
+`u002` has `lv001` (approved, 2026-05-25 → 2026-06-10) and `lv007` (pending, 2026-05-28 → 2026-06-02). Only the approved entry filters; the pending entry is informational. `u002` remains unavailable, but the reason is `lv001`, not `lv007`. Removing `lv001` would make `u002` available again even with `lv007` still present.
+
+---
+
+### 5.2 Saturation
+
+**E4. Single-member plan.**
+`p003` has one member (`u010`) who is also the owner. For `t010`, the candidate pool size is exactly 1. If `u010` lacks a required skill or is on leave, the suggestion list is empty. The query must degrade gracefully — "single suggestion or empty" is a valid shape, not an error.
+
+**E5. Fully-saturated assignment.**
+`t012.assignee_ids = u001,u002,u003,u004,u005` covers every member of `p001` who has any skill. After excluding existing assignees, the candidate pool is empty (only `u009` and `u011` remain in `p001`; `u009` has empty skills, `u011`'s skills may or may not match). For most skill sets the suggestion list is empty even though the task is `status=todo`. Demonstrates: a `todo` task with no assignment headroom.
+
+**E6. All capable members unavailable.**
+`t013` requires `Kubernetes`. In `p001`, only `u002` and `u003` have Kubernetes. For `t013.due_date = 2026-06-08`, the window is `[2026-05-20, 2026-06-08]`:
+- `u002` → `lv001` overlaps → unavailable
+- `u003` → `lv005` (2026-06-02) overlaps → unavailable
+
+Suggestion list is empty — but for an availability reason, not a capability reason. Contrast with E10.
+
+---
+
+### 5.3 Skill-deduction surface
+
+**E7. Infra signal in description only.**
+`t007` title is generic ("Update operational runbook"). Tags are `documentation,operations` with no `infrastructure` tag. The description carries the signal: *"…rotate IAM credentials and refresh Kubernetes secrets across the AWS production cluster."* Required skills must be deduced from description text: `AWS, Kubernetes, Security`. Exercises the description-reading branch of scope deduction.
+
+**E8. Mixed-scope task.**
+`t008` tags = `infrastructure,frontend,review`. Title mentions CDN cache and SPA deploys — both infra (CDN/CloudFront) and frontend (SPA build) concerns. The task must appear in the infra list (because `infrastructure` is in tags), and required-skill deduction should include both worlds. Candidate ranking is then dominated by whichever world has more members with matching skills — in this cast, infra wins because no `p001` member has frontend skills.
+
+**E9. User with empty skills.**
+`u009` has `skills=""`. She is a member of `p001`. Regardless of availability, she must never appear in any suggestion list. Empty skills = zero overlap by definition. Demonstrates: membership alone is not enough; skills are a hard pre-filter.
+
+**E10. Zero skill overlap across all users.**
+`t014` requires `Mainframe COBOL` (deduced from "legacy mainframe COBOL batch jobs"). No user in any plan has that skill. The suggestion list is empty, and the *reason* is missing capability — not availability, not saturation. The consumer should be able to distinguish these three empty-list reasons.
+
+---
+
+### 5.4 Determinism / tie-breaking
+
+**E11. Tied candidates.**
+Scenario 1 already produces a tie: `u003` and `u005` both have 2 skill matches and are both available. The expected ordering rule is **ascending `user_id`** → `u003` before `u005`. No new data required; the rule applies to any tie.
+
+**E12. Tied input tasks.**
+The "needs review" list will contain multiple tasks with the same `priority` and `due_date` (e.g. several at `priority=5`). The expected ordering rule is **ascending `task_id`**. No new data required.
+
+These are not data constraints — they are query-side determinism contracts that the mock dataset naturally exercises because of how the cast is laid out.
+
+---
+
+### 5.5 Due-date corners
+
+**E13. `due_date = today`.**
+`t011.due_date = 2026-05-20`. The availability window collapses to `[today, today]`. Only leaves covering today filter: `u001` (`lv004`), `u011` (`lv006`). Leaves starting tomorrow do not affect this task. Required skills for `t011` (from tag `security` + title) → `Security`. Only `u002` has Security among `p001` members; `u002`'s leave `lv001` starts 2026-05-25, not today, so `u002` is available. Expected: `u002` is the sole suggestion.
+
+**E14. Overdue task.**
+`t009.due_date = 2026-05-10` — already in the past. The window `[2026-05-20, 2026-05-10]` is inverted/empty. The rule degrades to the same fallback as an empty due_date: **today-only availability**. The task is still listed (status is `todo`); the consumer is expected to surface the overdue indication separately (e.g., a UI badge), which is outside the schema's responsibility.
+
+---
+
+## 6. Mock-Data Volume Guidelines
 
 Sized to support the use case without being noisy.
 
@@ -401,7 +536,7 @@ Cardinality rules of thumb for the infra-scoped todo tasks:
 
 ---
 
-## 6. Out of Scope
+## 7. Out of Scope
 
 Explicitly *not* in this schema:
 
@@ -414,7 +549,7 @@ Explicitly *not* in this schema:
 
 ---
 
-## 7. Relationship to `SCHEMA.md`
+## 8. Relationship to `SCHEMA.md`
 
 | `SCHEMA.md` (Graph-shaped)           | This schema (simplified)        | Notes                                                                 |
 |---------------------------------------|---------------------------------|-----------------------------------------------------------------------|
