@@ -86,14 +86,15 @@ One row per employee.
 |-----------|------|----------|-------------------------------------------------------------------|
 | `user_id` | text PK | yes   | e.g. `u001`                                                       |
 | `name`    | text | yes      | Full name, e.g. `Nguyễn Văn Nam`                                  |
-| `project` | text | yes      | Free-text project assignment, e.g. `SETA Internal`, `Client Atlas`|
-| `role`    | text | yes      | Free-text role title, e.g. `Backend Developer`, `IT Engineer`     |
-| `skills`  | text | yes      | Comma-separated skill list, e.g. `AWS,Kubernetes,Terraform`       |
+| `project` | text | no       | Free-text project assignment, e.g. `SETA Internal`, `Client Atlas`. Empty allowed |
+| `role`    | text | no       | Free-text role title, e.g. `Backend Developer`, `IT Engineer`. Empty allowed |
+| `skills`  | text | no       | Comma-separated skill list, e.g. `AWS,Kubernetes,Terraform`. Empty allowed (user is then never a candidate) |
 
 **Notes**
 
-- `skills` is the primary signal for capability matching. Use the canonical skill names already defined in `SCHEMA.md` (AWS, Kubernetes, Terraform, Linux, Monitoring, Security, React, Node.js, PostgreSQL, Docker, etc.) so vocabulary stays stable across docs.
-- `role` is free-text — use the same 11 roles from `SCHEMA.md` (CEO, CTO, CDO, IC Executive, PM, PMO, Frontend Developer, Backend Developer, Fullstack Developer, Talent Acquisition, IT) for consistency, but the field itself is not constrained.
+- `skills` is the primary signal for capability matching. Mix canonical names (AWS, Kubernetes, Terraform, Linux, etc.), broad umbrella terms (DevOps, AI), narrow technical ones (Spark, Kafka, NLP, ML, OOP), and common aliases (k8s, ts, postgres). See edges E21–E22 for the matching implications.
+- `role` is free-text — the 11 roles from `SCHEMA.md` (CEO, CTO, CDO, IC Executive, PM, PMO, Frontend Developer, Backend Developer, Fullstack Developer, Talent Acquisition, IT) are recommended for consistency, but the field is not constrained.
+- Empty `project`, `role`, or `skills` are valid — see edges E15, E16, E9.
 
 ---
 
@@ -105,8 +106,8 @@ One row per plan.
 |---------------|------|----------|--------------------------------------------------------------|
 | `plan_id`     | text PK | yes   | e.g. `p001`                                                  |
 | `title`       | text | yes      | Plan name, e.g. `Infrastructure Review Q2 2026`              |
-| `description` | text | yes      | One-paragraph plan summary                                   |
-| `tags`        | text | yes      | Comma-separated, e.g. `infrastructure,cloud,review`          |
+| `description` | text | no       | One-paragraph plan summary. Empty allowed                    |
+| `tags`        | text | no       | Comma-separated, e.g. `infrastructure,cloud,review`. Empty allowed and common |
 | `owner`       | text | yes      | `user_id` of the plan owner — must exist in `users.csv`      |
 
 ---
@@ -146,8 +147,8 @@ One row per task. Carries everything needed for the assignment use case.
 | `plan_id`      | text    | yes      | References `plans.plan_id`                                                               |
 | `bucket_id`    | text    | yes      | References `buckets.bucket_id`; must belong to the same `plan_id`                        |
 | `assignee_ids` | text    | no       | Comma-separated `user_id`s; empty string `""` if unassigned                              |
-| `title`        | text    | yes      | Task title — must be infrastructure-evocative for in-scope tasks                         |
-| `description`  | text    | yes      | One-paragraph task description; added beyond the original request because the use case (infrastructure-scope deduction) reads this field |
+| `title`        | text    | no       | Task title; may be empty, very short, or very long. For in-scope tasks the infra signal must appear somewhere across title/description/tags (see E19, E23) |
+| `description`  | text    | yes      | One-paragraph task description; the deduction fallback when title or tags are sparse     |
 | `status`       | text    | yes      | One of `todo` · `in progress` · `done`                                                   |
 | `priority`     | int     | yes      | `1` (urgent) — `9` (low). `1`/`3`/`5`/`9` are the common values (urgent/important/medium/low) |
 | `due_date`     | date    | no       | ISO date; empty if not set                                                               |
@@ -388,21 +389,32 @@ Scenarios beyond the happy path that exercise branches the use-case query doesn'
 
 ### 5.0 Reference cast — additions
 
-These rows extend the cast defined in Section 4. The combined cast (Sections 4 + 5) is the **final** mock dataset. Scenarios 1–5 in Section 4 were computed against Section 4 data only; with Section 5 additions layered in, two scenarios shift — both shifts are called out in the relevant edges (E1 reshapes Scenario 1's suggestion list; the input task list referenced in Scenario 5 grows to include `t007`–`t014`, but the *exclusion principles* it asserts about `t004`/`t005`/`t006` still hold).
+These rows extend the cast defined in Section 4. The combined cast (Sections 4 + 5) is the **final** mock dataset. Scenarios 1–5 in Section 4 were computed against Section 4 data only; with Section 5 additions layered in, three scenarios shift, and each shift is called out in the edge that introduces it:
+
+- **Scenario 1** reshapes via `lv005` — see E1.
+- **Scenario 2** reshapes via `u015`'s alias-form `k8s` skill (if the consumer applies the alias map) — see E22.
+- **Scenario 5**'s input task list grows to include `t007`–`t020`; the *exclusion principles* it asserts about `t004`/`t005`/`t006` still hold.
 
 **`users.csv` additions**
 
-| user_id | name              | project        | role          | skills                              |
-|---------|-------------------|----------------|---------------|-------------------------------------|
-| u009    | Đỗ Mỹ Linh        | SETA Internal  | PM            | *(empty string)*                    |
-| u010    | Bùi Hoàng Long    | SETA Internal  | IT Engineer   | `AWS,Kubernetes,Linux,Docker`       |
-| u011    | Trần Hồng Anh     | SETA Internal  | IT Engineer   | `Linux,Monitoring,Docker`           |
+| user_id | name              | project        | role               | skills                              |
+|---------|-------------------|----------------|--------------------|-------------------------------------|
+| u009    | Đỗ Mỹ Linh        | SETA Internal  | PM                 | *(empty)*                           |
+| u010    | Bùi Hoàng Long    | SETA Internal  | IT Engineer        | `AWS,Kubernetes,Linux,Docker`       |
+| u011    | Trần Hồng Anh     | SETA Internal  | IT Engineer        | `Linux,Monitoring,Docker`           |
+| u012    | Lê Quang Vinh     | *(empty)*      | Junior Developer   | `JavaScript,HTML,CSS`               |
+| u013    | Đinh Thanh Mai    | SETA Internal  | *(empty)*          | `DevOps,AI`                         |
+| u014    | Phạm Lan Anh      | Client Atlas   | Data Scientist     | `ML,NLP,Spark,Kafka`                |
+| u015    | Lý Minh Hoàng     | SETA Internal  | Software Engineer  | `k8s,ts,postgres,OOP`               |
 
 **`plans.csv` additions**
 
-| plan_id | title                          | tags                      | owner |
-|---------|--------------------------------|---------------------------|-------|
-| p003    | DevOps Standalone Project      | `infrastructure,devops`   | u010  |
+| plan_id | title                          | description                                                                   | tags                      | owner |
+|---------|--------------------------------|-------------------------------------------------------------------------------|---------------------------|-------|
+| p003    | DevOps Standalone Project      | Single-engineer infra spike covering Terraform bootstrap and CI hardening     | `infrastructure,devops`   | u010  |
+| p004    | Backend Cleanup Sprint         | *(empty)*                                                                     | *(empty)*                 | u004  |
+| p005    | AI Platform R&D                | Build internal AI experimentation platform with Spark + ML pipelines          | `ai,ml,spark`             | u013  |
+| p006    | Orphan Plan                    | *(empty)*                                                                     | *(empty)*                 | u013  |
 
 **`plan_members.csv` additions**
 
@@ -410,7 +422,14 @@ These rows extend the cast defined in Section 4. The combined cast (Sections 4 +
 |---------|-----------|
 | p001    | u009      |
 | p001    | u011      |
+| p001    | u015      |
 | p003    | u010      |
+| p004    | u004      |
+| p004    | u012      |
+| p005    | u013      |
+| p005    | u014      |
+
+`p006` has **no rows** in `plan_members.csv` — that absence is the data for edge E18.
 
 **`buckets.csv` additions**
 
@@ -418,6 +437,12 @@ These rows extend the cast defined in Section 4. The combined cast (Sections 4 +
 |-----------|---------|---------|
 | b005      | p003    | To Do   |
 | b006      | p003    | Done    |
+| b007      | p004    | To Do   |
+| b008      | p004    | Done    |
+| b009      | p005    | To Do   |
+| b010      | p005    | Done    |
+| b011      | p006    | To Do   |
+| b012      | p006    | Done    |
 
 **`tasks.csv` additions**
 
@@ -431,8 +456,19 @@ These rows extend the cast defined in Section 4. The combined cast (Sections 4 +
 | t012    | p001    | b001      | todo   | 5        | `u001,u002,u003,u004,u005`    | 2026-06-30  | Quarterly infra retro                                | `infrastructure,review`               |
 | t013    | p001    | b001      | todo   | 3        | *(empty)*                     | 2026-06-08  | Upgrade Kubernetes control plane                     | `infrastructure,kubernetes`           |
 | t014    | p001    | b001      | todo   | 5        | *(empty)*                     | 2026-07-01  | Modernize legacy mainframe COBOL batch jobs          | `infrastructure,legacy`               |
+| t015    | p001    | b001      | todo   | 5        | *(empty)*                     | 2026-06-20  | *(empty)*                                            | *(empty)*                             |
+| t016    | p001    | b001      | todo   | 5        | *(empty)*                     | 2026-07-15  | Investigate and document the root cause of the intermittent 502 errors observed during the morning peak traffic window in the production payment gateway and propose a remediation plan covering load balancing strategy | `infrastructure,reliability`          |
+| t017    | p001    | b001      | todo   | 3        | *(empty)*                     | 2026-06-18  | Setup k8s monitoring stack                           | `kubernetes,monitoring`               |
+| t018    | p005    | b009      | todo   | 3        | *(empty)*                     | 2026-06-30  | Set up Spark cluster for ML pipelines                | `ai,spark,ml,nlp`                     |
+| t019    | p006    | b011      | todo   | 5        | *(empty)*                     | 2026-06-25  | Define DevOps roadmap                                | *(empty)*                             |
+| t020    | p004    | b007      | todo   | 5        | *(empty)*                     | 2026-06-22  | Reduce build flakiness                               | *(empty)*                             |
 
-`t007` description (the cell content): *"Document the steps to rotate IAM credentials and refresh Kubernetes secrets across the AWS production cluster."* — infra signal lives only here.
+**Task description specifics**
+
+- `t007.description`: *"Document the steps to rotate IAM credentials and refresh Kubernetes secrets across the AWS production cluster."* — infra signal lives only here.
+- `t015.description`: *"Check AWS production cluster cost report and identify optimization candidates."* — title and tags are empty; description is the only scope signal.
+- `t018.description`: *"Provision Spark for the ML team's NLP pipelines; coordinate with u014 on cluster sizing."* — exercises narrow-scope skill matching (Spark, NLP).
+- `t020.description`: *"Reduce CI build flakiness in the backend repos; root-cause the intermittent test failures."* — non-infra task inside a sparse-data plan.
 
 **`timesheet.csv` additions**
 
@@ -441,6 +477,10 @@ These rows extend the cast defined in Section 4. The combined cast (Sections 4 +
 | lv005    | u003        | 2026-06-02  | 2026-06-02  | personal | approved |
 | lv006    | u011        | 2026-05-20  | 2026-05-22  | sick     | approved |
 | lv007    | u002        | 2026-05-28  | 2026-06-02  | personal | pending  |
+| lv008    | u005        | 2026-05-22  | 2026-05-23  | sick     | pending  |
+| lv009    | u014        | 2026-06-15  | 2026-06-25  | annual   | approved |
+| lv010    | u012        | 2026-05-10  | 2026-05-15  | sick     | approved |
+| lv011    | u013        | 2026-07-01  | 2026-07-05  | personal | rejected |
 
 ---
 
@@ -514,18 +554,103 @@ These are not data constraints — they are query-side determinism contracts tha
 
 ---
 
+### 5.6 Sparse / missing fields
+
+Real-world rows often have empty optional fields. Of these, **empty task tags is the common case** — the bulk of volume-fill tasks should have `tags=""`. The dataset must not lean on tags as a required signal.
+
+**E15. Empty `project` on user.**
+`u012.project = ""`. Project is informational and never read by the matching query; the empty value must not break any join or render path.
+
+**E16. Empty `role` on user.**
+`u013.role = ""`. Same character as E15 — informational only.
+
+**E17. Empty `description` and `tags` on plan.**
+`p004` has both empty. Tasks inside `p004` lose all plan-level scope hints; scope deduction for those tasks must rely entirely on task-level signals (title, description, task tags).
+
+**E18. Plan with zero members.**
+`p006` has no rows in `plan_members.csv`. A `todo` task in `p006` (e.g. `t019`) returns an empty candidate pool *before* skill or availability filters apply. Empty-result reason is "plan has no members" — distinguishable from E5 (saturation), E6 (all unavailable), and E10 (no skill).
+
+**E19. Empty `title` on task.**
+`t015.title = ""` and `t015.tags = ""`. `description` (`"Check AWS production cluster cost report and identify optimization candidates."`) is the only scope signal. Demonstrates: scope deduction must never rely solely on title.
+
+**E20. Empty `tags` is the common case.**
+`t015`, `t019`, `t020` all have `tags = ""`. So should the majority of volume-fill tasks. Tags must not be treated as a required input for any matching step — they are a *hint*, not a contract.
+
+---
+
+### 5.7 Skill vocabulary variance
+
+Skills cluster at very different granularities, and the same concept often appears under multiple names.
+
+**E21. Skill scope: broad ↔ narrow.**
+- Broad: `u013.skills = "DevOps,AI"` — umbrella terms covering many capabilities.
+- Narrow: `u014.skills = "ML,NLP,Spark,Kafka"` — precise tools and disciplines.
+
+Default matching is **literal token comparison after case-folding** — "DevOps" does not implicitly expand to "Kubernetes" or "Terraform"; "AI" does not implicitly match "ML". If the consumer wants hierarchical expansion, it must declare the rule explicitly. The mock data exposes the trade-off — a "DevOps" engineer is not suggested for a task needing "Linux" unless the consumer expands umbrellas.
+
+`t018` (in `p005`) requires `Spark, ML, NLP` (from tags + title). `p005` members:
+- `u013` (`DevOps,AI` — 0 literal matches). No `approved` leave (`lv011` is rejected) → available.
+- `u014` (`ML,NLP,Spark,Kafka` — 3 literal matches). `lv009` (approved, 2026-06-15 → 2026-06-25) overlaps `[2026-05-20, 2026-06-30]` → unavailable.
+
+Expected result under default (literal) matching: **empty** — the 3-match candidate is on leave, the available candidate has 0 matches. If the consumer expands `AI → ML` (umbrella → narrow), `u013` becomes a 1-match available candidate. Same trade-off as E22.
+
+**E22. Skill aliases / synonyms.**
+`u015.skills = "k8s,ts,postgres,OOP"`. Recommended alias map (consumer-owned; extensible):
+
+| Alias    | Canonical    |
+|----------|--------------|
+| k8s      | Kubernetes   |
+| ts       | TypeScript   |
+| postgres | PostgreSQL   |
+| js       | JavaScript   |
+
+`t017.title = "Setup k8s monitoring stack"`, `tags = "kubernetes,monitoring"` — the same concept appears in both alias and canonical form within one row. After normalization, required skills are `{Kubernetes, Monitoring}`.
+
+*Cross-check with Scenario 2:* with alias normalization on, `u015` becomes a 1-match candidate for `t002` (Kubernetes after `k8s → Kubernetes`); `u015` has no leave entries → available; expected list shifts from empty (Section 4 baseline) to `u015`. Without normalization, Scenario 2's empty result still holds. The consumer must declare its stance, and the data exercises both stances simultaneously.
+
+---
+
+### 5.8 Title length variance
+
+Task titles range from absent to multi-clause sentences. The dataset spans the full range.
+
+**E23. Title length spread.**
+- Empty: `t015` (covered in E19).
+- Short: `t017.title = "Setup k8s monitoring stack"` (4 words).
+- Medium: most tasks `t001`–`t014`.
+- Long: `t016.title` — a full-sentence problem statement of 35+ words: *"Investigate and document the root cause of the intermittent 502 errors observed during the morning peak traffic window in the production payment gateway and propose a remediation plan covering load balancing strategy."*
+
+Scope deduction must scale from minimal to verbose input without truncation and without changing the matching rules. Keyword extraction from `t016`'s title alone surfaces `production`, `payment gateway`, `load balancing`, `remediation` — none of which are canonical skill names. The infra signal comes from tags (`infrastructure,reliability`); the title is helpful but not sufficient alone.
+
+---
+
+### 5.9 Timesheet status mix
+
+The dataset contains all three leave statuses; only `approved` filters availability.
+
+**E24. Pending leave overlapping an active window.**
+`lv008` (`u005`, 2026-05-22 → 2026-05-23, **pending**) overlaps the window of any task whose `due_date >= 2026-05-22` but does **not** filter `u005`. The consumer must gate on `status='approved'` before applying the overlap test — never on "any leave entry".
+
+**E25. Rejected leave.**
+`lv011` (`u013`, 2026-07-01 → 2026-07-05, **rejected**) is present in the dataset and ignored by the availability rule. Less common in practice than pending but a valid third status.
+
+**E26. Past approved leave.**
+`lv010` (`u012`, 2026-05-10 → 2026-05-15, **approved**, both dates before today) does not filter — the overlap test fails on `end_date >= today` (`2026-05-15 < 2026-05-20`). Demonstrates that "`approved`" alone is insufficient; the temporal overlap check is the real gate.
+
+---
+
 ## 6. Mock-Data Volume Guidelines
 
-Sized to support the use case without being noisy.
+Sized to support the use case without being noisy. The explicit rows from Sections 4 and 5 occupy roughly half of each table; the rest is volume fill that should follow the same shape.
 
 | Table          | Rows                                                                 |
 |----------------|----------------------------------------------------------------------|
-| `users`        | ~30 — covering all 11 roles from `SCHEMA.md`, with several IT / Backend / DevOps-skilled users so the matching has candidates |
-| `plans`        | 4–6 — including at least **one** infrastructure-focused plan (e.g. `Infrastructure Review Q2 2026`) plus 3–5 non-infra plans for contrast |
-| `plan_members` | ~60–100 rows — every plan has 6–15 members                           |
+| `users`        | ~30 — covering all 11 roles from `SCHEMA.md`, mixing broad-scope skills (DevOps, AI, Frontend), narrow technical ones (Spark, Kafka, NLP, ML, OOP), and a few alias-form spellings (`k8s`, `ts`, `postgres`) |
+| `plans`        | 6–8 — at least **one** infrastructure-focused plan, one zero-member orphan plan, one sparse-fields plan, plus non-infra plans for contrast |
+| `plan_members` | ~60–100 rows — most plans have 5–15 members; at least one plan deliberately has zero |
 | `buckets`      | 3–4 per plan (e.g. `To Do`, `In Progress`, `Done` — names vary)      |
-| `tasks`        | ~40 — at least **10** with `status='todo'` that are clearly infra-scoped; the rest a mix of statuses, plans, and topics |
-| `timesheet`    | ~20 leave entries — mix of past, current, and future windows; majority `approved`, a few `pending` |
+| `tasks`        | ~50 — at least **15** with `status='todo'` that are clearly infra-scoped; the rest a mix of statuses, plans, and topics. Title length should span from empty/short placeholders to multi-clause sentences |
+| `timesheet`    | ~25 leave entries — mix of past, current, and future windows; ~70% `approved`, ~25% `pending`, ~5% `rejected` |
 
 Cardinality rules of thumb for the infra-scoped todo tasks:
 
@@ -533,6 +658,14 @@ Cardinality rules of thumb for the infra-scoped todo tasks:
 - At least 3 should have a `due_date` within the next 30 days.
 - Required skills across the set should collectively span: AWS, Kubernetes, Terraform, Linux, Monitoring, Security, Docker — so different tasks attract different candidates.
 - At least one infra-skilled user must have an `approved` leave entry overlapping `[2026-05-20, 2026-06-30]` so the availability filter is exercised.
+
+Field-sparsity rules of thumb across all tasks:
+
+- **~60% of tasks should have `tags=""`** — empty tags is the common case in real data; the dataset must reflect that.
+- ~20% of tasks should have very short titles (≤ 3 words) or empty.
+- ~10% of tasks should have long, sentence-form titles.
+- ~30% of plans should have `description=""`; ~40% should have `tags=""`.
+- ~15% of users should have at least one of `project` / `role` empty.
 
 ---
 
