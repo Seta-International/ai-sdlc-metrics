@@ -57,21 +57,92 @@ export const GIVEN_NAMES = [
 ] as const
 
 export const ROLES = [
+  // Executive
   'CEO',
   'CTO',
   'CDO',
-  'IC Executive',
-  'PM',
-  'PMO',
-  'Frontend Developer',
-  'Backend Developer',
-  'Fullstack Developer',
-  'Talent Acquisition',
-  'IT Engineer',
+  // Engineering leadership
+  'VP Engineering',
+  'Engineering Manager',
+  'Tech Lead',
+  'Software Architect',
+  // Frontend
+  'Junior Frontend Developer',
+  'Mid Frontend Developer',
+  'Senior Frontend Developer',
+  // Backend
+  'Backend Developer', // legacy unleveled (u004, u005)
+  'Junior Backend Developer',
+  'Mid Backend Developer',
+  'Senior Backend Developer',
+  // Fullstack
+  'Junior Fullstack Developer',
+  'Mid Fullstack Developer',
+  'Senior Fullstack Developer',
+  // Mobile
+  'Junior Mobile Developer',
+  'Mid Mobile Developer',
+  'Senior Mobile Developer',
+  // DevOps / SRE / Cloud / IT
+  'DevOps Engineer',
+  'Senior DevOps Engineer',
+  'Site Reliability Engineer',
+  'Cloud Engineer',
+  'IT Engineer', // legacy; cast only (u002, u003, u008, u010, u011)
+  // Data & AI
+  'Data Engineer',
+  'Senior Data Engineer',
   'Data Scientist',
-  'Junior Developer',
-  'Software Engineer',
+  'Senior Data Scientist',
+  'ML Engineer',
+  'MLOps Engineer',
+  'AI Engineer',
+  'Generative AI Engineer',
+  // QA
+  'Junior QA Engineer',
   'QA Engineer',
+  'Senior QA Engineer',
+  'QA Automation Engineer',
+  'QA Lead',
+  // Security
+  'Security Engineer',
+  'Senior Security Engineer',
+  'Security Lead',
+  // Project & product
+  'PM', // legacy abbreviation (u009)
+  'Project Manager',
+  'Senior Project Manager',
+  'Delivery Manager',
+  'Scrum Master',
+  'Product Owner',
+  'Business Analyst',
+  // PMO
+  'PMO Lead',
+  'PMO Analyst',
+  // Design
+  'UI/UX Designer',
+  'Senior UI/UX Designer',
+  'Design Lead',
+  // HR / Talent
+  'HR Manager',
+  'HR Generalist',
+  'HR Business Partner',
+  'Talent Acquisition',
+  // Internal IT
+  'IT Support',
+  'IT Administrator',
+  // Business operations
+  'Account Manager',
+  'Sales Manager',
+  'Marketing Specialist',
+  'Finance / Accountant',
+  'Operations Manager',
+  'Office Administrator',
+  // Internal comms
+  'IC Executive',
+  // Legacy unspecific (cast only)
+  'Junior Developer', // u012
+  'Software Engineer', // u015
 ] as const
 
 export const PROJECTS = [
@@ -259,21 +330,369 @@ export const SKILL_CATALOG = [
 export const ALIAS_SKILLS = ['k8s', 'ts', 'postgres', 'pg', 'js', 'node'] as const
 
 export const ROLE_SKILL_PROFILE: Readonly<Record<string, readonly string[]>> = {
-  CEO: ['Leadership', 'Stakeholder Management'],
-  CTO: ['AWS', 'Engineering Leadership', 'DevOps'],
-  CDO: ['ML', 'NLP', 'Python', 'Data Engineering'],
-  'IC Executive': ['Stakeholder Management', 'Leadership'],
-  PM: ['Agile', 'Scrum', 'Risk Management'],
-  PMO: ['Risk Management', 'Stakeholder Management'],
-  'Frontend Developer': ['React', 'TypeScript', 'Next.js', 'JavaScript'],
+  // Executive
+  CEO: ['Leadership', 'Business Strategy', 'Stakeholder Management', 'Digital Transformation'],
+  CTO: ['AWS', 'Engineering Leadership', 'DevOps', 'System Design', 'Cloud'],
+  CDO: ['ML', 'NLP', 'Python', 'Data Engineering', 'AI'],
+  // Engineering leadership
+  'VP Engineering': [
+    'Engineering Leadership',
+    'AWS',
+    'System Design',
+    'DevOps',
+    'Stakeholder Management',
+  ],
+  'Engineering Manager': [
+    'Engineering Leadership',
+    'Agile',
+    'Risk Management',
+    'Stakeholder Management',
+    'Estimation',
+  ],
+  'Tech Lead': [
+    'TypeScript',
+    'Node.js',
+    'System Design',
+    'React',
+    'PostgreSQL',
+    'Engineering Leadership',
+  ],
+  'Software Architect': [
+    'System Design',
+    'AWS',
+    'Kubernetes',
+    'gRPC',
+    'PostgreSQL',
+    'Engineering Leadership',
+  ],
+  // Frontend
+  'Junior Frontend Developer': ['JavaScript', 'HTML', 'CSS', 'React'],
+  'Mid Frontend Developer': ['React', 'TypeScript', 'Next.js', 'JavaScript', 'Cypress'],
+  'Senior Frontend Developer': [
+    'React',
+    'TypeScript',
+    'Next.js',
+    'JavaScript',
+    'GraphQL',
+    'Cypress',
+    'Design Systems',
+  ],
+  // Backend
   'Backend Developer': ['Node.js', 'PostgreSQL', 'Docker', 'TypeScript'],
-  'Fullstack Developer': ['React', 'Node.js', 'TypeScript', 'PostgreSQL'],
-  'Talent Acquisition': ['Stakeholder Management'],
+  'Junior Backend Developer': ['Node.js', 'PostgreSQL', 'TypeScript'],
+  'Mid Backend Developer': ['Node.js', 'PostgreSQL', 'Docker', 'TypeScript', 'Redis'],
+  'Senior Backend Developer': [
+    'Node.js',
+    'PostgreSQL',
+    'Docker',
+    'TypeScript',
+    'Kafka',
+    'GraphQL',
+    'AWS',
+  ],
+  // Fullstack
+  'Junior Fullstack Developer': ['React', 'Node.js', 'TypeScript'],
+  'Mid Fullstack Developer': ['React', 'Node.js', 'TypeScript', 'PostgreSQL', 'Docker'],
+  'Senior Fullstack Developer': [
+    'React',
+    'Node.js',
+    'TypeScript',
+    'PostgreSQL',
+    'Docker',
+    'AWS',
+    'GraphQL',
+  ],
+  // Mobile
+  'Junior Mobile Developer': ['React Native', 'TypeScript', 'iOS'],
+  'Mid Mobile Developer': ['React Native', 'TypeScript', 'iOS', 'Android', 'Swift'],
+  'Senior Mobile Developer': [
+    'React Native',
+    'iOS',
+    'Android',
+    'Swift',
+    'Kotlin',
+    'SwiftUI',
+    'Jetpack Compose',
+  ],
+  // DevOps / SRE / Cloud / IT
+  'DevOps Engineer': ['AWS', 'Kubernetes', 'Terraform', 'Docker', 'CI/CD'],
+  'Senior DevOps Engineer': [
+    'AWS',
+    'Kubernetes',
+    'Terraform',
+    'Helm',
+    'CI/CD',
+    'GitHub Actions',
+    'ArgoCD',
+  ],
+  'Site Reliability Engineer': [
+    'Linux',
+    'Monitoring',
+    'Prometheus',
+    'Grafana',
+    'Kubernetes',
+    'OpenTelemetry',
+  ],
+  'Cloud Engineer': ['AWS', 'Azure', 'GCP', 'Terraform', 'CloudFront'],
   'IT Engineer': ['AWS', 'Kubernetes', 'Terraform', 'Linux', 'Monitoring', 'Security'],
+  // Data & AI
+  'Data Engineer': ['Spark', 'Kafka', 'Airflow', 'Python', 'PostgreSQL'],
+  'Senior Data Engineer': ['Spark', 'Kafka', 'Airflow', 'Python', 'PostgreSQL', 'dbt', 'BigQuery'],
   'Data Scientist': ['ML', 'NLP', 'Spark', 'Python'],
-  'Junior Developer': ['JavaScript', 'OOP'],
-  'Software Engineer': ['TypeScript', 'Node.js'],
-  'QA Engineer': ['Cypress', 'Playwright', 'TypeScript'],
+  'Senior Data Scientist': [
+    'ML',
+    'NLP',
+    'Spark',
+    'Python',
+    'PyTorch',
+    'TensorFlow',
+    'Feature Engineering',
+  ],
+  'ML Engineer': ['ML', 'PyTorch', 'TensorFlow', 'MLflow', 'Python'],
+  'MLOps Engineer': ['MLOps', 'Kubernetes', 'MLflow', 'AWS', 'Docker', 'Python'],
+  'AI Engineer': ['LLM', 'Prompt Engineering', 'LangChain', 'RAG', 'OpenAI SDK', 'Anthropic SDK'],
+  'Generative AI Engineer': [
+    'LLM',
+    'Fine-tuning',
+    'PyTorch',
+    'Hugging Face',
+    'RAG',
+    'Vector Databases',
+  ],
+  // QA
+  'Junior QA Engineer': ['Cypress', 'API Testing', 'TypeScript'],
+  'QA Engineer': ['Cypress', 'Playwright', 'API Testing', 'Postman', 'TypeScript'],
+  'Senior QA Engineer': [
+    'Cypress',
+    'Playwright',
+    'API Testing',
+    'Postman',
+    'JMeter',
+    'TypeScript',
+    'Test Automation',
+  ],
+  'QA Automation Engineer': [
+    'Selenium',
+    'Cypress',
+    'Playwright',
+    'Test Automation',
+    'TypeScript',
+    'Robot Framework',
+  ],
+  'QA Lead': [
+    'Test Automation',
+    'Cypress',
+    'Playwright',
+    'Risk Management',
+    'Stakeholder Management',
+  ],
+  // Security
+  'Security Engineer': ['Security', 'OWASP', 'IAM', 'SAST', 'DAST'],
+  'Senior Security Engineer': [
+    'Security',
+    'OWASP',
+    'IAM',
+    'Penetration Testing',
+    'SAST',
+    'DAST',
+    'Threat Modeling',
+  ],
+  'Security Lead': [
+    'Security',
+    'ISO 27001',
+    'SOC 2',
+    'Zero Trust',
+    'Risk Management',
+    'Stakeholder Management',
+  ],
+  // Project & product
+  PM: ['Agile', 'Scrum', 'Risk Management'],
+  'Project Manager': ['Agile', 'Scrum', 'JIRA', 'Risk Management', 'Stakeholder Management'],
+  'Senior Project Manager': [
+    'Agile',
+    'Scrum',
+    'JIRA',
+    'Risk Management',
+    'Stakeholder Management',
+    'Estimation',
+    'Portfolio Management',
+  ],
+  'Delivery Manager': [
+    'Agile',
+    'Stakeholder Management',
+    'Risk Management',
+    'Estimation',
+    'Resource Planning',
+  ],
+  'Scrum Master': ['Scrum', 'Agile', 'Kanban', 'Stakeholder Management'],
+  'Product Owner': ['Agile', 'Scrum', 'Product Roadmap', 'Stakeholder Management', 'Estimation'],
+  'Business Analyst': [
+    'Stakeholder Management',
+    'Risk Management',
+    'Agile',
+    'JIRA',
+    'Product Roadmap',
+  ],
+  // PMO
+  'PMO Lead': [
+    'Portfolio Management',
+    'KPI',
+    'Governance',
+    'Resource Planning',
+    'Stakeholder Management',
+  ],
+  'PMO Analyst': ['Portfolio Management', 'KPI', 'Resource Planning', 'JIRA'],
+  // Design
+  'UI/UX Designer': ['Figma', 'Wireframing', 'Prototyping', 'User Research'],
+  'Senior UI/UX Designer': [
+    'Figma',
+    'Sketch',
+    'Wireframing',
+    'Prototyping',
+    'User Research',
+    'Design Systems',
+    'Accessibility',
+  ],
+  'Design Lead': [
+    'Figma',
+    'Design Systems',
+    'Stakeholder Management',
+    'User Research',
+    'Accessibility',
+  ],
+  // HR / Talent
+  'HR Manager': [
+    'HRIS',
+    'Performance Reviews',
+    'Employee Engagement',
+    'Labor Law VN',
+    'Stakeholder Management',
+  ],
+  'HR Generalist': ['HRIS', 'Onboarding', 'Employee Engagement', 'Labor Law VN'],
+  'HR Business Partner': [
+    'Stakeholder Management',
+    'Performance Reviews',
+    'Employee Engagement',
+    'Compensation',
+  ],
+  'Talent Acquisition': ['Technical Recruiting', 'LinkedIn Recruiter', 'Onboarding'],
+  // Internal IT
+  'IT Support': ['Linux', 'Monitoring', 'Office Operations'],
+  'IT Administrator': ['Linux', 'Monitoring', 'Security', 'Office Operations'],
+  // Business operations
+  'Account Manager': ['Account Management', 'CRM', 'Negotiation', 'Stakeholder Management'],
+  'Sales Manager': ['B2B Sales', 'CRM', 'Negotiation', 'Stakeholder Management', 'Leadership'],
+  'Marketing Specialist': ['Content Marketing', 'SEO', 'CRM'],
+  'Finance / Accountant': ['Accounting', 'Financial Reporting', 'Budgeting'],
+  'Operations Manager': [
+    'Office Operations',
+    'Stakeholder Management',
+    'Risk Management',
+    'Leadership',
+  ],
+  'Office Administrator': ['Office Operations', 'HRIS', 'Stakeholder Management'],
+  // Internal comms
+  'IC Executive': ['Internal Communications', 'Employee Engagement', 'Town Hall Facilitation'],
+  // Legacy unspecific (cast only)
+  'Junior Developer': ['JavaScript', 'HTML', 'CSS'],
+  'Software Engineer': ['TypeScript', 'Node.js', 'PostgreSQL'],
+}
+
+export const ROLE_HEADCOUNT_TARGET: Readonly<Record<string, number>> = {
+  // Executive
+  CEO: 1,
+  CTO: 1,
+  CDO: 1,
+  // Engineering leadership
+  'VP Engineering': 1,
+  'Engineering Manager': 7,
+  'Tech Lead': 8,
+  'Software Architect': 4,
+  // Frontend
+  'Junior Frontend Developer': 14,
+  'Mid Frontend Developer': 20,
+  'Senior Frontend Developer': 10,
+  // Backend
+  'Backend Developer': 2, // legacy; cast only (u004, u005)
+  'Junior Backend Developer': 13,
+  'Mid Backend Developer': 26,
+  'Senior Backend Developer': 13,
+  // Fullstack
+  'Junior Fullstack Developer': 8,
+  'Mid Fullstack Developer': 11,
+  'Senior Fullstack Developer': 7,
+  // Mobile
+  'Junior Mobile Developer': 3,
+  'Mid Mobile Developer': 4,
+  'Senior Mobile Developer': 3,
+  // DevOps / SRE / Cloud / IT
+  'DevOps Engineer': 6,
+  'Senior DevOps Engineer': 5,
+  'Site Reliability Engineer': 4,
+  'Cloud Engineer': 4,
+  'IT Engineer': 5, // legacy; cast only — 5 cast members
+  // Data & AI
+  'Data Engineer': 3,
+  'Senior Data Engineer': 2,
+  'Data Scientist': 3,
+  'Senior Data Scientist': 2,
+  'ML Engineer': 3,
+  'MLOps Engineer': 2,
+  'AI Engineer': 3,
+  'Generative AI Engineer': 2,
+  // QA
+  'Junior QA Engineer': 6,
+  'QA Engineer': 8,
+  'Senior QA Engineer': 5,
+  'QA Automation Engineer': 5,
+  'QA Lead': 2,
+  // Security
+  'Security Engineer': 4,
+  'Senior Security Engineer': 1,
+  'Security Lead': 1,
+  // Project & product
+  PM: 1, // legacy; cast only (u009)
+  'Project Manager': 9,
+  'Senior Project Manager': 4,
+  'Delivery Manager': 2,
+  'Scrum Master': 3,
+  'Product Owner': 3,
+  'Business Analyst': 6,
+  // PMO
+  'PMO Lead': 1,
+  'PMO Analyst': 2,
+  // Design
+  'UI/UX Designer': 5,
+  'Senior UI/UX Designer': 2,
+  'Design Lead': 1,
+  // HR / Talent
+  'HR Manager': 1,
+  'HR Generalist': 3,
+  'HR Business Partner': 1,
+  'Talent Acquisition': 3,
+  // Internal IT
+  'IT Support': 2,
+  'IT Administrator': 2,
+  // Business operations
+  'Account Manager': 4,
+  'Sales Manager': 2,
+  'Marketing Specialist': 1,
+  'Finance / Accountant': 2,
+  'Operations Manager': 1,
+  'Office Administrator': 1,
+  // Internal comms
+  'IC Executive': 2,
+  // Legacy unspecific (cast only)
+  'Junior Developer': 1, // u012
+  'Software Engineer': 1, // u015
+}
+
+export type Seniority = 'junior' | 'mid' | 'senior'
+
+export function seniorityOf(role: string): Seniority {
+  if (role.startsWith('Junior ')) return 'junior'
+  if (role.startsWith('Senior ')) return 'senior'
+  return 'mid'
 }
 
 export const PLAN_TAGS_INFRA = [
