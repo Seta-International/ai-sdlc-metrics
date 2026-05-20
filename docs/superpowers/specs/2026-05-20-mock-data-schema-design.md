@@ -93,7 +93,7 @@ One row per employee.
 **Notes**
 
 - `skills` is the primary signal for capability matching. Mix canonical names (AWS, Kubernetes, Terraform, Linux, etc.), broad umbrella terms (DevOps, AI), narrow technical ones (Spark, Kafka, NLP, ML, OOP), and common aliases (k8s, ts, postgres). See edges E21–E22 for the matching implications.
-- `role` is free-text — the 11 roles from `SCHEMA.md` (CEO, CTO, CDO, IC Executive, PM, PMO, Frontend Developer, Backend Developer, Fullstack Developer, Talent Acquisition, IT) are recommended for consistency, but the field is not constrained.
+- `role` is free-text. The recommended values come from the canonical catalog defined in §6.1 — covering executive, engineering leadership, IC engineering (Frontend/Backend/Fullstack/Mobile/DevOps/Data/AI), QA, security, project & product, PMO, design, HR, internal IT, business operations, and internal comms, with Junior/Mid/Senior variants where seniority is the load-bearing distinction. The named cast (§4–5) additionally uses a few legacy abbreviated labels (`PM`, `Backend Developer` without seniority, `Junior Developer`, `Software Engineer`, `IT Engineer`) that pre-date this catalog; these remain valid free-text values.
 - Empty `project`, `role`, or `skills` are valid — see edges E15, E16, E9.
 
 ---
@@ -641,33 +641,122 @@ The dataset contains all three leave statuses; only `approved` filters availabil
 
 ## 6. Mock-Data Volume Guidelines
 
-Sized for a ~300-person org. The named cast from Sections 4 and 5 (`u001`–`u015`, `p001`–`p006`, `t001`–`t020`, `lv001`–`lv011`) stays exactly as written — those rows are the scenario anchors. Everything else is volume fill that follows the same shape and the rules below.
+Sized for a **300-person IT outsourcing company**. The named cast from Sections 4 and 5 (`u001`–`u015`, `p001`–`p006`, `t001`–`t020`, `lv001`–`lv011`) stays exactly as written — those rows are the scenario anchors. Everything else is volume fill that follows the role catalog (§6.1), the other-table volumes (§6.2), the infra-task cardinality rules (§6.3), and the field-sparsity rules (§6.4).
 
-| Table          | Rows                                                                 |
-|----------------|----------------------------------------------------------------------|
-| `users`        | **~300** — covering all 11 roles from `SCHEMA.md`, mixing broad-scope skills (DevOps, AI, Frontend), narrow technical ones (Spark, Kafka, NLP, ML, OOP), and a meaningful share of alias-form spellings (`k8s`, `ts`, `postgres`) |
-| `plans`        | **~50** — at least **3–5** infrastructure-focused plans, **one** zero-member orphan plan, several sparse-fields plans, the rest non-infra for contrast |
+### 6.1 Role catalog and distribution
+
+Catalog row counts sum to **299** across 12 role-bearing named-cast rows and 287 volume-fill rows. Combined with the 1 empty-role cast row (`u013`, per edge E16), the dataset has **exactly 300 users**. The named cast itself is 13 rows (`u001`–`u005`, `u008`–`u015`); `u006` and `u007` are intentionally unused so that the named anchor cast can grow without IDs colliding with volume fill.
+
+| Family | Role | Count | Cast members |
+|---|---|---:|---|
+| Executive | CEO | 1 | — |
+| Executive | CTO | 1 | u001 |
+| Executive | CDO | 1 | — |
+| Engineering leadership | VP Engineering | 1 | — |
+| Engineering leadership | Engineering Manager | 7 | — |
+| Engineering leadership | Tech Lead | 8 | — |
+| Engineering leadership | Software Architect | 4 | — |
+| Frontend | Junior Frontend Developer | 14 | — |
+| Frontend | Mid Frontend Developer | 20 | — |
+| Frontend | Senior Frontend Developer | 10 | — |
+| Backend | Backend Developer *(legacy unleveled)* | 2 | u004, u005 |
+| Backend | Junior Backend Developer | 13 | — |
+| Backend | Mid Backend Developer | 26 | — |
+| Backend | Senior Backend Developer | 13 | — |
+| Fullstack | Junior Fullstack Developer | 8 | — |
+| Fullstack | Mid Fullstack Developer | 11 | — |
+| Fullstack | Senior Fullstack Developer | 7 | — |
+| Mobile | Junior Mobile Developer | 3 | — |
+| Mobile | Mid Mobile Developer | 4 | — |
+| Mobile | Senior Mobile Developer | 3 | — |
+| DevOps / SRE / Cloud / IT | DevOps Engineer | 6 | — |
+| DevOps / SRE / Cloud / IT | Senior DevOps Engineer | 5 | — |
+| DevOps / SRE / Cloud / IT | Site Reliability Engineer | 4 | — |
+| DevOps / SRE / Cloud / IT | Cloud Engineer | 4 | — |
+| DevOps / SRE / Cloud / IT | IT Engineer *(legacy; cast only)* | 5 | u002, u003, u008, u010, u011 |
+| Data & AI | Data Engineer | 3 | — |
+| Data & AI | Senior Data Engineer | 2 | — |
+| Data & AI | Data Scientist | 3 | u014 |
+| Data & AI | Senior Data Scientist | 2 | — |
+| Data & AI | ML Engineer | 3 | — |
+| Data & AI | MLOps Engineer | 2 | — |
+| Data & AI | AI Engineer | 3 | — |
+| Data & AI | Generative AI Engineer | 2 | — |
+| QA | Junior QA Engineer | 6 | — |
+| QA | QA Engineer | 8 | — |
+| QA | Senior QA Engineer | 5 | — |
+| QA | QA Automation Engineer | 5 | — |
+| QA | QA Lead | 2 | — |
+| Security | Security Engineer | 4 | — |
+| Security | Senior Security Engineer | 1 | — |
+| Security | Security Lead | 1 | — |
+| Project & product | PM *(legacy abbreviation)* | 1 | u009 |
+| Project & product | Project Manager | 9 | — |
+| Project & product | Senior Project Manager | 4 | — |
+| Project & product | Delivery Manager | 2 | — |
+| Project & product | Scrum Master | 3 | — |
+| Project & product | Product Owner | 3 | — |
+| Project & product | Business Analyst | 6 | — |
+| PMO | PMO Lead | 1 | — |
+| PMO | PMO Analyst | 2 | — |
+| Design | UI/UX Designer | 5 | — |
+| Design | Senior UI/UX Designer | 2 | — |
+| Design | Design Lead | 1 | — |
+| HR / Talent | HR Manager | 1 | — |
+| HR / Talent | HR Generalist | 3 | — |
+| HR / Talent | HR Business Partner | 1 | — |
+| HR / Talent | Talent Acquisition | 3 | — |
+| Internal IT | IT Support | 2 | — |
+| Internal IT | IT Administrator | 2 | — |
+| Business operations | Account Manager | 4 | — |
+| Business operations | Sales Manager | 2 | — |
+| Business operations | Marketing Specialist | 1 | — |
+| Business operations | Finance / Accountant | 2 | — |
+| Business operations | Operations Manager | 1 | — |
+| Business operations | Office Administrator | 1 | — |
+| Internal comms | IC Executive | 2 | — |
+| Legacy (cast only) | Junior Developer | 1 | u012 |
+| Legacy (cast only) | Software Engineer | 1 | u015 |
+| | **Catalog total** | **299** | 12 role-bearing cast rows above; `u013` (empty role per E16) makes 300 |
+
+**Family rollup:** Engineering ICs = 178 (~59%), QA = 26 (~9%), Project & product = 28 (~9%), Executive + Engineering leadership = 23 (~8%), HR + Talent + Biz ops + Internal IT + IC = 25 (~8%), Design = 8 (~3%), Security = 6 (2%), PMO = 3 (1%), Legacy cast-only = 2 (<1%). Catalog total = 299; + `u013` (empty role) = 300 users.
+
+**Notes on the catalog**
+
+- **Chief roles are exactly one of each** — CEO, CTO, CDO. The generator must enforce this; no volume fill ever produces additional C-level rows.
+- **Seniority is in the role string** — Junior/Mid/Senior variants are distinct role values, not a separate CSV column.
+- **Skill breadth encodes seniority** — Junior rows carry 2–3 narrow skills; Mid rows carry 4–5; Senior rows carry 5–7 spanning broader topics. The `skills` field is the only seniority signal beyond the role string itself.
+- **AI specialization splits into four roles** — ML Engineer (training/inference pipelines), MLOps Engineer (model serving, monitoring, deployment), AI Engineer (LLM application development, RAG, agents), Generative AI Engineer (fine-tuning, multimodal, foundation-model work). Skills for these roles include LLM, Prompt Engineering, LangChain, RAG, Vector Databases, PyTorch, TensorFlow, Fine-tuning, and the existing ML/NLP/Spark/Python.
+- **Legacy labels** — `PM`, `Backend Developer` (unleveled), `Junior Developer`, `Software Engineer`, and `IT Engineer` are kept verbatim from the named cast. They are valid free-text role values but receive **no volume-fill rows**; their counts in the table above come entirely from named cast members. Volume fill always uses canonical labels (e.g. a new backend engineer becomes `Junior Backend Developer` / `Mid Backend Developer` / `Senior Backend Developer`, never the unleveled `Backend Developer`).
+
+### 6.2 Other table volumes
+
+| Table | Rows |
+|---|---|
+| `plans`        | **~50** — at least **3–5** infrastructure-focused plans, **one** zero-member orphan plan, several sparse-fields plans, the rest covering frontend, backend, mobile, data/AI, design, QA, security, product roadmap, and PMO governance |
 | `plan_members` | **~1,500–2,500 rows** — most plans have 15–40 members; many users belong to multiple plans (average ~6 plans/user); at least one plan deliberately has zero |
-| `buckets`      | 3–4 per plan → **~150–200 total** (e.g. `To Do`, `In Progress`, `Done` — names vary)      |
-| `tasks`        | **~600** — at least **80** with `status='todo'` that are clearly infra-scoped; the rest a mix of statuses, plans, and topics. Title length spans from empty/short placeholders to multi-clause sentences |
+| `buckets`      | 3–4 per plan → **~150–200 total** (e.g. `To Do`, `In Progress`, `Done` — names vary) |
+| `tasks`        | **~600** — at least **80** with `status='todo'` that are clearly infra-scoped; the rest a mix of statuses, plans, and topics including frontend, backend, mobile, data/AI, QA, security, and design. Title length spans from empty/short placeholders to multi-clause sentences |
 | `timesheet`    | **~400 leave entries** — mix of past, current, and future windows; ~70% `approved`, ~25% `pending`, ~5% `rejected` |
 
-Cardinality rules of thumb for the infra-scoped todo tasks:
+### 6.3 Infrastructure-task cardinality
 
-- At least **30** should have **no** current assignee (`assignee_ids=""`).
-- At least **30** should have a `due_date` within the next 30 days.
-- Required skills across the set should collectively span: AWS, Kubernetes, Terraform, Linux, Monitoring, Security, Docker, Spark, NLP, ML — so different tasks attract different candidates.
-- At least **5** infra-skilled users must have an `approved` leave entry overlapping `[2026-05-20, 2026-06-30]` so the availability filter is exercised at scale.
+Rules of thumb so the assignment query has enough signal across the 300-person org:
+
+- At least **30** infra-scoped todo tasks should have **no** current assignee (`assignee_ids=""`).
+- At least **30** infra-scoped todo tasks should have a `due_date` within the next 30 days.
+- Required skills across the infra task set should collectively span: AWS, Kubernetes, Terraform, Linux, Monitoring, Security, Docker, Spark, NLP, ML — so different tasks attract different candidates.
+- At least **5** infra-skilled users (drawn from the DevOps / SRE / Cloud / IT family) must have an `approved` leave entry overlapping `[2026-05-20, 2026-06-30]` so the availability filter is exercised at scale.
 - At least **15** infra-skilled users must remain available across the same window so the suggestion lists are non-trivial.
 
-Field-sparsity rules of thumb across all tasks:
+### 6.4 Field-sparsity rules
 
-- **~60% of tasks should have `tags=""`** (~360 of ~600) — empty tags is the common case in real data; the dataset must reflect that.
+- **~60% of tasks should have `tags=""`** (~360 of ~600) — empty tags is the common case in real data; the dataset must not lean on tags as a required signal.
 - ~20% of tasks should have very short titles (≤ 3 words) or empty (~120 of ~600).
 - ~10% of tasks should have long, sentence-form titles (~60 of ~600).
 - ~30% of plans should have `description=""`; ~40% should have `tags=""`.
-- ~15% of users should have at least one of `project` / `role` empty (~45 of ~300).
-- ~5% of users should have `skills=""` (~15 of ~300) — these never appear as candidates.
+- ~15% of users should have at least one of `project` / `role` empty (~45 of 300); empty `role` accounts for ~5% (~15 of 300, u013 already counted).
+- ~5% of users should have `skills=""` (~15 of 300) — these never appear as candidates.
 - ~10% of users should use alias-form skills (`k8s`, `ts`, `postgres`, etc.) so the alias map is exercised broadly, not just by `u015`.
 
 ---
