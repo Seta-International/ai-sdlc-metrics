@@ -224,7 +224,162 @@ Note step 2a — the "infrastructure scope" is inferred semantically from task t
 
 ---
 
-## 4. Mock-Data Volume Guidelines
+## 4. Happy-Path Scenarios
+
+Each scenario fixes a concrete slice of the mock data and states what the assignment query must produce. The mock data must satisfy every scenario — together they prove the schema and dataset have enough signal for the use case.
+
+**Reference cast** (used by all scenarios; reference date `2026-05-20`):
+
+`users.csv` — relevant rows only
+
+| user_id | name              | project        | role               | skills                                            |
+|---------|-------------------|----------------|--------------------|---------------------------------------------------|
+| u001    | Trần Văn Hùng     | SETA Internal  | CTO                | `AWS,System Design,DevOps,Engineering Leadership` |
+| u002    | Nguyễn Văn Nam    | SETA Internal  | IT Engineer        | `AWS,Kubernetes,Terraform,Linux,Monitoring,Security` |
+| u003    | Lê Thị Hoa        | SETA Internal  | IT Engineer        | `AWS,Kubernetes,Linux,Docker`                     |
+| u004    | Phạm Quốc Bảo     | Client Atlas   | Backend Developer  | `Node.js,PostgreSQL,Docker,Kafka`                 |
+| u005    | Vũ Minh Tuấn      | SETA Internal  | Backend Developer  | `AWS,Docker,Linux,PostgreSQL`                     |
+| u008    | Bùi Trung Hiếu    | Client Beta    | IT Engineer        | `AWS,Kubernetes,Terraform,Security`               |
+
+`plans.csv`
+
+| plan_id | title                                | tags                           | owner |
+|---------|--------------------------------------|--------------------------------|-------|
+| p001    | Infrastructure Review Q2 2026        | `infrastructure,cloud,review`  | u001  |
+| p002    | Frontend Modernization               | `frontend,react`               | …     |
+
+`plan_members.csv` (p001)
+
+`u001, u002, u003, u004, u005` — **u008 is deliberately not a member of p001.**
+
+`buckets.csv` (p001)
+
+| bucket_id | name          |
+|-----------|---------------|
+| b001      | To Do         |
+| b002      | In Progress   |
+| b004      | Done          |
+
+`tasks.csv`
+
+| task_id | plan_id | bucket_id | status      | priority | assignee_ids | due_date    | title                                                              | tags                                          |
+|---------|---------|-----------|-------------|----------|--------------|-------------|--------------------------------------------------------------------|-----------------------------------------------|
+| t001    | p001    | b001      | todo        | 1        | *(empty)*    | 2026-06-02  | Review AWS infrastructure architecture and resource allocation     | `infrastructure,aws,cost,review`              |
+| t002    | p001    | b001      | todo        | 3        | u003         | 2026-06-15  | Audit Kubernetes cluster security and RBAC policies                | `infrastructure,kubernetes,security,review`   |
+| t003    | p001    | b001      | todo        | 5        | *(empty)*    | *(empty)*   | Plan Q3 capacity model                                             | `infrastructure,planning`                     |
+| t004    | p001    | b004      | done        | 5        | u002         | 2026-04-30  | Migrate Terraform modules to v1.7                                  | `infrastructure,terraform`                    |
+| t005    | p001    | b002      | in progress | 3        | u003         | 2026-05-30  | Set up monitoring dashboards for production services               | `infrastructure,monitoring`                   |
+| t006    | p002    | …         | todo        | 5        | *(empty)*    | 2026-06-10  | Refactor design system tokens                                      | `frontend,design-system`                      |
+
+`timesheet.csv`
+
+| leave_id | employee_id | start_date  | end_date    | type     | status   |
+|----------|-------------|-------------|-------------|----------|----------|
+| lv001    | u002        | 2026-05-25  | 2026-06-10  | annual   | approved |
+| lv002    | u005        | 2026-06-20  | 2026-06-25  | annual   | approved |
+| lv003    | u003        | 2026-07-01  | 2026-07-10  | sick     | pending  |
+| lv004    | u001        | 2026-05-20  | 2026-05-20  | personal | approved |
+
+---
+
+### Scenario 1 — Strong infra match with availability filter
+
+**Input task:** `t001` ("Review AWS infrastructure architecture…", due `2026-06-02`, unassigned).
+
+**Derivation steps**
+
+1. *In-scope?* `status=todo`, title and tags mention `infrastructure,aws,cost,review` → yes.
+2. *Required skills* (deduced from tags + title): `AWS`, plus infra-related (`Linux`, `Monitoring`, `Security`).
+3. *Candidate pool* = members of p001 = {u001, u002, u003, u004, u005}.
+4. *Skill overlap*:
+   - u002 → AWS, Linux, Monitoring, Security (**4 matches**)
+   - u003 → AWS, Linux (2 matches)
+   - u005 → AWS, Linux (2 matches)
+   - u001 → AWS (1 match)
+   - u004 → 0 matches → drop
+5. *Availability vs `[2026-05-20, 2026-06-02]`*:
+   - u002 → `lv001` (2026-05-25 → 2026-06-10) overlaps → **unavailable**
+   - u005 → `lv002` (2026-06-20 → 2026-06-25) does not overlap → available
+   - u001, u003 → no approved leave → available
+
+**Expected suggestion list (top to bottom):**
+`u003` (2 matches, available) · `u005` (2 matches, available) · `u001` (1 match, available).
+`u002` filtered out by availability; `u004` filtered out by zero skill match.
+
+This scenario simultaneously exercises: skill ranking, availability cutoff, and "skilled-but-unavailable" filtering.
+
+---
+
+### Scenario 2 — Already-assigned + legitimate empty result
+
+**Input task:** `t002` ("Audit Kubernetes cluster security…", due `2026-06-15`, `assignee_ids=u003`).
+
+**Derivation**
+
+1. In-scope: yes (todo + infra tags).
+2. Required skills: `Kubernetes`, `Security`.
+3. Candidate pool = p001 members **minus u003** = {u001, u002, u004, u005}.
+4. Skill overlap:
+   - u002 → Kubernetes, Security (2 matches)
+   - u001, u004, u005 → 0 matches → drop
+5. Availability vs `[2026-05-20, 2026-06-15]`:
+   - u002 → `lv001` overlaps → unavailable
+
+**Expected suggestion list:** empty.
+
+Demonstrates two important behaviors:
+- the current assignee is excluded from suggestions (you suggest *additional* helpers, not the same person)
+- a genuinely empty result is a valid outcome — UI/agent must say "no candidate" rather than relaxing the filter silently
+
+---
+
+### Scenario 3 — No due_date → today-only availability
+
+**Input task:** `t003` ("Plan Q3 capacity model", **no due_date**, unassigned).
+
+**Derivation**
+
+1. In-scope: yes.
+2. Required skills (loose): `infrastructure`, planning context.
+3. Candidate pool = all p001 members.
+4. Availability rule with empty due_date → "no approved leave covering today (`2026-05-20`)":
+   - u001 → `lv004` (2026-05-20 → 2026-05-20) **does** cover today → unavailable
+   - u002 → `lv001` starts 2026-05-25 → does not cover today → available
+   - others → available
+
+**Expected suggestion list:** ranking by loose skill match, with `u001` filtered out by today-only availability.
+
+Demonstrates the `due_date IS NULL` fallback branch of the availability rule.
+
+---
+
+### Scenario 4 — Highly-skilled non-member must NOT be suggested
+
+**Input task:** `t001` (same as Scenario 1).
+
+**The trap:** `u008` has a near-perfect skill profile (`AWS,Kubernetes,Terraform,Security`) for an AWS infrastructure review. But `u008` is **not** a row in `plan_members.csv` for `p001`.
+
+**Expected:** `u008` must not appear in the suggestion list for any task in `p001`, regardless of skill match or availability.
+
+Demonstrates that the candidate pool is gated by plan membership, not by skills. A separate workflow ("invite non-member to plan") is out of scope here.
+
+---
+
+### Scenario 5 — Non-todo and non-infra tasks excluded from the input list
+
+The query "list infrastructure tasks needing review" must produce only `t001`, `t002`, `t003` from the reference cast — **not** `t004`, `t005`, or `t006`.
+
+| Task  | Why excluded                                                                  |
+|-------|-------------------------------------------------------------------------------|
+| t004  | `status=done` — not "needs reviewing"                                         |
+| t005  | `status=in progress` — already underway, not awaiting assignment              |
+| t006  | `status=todo` ✓ but title/description/tags are frontend-only — not infra      |
+
+Demonstrates the two filters at the top of the use-case query: `status=todo` **and** infra-scope by title/description/tags.
+
+---
+
+## 5. Mock-Data Volume Guidelines
 
 Sized to support the use case without being noisy.
 
@@ -246,7 +401,7 @@ Cardinality rules of thumb for the infra-scoped todo tasks:
 
 ---
 
-## 5. Out of Scope
+## 6. Out of Scope
 
 Explicitly *not* in this schema:
 
@@ -259,7 +414,7 @@ Explicitly *not* in this schema:
 
 ---
 
-## 6. Relationship to `SCHEMA.md`
+## 7. Relationship to `SCHEMA.md`
 
 | `SCHEMA.md` (Graph-shaped)           | This schema (simplified)        | Notes                                                                 |
 |---------------------------------------|---------------------------------|-----------------------------------------------------------------------|
