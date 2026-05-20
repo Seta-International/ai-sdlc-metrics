@@ -1,0 +1,51 @@
+plan_id,title,description,tags,owner
+p001,Infrastructure Review Q2 2026,"Quarterly infrastructure audit covering AWS spend, Kubernetes posture, and Terraform debt.","infrastructure,cloud,review",u001
+p002,Frontend Modernization,Move design system and shell to the new tokens-based stack.,"frontend,react",u001
+p003,DevOps Standalone Project,Single-engineer infra spike covering Terraform bootstrap and CI hardening.,"infrastructure,devops",u010
+p004,Backend Cleanup Sprint,,,u004
+p005,AI Platform R&D,Build internal AI experimentation platform with Spark + ML pipelines.,"ai,ml,spark",u013
+p006,Orphan Plan,,,u013
+p007,Infrastructure Review Q1 2026,Plan summary for infrastructure review q1 2026.,,u274
+p008,Mobile App 2026,Plan summary for mobile app 2026.,"product,mobile",u179
+p009,Security & Compliance 2026,Plan summary for security & compliance 2026.,,u180
+p010,Cloud Migration Q1,Plan summary for cloud migration q1.,,u045
+p011,Backend Cleanup Sprint,Plan summary for backend cleanup sprint.,,u224
+p012,Security & Compliance 2026,Plan summary for security & compliance 2026.,,u105
+p013,Product Roadmap Q4,,"backend,mobile,frontend",u295
+p014,Backend Cleanup Sprint,Plan summary for backend cleanup sprint.,"mobile,product",u119
+p015,Infrastructure Review Q1 2026,Plan summary for infrastructure review q1 2026.,"cloud,infrastructure",u229
+p016,Cloud Migration Q3,,"infrastructure,aws",u225
+p017,Product Roadmap Q3,,"mobile,product,backend",u213
+p018,Mobile App 2026,Plan summary for mobile app 2026.,,u261
+p019,AI Platform R&D,Plan summary for ai platform r&d.,"data,ai,spark",u300
+p020,Frontend Reliability Initiative,Plan summary for frontend reliability initiative.,"roadmap,mobile,backend",u159
+p021,AI Platform R&D,Plan summary for ai platform r&d.,"ai,ml",u238
+p022,Cloud Migration Q4,Plan summary for cloud migration q4.,,u245
+p023,AI Platform R&D,Plan summary for ai platform r&d.,"data,ai,analytics",u119
+p024,DevOps Cleanup Sprint,Plan summary for devops cleanup sprint.,"review,devops,kubernetes",u164
+p025,Platform Cleanup Sprint,Plan summary for platform cleanup sprint.,"frontend,mobile,roadmap",u257
+p026,Backend Modernization,Plan summary for backend modernization.,,u135
+p027,Mobile Modernization,Plan summary for mobile modernization.,,u014
+p028,Security & Compliance 2026,Plan summary for security & compliance 2026.,"product,mobile",u282
+p029,Quarterly Engineering Sprint,,,u046
+p030,AI Platform R&D,Plan summary for ai platform r&d.,,u047
+p031,Security & Compliance 2026,,"roadmap,frontend",u010
+p032,Backend Reliability Initiative,,,u288
+p033,Product Roadmap Q2,,,u191
+p034,AI Platform R&D,Plan summary for ai platform r&d.,,u111
+p035,Data Reliability Initiative,,"spark,data,analytics",u142
+p036,Backend Cleanup Sprint,Plan summary for backend cleanup sprint.,"mobile,backend,product",u161
+p037,DevOps Reliability Initiative,Plan summary for devops reliability initiative.,,u018
+p038,Mobile Modernization,,"product,roadmap",u011
+p039,AI Platform R&D,Plan summary for ai platform r&d.,,u202
+p040,Mobile App 2026,Plan summary for mobile app 2026.,,u130
+p041,Infrastructure Review Q1 2026,Plan summary for infrastructure review q1 2026.,,u298
+p042,Data Modernization,Plan summary for data modernization.,"analytics,ml",u043
+p043,Quarterly Engineering Sprint,,"roadmap,backend,frontend",u105
+p044,Security & Compliance 2026,Plan summary for security & compliance 2026.,,u149
+p045,Infrastructure Review Q4 2026,,,u233
+p046,AI Platform R&D,Plan summary for ai platform r&d.,"ml,analytics,ai",u239
+p047,Mobile App 2026,Plan summary for mobile app 2026.,,u282
+p048,Frontend Cleanup Sprint,,,u053
+p049,Cloud Migration Q1,Plan summary for cloud migration q1.,"cloud,devops,review",u080
+p050,Quarterly Engineering Sprint,Plan summary for quarterly engineering sprint.,"frontend,backend,roadmap",u291
