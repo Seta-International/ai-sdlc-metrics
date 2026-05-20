@@ -106,20 +106,125 @@ const SKILLS_INFRA = [
   'Linux',
   'Nginx',
   'CloudFront',
+  'Helm',
+  'Istio',
+  'Service Mesh',
+  'Ansible',
+  'ArgoCD',
+  'Pulumi',
+  'CI/CD',
+  'GitHub Actions',
 ]
-const SKILLS_OBS = ['Monitoring', 'Logging', 'Grafana', 'Prometheus', 'Datadog']
-const SKILLS_SECURITY = ['Security', 'IAM', 'OAuth', 'OWASP']
-const SKILLS_DATA = ['ML', 'NLP', 'Spark', 'Kafka', 'Airflow', 'ETL', 'BigQuery']
-const SKILLS_MOBILE = ['iOS', 'Android', 'Swift', 'Kotlin', 'Flutter', 'React Native']
-const SKILLS_SOFT = [
-  'Leadership',
-  'Engineering Leadership',
-  'Risk Management',
+const SKILLS_OBS = ['Monitoring', 'Logging', 'Grafana', 'Prometheus', 'Datadog', 'OpenTelemetry']
+const SKILLS_SECURITY = [
+  'Security',
+  'IAM',
+  'OAuth',
+  'OWASP',
+  'Penetration Testing',
+  'SAST',
+  'DAST',
+  'ISO 27001',
+  'SOC 2',
+  'Zero Trust',
+  'Threat Modeling',
+]
+const SKILLS_DATA = ['ML', 'NLP', 'Spark', 'Kafka', 'Airflow', 'ETL', 'BigQuery', 'dbt']
+const SKILLS_AI = [
+  'LLM',
+  'Prompt Engineering',
+  'LangChain',
+  'LlamaIndex',
+  'RAG',
+  'Vector Databases',
+  'OpenAI SDK',
+  'Anthropic SDK',
+  'Hugging Face',
+  'Fine-tuning',
+  'PyTorch',
+  'TensorFlow',
+  'scikit-learn',
+  'Computer Vision',
+  'MLOps',
+  'MLflow',
+  'Feature Engineering',
+]
+const SKILLS_QA = [
+  'Selenium',
+  'Postman',
+  'JMeter',
+  'K6',
+  'Robot Framework',
+  'Test Automation',
+  'API Testing',
+  'Cypress',
+  'Playwright',
+]
+const SKILLS_MOBILE = [
+  'iOS',
+  'Android',
+  'Swift',
+  'Kotlin',
+  'Flutter',
+  'React Native',
+  'SwiftUI',
+  'Jetpack Compose',
+  'Xamarin',
+]
+const SKILLS_DESIGN = [
+  'Figma',
+  'Sketch',
+  'User Research',
+  'Wireframing',
+  'Prototyping',
+  'Design Systems',
+  'Accessibility',
+]
+const SKILLS_PM = [
   'Agile',
   'Scrum',
+  'Kanban',
+  'JIRA',
+  'Risk Management',
+  'Product Roadmap',
   'Stakeholder Management',
+  'Estimation',
+  'Resource Planning',
+  'Portfolio Management',
+  'KPI',
+  'Governance',
 ]
-const SKILLS_NARROW = ['OOP', 'gRPC', 'Webpack', 'ESLint', 'Cypress', 'Playwright']
+const SKILLS_HR = [
+  'Technical Recruiting',
+  'LinkedIn Recruiter',
+  'Onboarding',
+  'Employee Engagement',
+  'Performance Reviews',
+  'HRIS',
+  'Compensation',
+  'Labor Law VN',
+]
+const SKILLS_BIZ = [
+  'B2B Sales',
+  'Account Management',
+  'CRM',
+  'Negotiation',
+  'Content Marketing',
+  'SEO',
+  'Accounting',
+  'Financial Reporting',
+  'Budgeting',
+  'Office Operations',
+]
+const SKILLS_LEAD = [
+  'Leadership',
+  'Engineering Leadership',
+  'Digital Transformation',
+  'Business Strategy',
+  'Internal Communications',
+  'Town Hall Facilitation',
+]
+const SKILLS_NARROW = ['OOP', 'gRPC', 'Webpack', 'ESLint', 'GraphQL', 'WebSockets']
 const SKILLS_BROAD = [
   'DevOps',
   'AI',
@@ -139,8 +244,14 @@ export const SKILL_CATALOG = [
   ...SKILLS_OBS,
   ...SKILLS_SECURITY,
   ...SKILLS_DATA,
+  ...SKILLS_AI,
+  ...SKILLS_QA,
   ...SKILLS_MOBILE,
-  ...SKILLS_SOFT,
+  ...SKILLS_DESIGN,
+  ...SKILLS_PM,
+  ...SKILLS_HR,
+  ...SKILLS_BIZ,
+  ...SKILLS_LEAD,
   ...SKILLS_NARROW,
   ...SKILLS_BROAD,
 ] as const
