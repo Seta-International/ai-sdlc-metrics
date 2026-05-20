@@ -5,9 +5,11 @@ import {
   GIVEN_NAMES,
   MIDDLE_NAMES,
   PROJECTS,
+  ROLE_HEADCOUNT_TARGET,
   ROLE_SKILL_PROFILE,
-  ROLES,
+  type Seniority,
   SKILL_CATALOG,
+  seniorityOf,
 } from './pools.js'
 import type { Rng } from './rng.js'
 import type { User } from './types.js'
@@ -34,35 +36,89 @@ function makeName(rng: Rng): string {
   return `${rng.pick(FAMILY_NAMES)} ${rng.pick(MIDDLE_NAMES)} ${rng.pick(GIVEN_NAMES)}`
 }
 
+function skillCountForSeniority(rng: Rng, sen: Seniority): number {
+  if (sen === 'junior') return rng.intRange(2, 3)
+  if (sen === 'senior') return rng.intRange(5, 7)
+  return rng.intRange(4, 5)
+}
+
 function makeSkillsForRole(rng: Rng, role: string): string {
   const baseProfile = ROLE_SKILL_PROFILE[role] ?? []
-  const baseSize = Math.min(baseProfile.length, rng.intRange(2, 4))
-  const base = rng.sample(baseProfile, baseSize)
-  const extraCount = rng.intRange(0, 3)
-  const extras = rng.sample(SKILL_CATALOG, extraCount)
-  const combined = [...new Set([...base, ...extras])]
-  if (rng.chance(0.1)) {
-    const alias = rng.pick(ALIAS_SKILLS)
-    const target = CANONICAL_OF_ALIAS[alias]
-    const idx = target ? combined.indexOf(target) : -1
-    if (idx >= 0) combined[idx] = alias
-    else combined.push(alias)
+  const sen = seniorityOf(role)
+  const wantTotal = skillCountForSeniority(rng, sen)
+
+  const profileTake = Math.min(baseProfile.length, wantTotal)
+  const base = rng.sample(baseProfile, profileTake)
+
+  let skills: string[] = [...base]
+  if (sen !== 'junior' && skills.length < wantTotal) {
+    const need = wantTotal - skills.length
+    const pool = SKILL_CATALOG.filter((s) => !skills.includes(s))
+    if (need > 0 && pool.length > 0) {
+      const extras = rng.sample(pool, Math.min(need, pool.length))
+      skills = [...skills, ...extras]
+    }
   }
-  return combined.join(',')
+
+  skills = skills.slice(0, wantTotal)
+
+  if (rng.chance(0.15)) {
+    const candidates = (ALIAS_SKILLS as readonly string[]).filter((a) => {
+      const canonical = CANONICAL_OF_ALIAS[a]
+      return canonical !== undefined && skills.includes(canonical)
+    })
+    if (candidates.length > 0) {
+      const alias = rng.pick(candidates)
+      const canonical = CANONICAL_OF_ALIAS[alias]
+      if (canonical !== undefined) {
+        const idx = skills.indexOf(canonical)
+        if (idx >= 0) skills[idx] = alias
+      }
+    }
+  }
+
+  return [...new Set(skills)].join(',')
+}
+
+function buildVolumeFillRoleQueue(): string[] {
+  const castCountByRole = new Map<string, number>()
+  for (const u of NAMED_USERS) {
+    if (u.role === '') continue
+    castCountByRole.set(u.role, (castCountByRole.get(u.role) ?? 0) + 1)
+  }
+  const queue: string[] = []
+  for (const [role, target] of Object.entries(ROLE_HEADCOUNT_TARGET)) {
+    const reserved = castCountByRole.get(role) ?? 0
+    const fill = target - reserved
+    if (fill < 0) {
+      throw new Error(
+        `cast has ${reserved} '${role}' rows but ROLE_HEADCOUNT_TARGET allocates only ${target}`,
+      )
+    }
+    for (let i = 0; i < fill; i++) queue.push(role)
+  }
+  return queue
 }
 
 export function generateUsers(rng: Rng, total: number): User[] {
   const users: User[] = [...NAMED_USERS]
+  const volumeFillCount = total - users.length
+  const queue = buildVolumeFillRoleQueue()
+
+  if (queue.length !== volumeFillCount) {
+    throw new Error(
+      `volume-fill mismatch: queue=${queue.length} required=${volumeFillCount} (total=${total}, cast=${users.length})`,
+    )
+  }
+
   let nextNum = HIGHEST_NAMED_NUM + 1
-  while (users.length < total) {
-    const id = makeId(nextNum++)
-    if (NAMED_IDS.has(id)) continue
-    const role = rng.pick(ROLES)
+  for (const role of queue) {
+    let id = makeId(nextNum++)
+    while (NAMED_IDS.has(id)) id = makeId(nextNum++)
     const name = makeName(rng)
-    const project = rng.chance(0.1) ? '' : rng.pick(PROJECTS)
-    const roleField = rng.chance(0.05) ? '' : role
+    const project = rng.chance(0.13) ? '' : rng.pick(PROJECTS)
     const skills = rng.chance(0.05) ? '' : makeSkillsForRole(rng, role)
-    users.push({ user_id: id, name, project, role: roleField, skills })
+    users.push({ user_id: id, name, project, role, skills })
   }
   return users
 }
