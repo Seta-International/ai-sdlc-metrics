@@ -159,6 +159,7 @@ export const NAMED_PLAN_MEMBERS: readonly PlanMember[] = [
 export const NAMED_BUCKETS: readonly Bucket[] = [
   { bucket_id: 'b001', plan_id: 'p001', name: 'To Do' },
   { bucket_id: 'b002', plan_id: 'p001', name: 'In Progress' },
+  { bucket_id: 'b003', plan_id: 'p002', name: 'To Do' },
   { bucket_id: 'b004', plan_id: 'p001', name: 'Done' },
   { bucket_id: 'b005', plan_id: 'p003', name: 'To Do' },
   { bucket_id: 'b006', plan_id: 'p003', name: 'Done' },
@@ -249,7 +250,7 @@ export const NAMED_TASKS: readonly Task[] = [
   {
     task_id: 't006',
     plan_id: 'p002',
-    bucket_id: 'b001',
+    bucket_id: 'b003',
     assignee_ids: '',
     title: 'Refactor design system tokens',
     description:
