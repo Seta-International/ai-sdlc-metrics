@@ -14,5 +14,8 @@
     "dotenv": "17.4.2",
     "postgres": "3.4.9",
     "zod": "4.4.3"
+  },
+  "scripts": {
+    "gen-mock": "tsx scripts/mock-data-generator/src/cli.ts"
   }
 }

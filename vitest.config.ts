@@ -37,6 +37,7 @@ export default defineConfig({
       'apps/*',
       'tests/integration',
       'tests/e2e',
+      'tooling/scripts/mock-data-generator',
     ],
   },
 })

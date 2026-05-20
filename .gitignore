@@ -45,3 +45,6 @@ docker-compose.override.yml
 
 # Local Claude state
 .claude/settings.local.json
+
+# Generated mock data (run `pnpm --filter @seta/tooling gen-mock` to regenerate)
+mock/
