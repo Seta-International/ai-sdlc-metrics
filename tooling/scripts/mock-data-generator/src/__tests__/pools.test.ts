@@ -21,8 +21,9 @@ describe('ROLE_HEADCOUNT_TARGET', () => {
 
   it('has a skill profile for every role in ROLES', () => {
     for (const role of ROLES) {
-      expect(ROLE_SKILL_PROFILE[role]).toBeDefined()
-      expect(ROLE_SKILL_PROFILE[role]!.length).toBeGreaterThanOrEqual(3)
+      const profile = ROLE_SKILL_PROFILE[role]
+      expect(profile).toBeDefined()
+      expect(profile?.length ?? 0).toBeGreaterThanOrEqual(3)
     }
   })
 })
