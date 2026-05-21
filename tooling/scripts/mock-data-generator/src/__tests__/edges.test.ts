@@ -122,3 +122,38 @@ describe('E26 — past approved leave does not filter', () => {
     expect(result).toBeDefined()
   })
 })
+
+describe('E27 — viewer member excluded from suggestion despite skill match', () => {
+  it('u007 is a member of p001 with skills AWS+Linux+Docker', () => {
+    const member = ds.plan_members.find((m) => m.plan_id === 'p001' && m.member_id === 'u007')
+    expect(member).toBeDefined()
+    const u007 = ds.users.find((u) => u.user_id === 'u007')
+    expect(u007?.skills).toBe('AWS,Linux,Docker')
+    expect(u007?.rbac_role).toBe('planner.viewer')
+  })
+
+  it('t001 (AWS infra review) suggestions never include u007', () => {
+    const result = suggestForTask(ds, 't001', ['AWS', 'Linux', 'Monitoring', 'Security'])
+    expect(result.map((r) => r.user_id)).not.toContain('u007')
+  })
+
+  it('without the RBAC filter u007 would otherwise be a 2-skill candidate', () => {
+    const u007 = ds.users.find((u) => u.user_id === 'u007')
+    const required = new Set(['AWS', 'Linux', 'Monitoring', 'Security'])
+    const matches = (u007?.skills ?? '').split(',').filter((s) => required.has(s)).length
+    expect(matches).toBe(2)
+  })
+})
+
+describe('E28 — empty-role user defaulted to viewer is filtered', () => {
+  it('u013 has role="" and rbac_role="planner.viewer"', () => {
+    const u013 = ds.users.find((u) => u.user_id === 'u013')
+    expect(u013?.role).toBe('')
+    expect(u013?.rbac_role).toBe('planner.viewer')
+  })
+
+  it('u013 never appears in t018 (p005) suggestions even with alias expansion', () => {
+    const result = suggestForTask(ds, 't018', ['Spark', 'ML', 'NLP'], { normalizeAliases: true })
+    expect(result.map((r) => r.user_id)).not.toContain('u013')
+  })
+})

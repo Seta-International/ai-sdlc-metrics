@@ -18,7 +18,10 @@ export function suggestForTask(
     .filter((m) => m.plan_id === task.plan_id)
     .map((m) => m.member_id)
   const excluded = new Set(task.assignee_ids === '' ? [] : task.assignee_ids.split(','))
-  const candidates = memberIds.filter((id) => !excluded.has(id))
+  const viewerIds = new Set(
+    ds.users.filter((u) => u.rbac_role === 'planner.viewer').map((u) => u.user_id),
+  )
+  const candidates = memberIds.filter((id) => !excluded.has(id) && !viewerIds.has(id))
 
   const required = new Set(requiredSkills)
   const upper = task.due_date === '' || task.due_date < TODAY ? TODAY : task.due_date
