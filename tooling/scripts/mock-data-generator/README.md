@@ -9,7 +9,10 @@ Generates six CSV files of mock task-assignment data under `<repo>/mock/`:
 - `tasks.csv` (~600 rows)
 - `timesheet.csv` (~400 rows)
 
-Schema and intent live in [`docs/superpowers/specs/2026-05-20-mock-data-schema-design.md`](../../../docs/superpowers/specs/2026-05-20-mock-data-schema-design.md).
+Schema and intent live in:
+
+- [`docs/superpowers/specs/2026-05-20-mock-data-schema-design.md`](../../../docs/superpowers/specs/2026-05-20-mock-data-schema-design.md) — base schema
+- [`docs/superpowers/specs/2026-05-21-mock-data-email-rbac-design.md`](../../../docs/superpowers/specs/2026-05-21-mock-data-email-rbac-design.md) — email + RBAC delta
 
 ## Run
 
@@ -34,4 +37,4 @@ pnpm --filter @seta/tooling gen-mock -- --seed 123 --out tmp-mock
 pnpm vitest run --project mock-data-generator
 ```
 
-The test suite covers per-generator behavior, cross-table referential integrity, named-cast survival, determinism, and verifies every spec scenario (S1–S5) and edge (E1–E26) against the generated dataset.
+The test suite covers per-generator behavior, cross-table referential integrity, named-cast survival, determinism, and verifies every spec scenario (S1–S5) and edge (E1–E28) against the generated dataset.
