@@ -15,9 +15,11 @@ export function nameToLocalPart(name: string): string {
     throw new Error(`name must have at least 2 tokens, got: "${name}"`)
   }
   if (tokens.length === 2) {
-    return `${stripDiacritics(tokens[0])}.${stripDiacritics(tokens[1])}`
+    const [first, second] = tokens as [string, string]
+    return `${stripDiacritics(first)}.${stripDiacritics(second)}`
   }
-  const given = stripDiacritics(tokens[tokens.length - 1])
+  const last = tokens[tokens.length - 1] as string
+  const given = stripDiacritics(last)
   const familyMiddle = tokens.slice(0, -1).map(stripDiacritics).join('')
   return `${given}.${familyMiddle}`
 }

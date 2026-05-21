@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { NAMED_USERS } from '../cast.js'
 import { assignEmails, nameToLocalPart } from '../email.js'
 
 describe('nameToLocalPart', () => {
@@ -60,5 +61,19 @@ describe('assignEmails', () => {
   it('produces all-unique emails', () => {
     const out = assignEmails(['Trần Văn Hùng', 'Trần Văn Hùng', 'Lê Thị Hoa'])
     expect(new Set(out).size).toBe(out.length)
+  })
+})
+
+describe('NAMED_USERS consistency', () => {
+  it('every cast row email equals nameToLocalPart(name) + domain (no cast row collides)', () => {
+    for (const u of NAMED_USERS) {
+      const expected = `${nameToLocalPart(u.name)}@setafuture.onmicrosoft.com`
+      expect(u.email).toBe(expected)
+    }
+  })
+
+  it('cast emails are all unique', () => {
+    const emails = NAMED_USERS.map((u) => u.email)
+    expect(new Set(emails).size).toBe(emails.length)
   })
 })

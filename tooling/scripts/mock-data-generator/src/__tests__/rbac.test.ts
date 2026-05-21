@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { NAMED_USERS } from '../cast.js'
 import { ROLE_HEADCOUNT_TARGET, ROLES } from '../pools.js'
 import { type RbacRole, roleToRbac } from '../rbac.js'
 
@@ -130,5 +131,13 @@ describe('roleToRbac', () => {
       'planner.contributor': 248,
       'planner.viewer': 29,
     })
+  })
+})
+
+describe('NAMED_USERS consistency', () => {
+  it('every cast row rbac_role equals roleToRbac(role)', () => {
+    for (const u of NAMED_USERS) {
+      expect(u.rbac_role).toBe(roleToRbac(u.role))
+    }
   })
 })
