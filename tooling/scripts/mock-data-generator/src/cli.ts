@@ -57,7 +57,11 @@ function main(): void {
     users.map((u) => u.user_id),
   )
 
-  writeCsv(`${dir}/users.csv`, ['user_id', 'name', 'project', 'role', 'skills'], users)
+  writeCsv(
+    `${dir}/users.csv`,
+    ['user_id', 'name', 'email', 'project', 'role', 'rbac_role', 'skills'],
+    users,
+  )
   writeCsv(`${dir}/plans.csv`, ['plan_id', 'title', 'description', 'tags', 'owner'], plans)
   writeCsv(`${dir}/plan_members.csv`, ['plan_id', 'member_id'], plan_members)
   writeCsv(`${dir}/buckets.csv`, ['bucket_id', 'plan_id', 'name'], buckets)

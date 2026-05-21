@@ -1,4 +1,5 @@
 import { NAMED_USERS } from './cast.js'
+import { assignEmails } from './email.js'
 import {
   ALIAS_SKILLS,
   FAMILY_NAMES,
@@ -11,6 +12,7 @@ import {
   SKILL_CATALOG,
   seniorityOf,
 } from './pools.js'
+import { roleToRbac } from './rbac.js'
 import type { Rng } from './rng.js'
 import type { User } from './types.js'
 
@@ -101,16 +103,17 @@ function buildVolumeFillRoleQueue(): string[] {
 }
 
 export function generateUsers(rng: Rng, total: number): User[] {
-  const users: User[] = [...NAMED_USERS]
-  const volumeFillCount = total - users.length
+  const volumeFillCount = total - NAMED_USERS.length
   const queue = buildVolumeFillRoleQueue()
 
   if (queue.length !== volumeFillCount) {
     throw new Error(
-      `volume-fill mismatch: queue=${queue.length} required=${volumeFillCount} (total=${total}, cast=${users.length})`,
+      `volume-fill mismatch: queue=${queue.length} required=${volumeFillCount} (total=${total}, cast=${NAMED_USERS.length})`,
     )
   }
 
+  type FillDraft = Omit<User, 'email'>
+  const fillDrafts: FillDraft[] = []
   let nextNum = HIGHEST_NAMED_NUM + 1
   for (const role of queue) {
     let id = makeId(nextNum++)
@@ -118,7 +121,21 @@ export function generateUsers(rng: Rng, total: number): User[] {
     const name = makeName(rng)
     const project = rng.chance(0.13) ? '' : rng.pick(PROJECTS)
     const skills = rng.chance(0.05) ? '' : makeSkillsForRole(rng, role)
-    users.push({ user_id: id, name, project, role, skills })
+    fillDrafts.push({
+      user_id: id,
+      name,
+      project,
+      role,
+      rbac_role: roleToRbac(role),
+      skills,
+    })
   }
-  return users
+
+  const reservedEmails = new Set(NAMED_USERS.map((u) => u.email))
+  const fillEmails = assignEmails(
+    fillDrafts.map((d) => d.name),
+    reservedEmails,
+  )
+
+  return [...NAMED_USERS, ...fillDrafts.map((d, i) => ({ ...d, email: fillEmails[i] as string }))]
 }

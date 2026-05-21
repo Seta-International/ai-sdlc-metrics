@@ -98,4 +98,64 @@ describe('generateUsers', () => {
     const b = generateUsers(createRng(42), 300)
     expect(a).toEqual(b)
   })
+
+  it('produces a non-empty email on every row (cast + volume fill)', () => {
+    const users = generateUsers(createRng(42), 300)
+    for (const u of users) {
+      expect(u.email).not.toBe('')
+    }
+  })
+
+  it('emails are unique across all 300 rows', () => {
+    const users = generateUsers(createRng(42), 300)
+    const emails = users.map((u) => u.email)
+    expect(new Set(emails).size).toBe(emails.length)
+  })
+
+  it('every email ends with @setafuture.onmicrosoft.com', () => {
+    const users = generateUsers(createRng(42), 300)
+    for (const u of users) {
+      expect(u.email.endsWith('@setafuture.onmicrosoft.com')).toBe(true)
+    }
+  })
+
+  it('produces a non-empty rbac_role on every row (including u013, role="")', () => {
+    const users = generateUsers(createRng(42), 300)
+    for (const u of users) {
+      expect(u.rbac_role).not.toBe('')
+    }
+    const u013 = users.find((u) => u.user_id === 'u013')
+    expect(u013?.rbac_role).toBe('planner.viewer')
+  })
+
+  it('rbac_role values are one of the four valid tokens', () => {
+    const users = generateUsers(createRng(42), 300)
+    const valid = new Set(['org.admin', 'planner.admin', 'planner.contributor', 'planner.viewer'])
+    for (const u of users) {
+      expect(valid.has(u.rbac_role)).toBe(true)
+    }
+  })
+
+  it('rbac distribution matches the spec rollup (4 / 19 / 248 / 29)', () => {
+    const users = generateUsers(createRng(42), 300)
+    const counts = {
+      'org.admin': 0,
+      'planner.admin': 0,
+      'planner.contributor': 0,
+      'planner.viewer': 0,
+    }
+    for (const u of users) counts[u.rbac_role as keyof typeof counts]++
+    expect(counts).toEqual({
+      'org.admin': 4,
+      'planner.admin': 19,
+      'planner.contributor': 248,
+      'planner.viewer': 29,
+    })
+  })
+
+  it('at least one volume-fill email collision triggers the suffix mechanism', () => {
+    const users = generateUsers(createRng(42), 300)
+    const suffixed = users.filter((u) => /\d+@setafuture\.onmicrosoft\.com$/.test(u.email))
+    expect(suffixed.length).toBeGreaterThanOrEqual(1)
+  })
 })
