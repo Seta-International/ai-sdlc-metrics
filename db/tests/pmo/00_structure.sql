@@ -1,0 +1,37 @@
+\set ON_ERROR_STOP on
+BEGIN;
+SELECT plan(31);
+SELECT has_schema('pmo', 'schema pmo exists');
+SELECT has_table('pmo','plan_template','plan_template exists');
+SELECT has_table('pmo','template_component','template_component exists');
+SELECT col_is_unique('pmo','plan_template','template_code','plan_template.template_code unique');
+SELECT col_is_unique('pmo','template_component', ARRAY['plan_template_id','component_code'],
+  'template_component unique per (template,component)');
+SELECT fk_ok('pmo','template_component','plan_template_id','pmo','plan_template','plan_template_id');
+SELECT col_has_check('pmo','template_component','weight','template_component.weight checked');
+SELECT has_table('pmo','plan','plan exists');
+SELECT has_table('pmo','plan_task','plan_task exists');
+SELECT has_table('pmo','plan_task_dependency','plan_task_dependency exists');
+SELECT has_table('pmo','plan_section_check','plan_section_check exists');
+SELECT col_has_check('pmo','plan_section_check','status','plan_section_check.status checked');
+SELECT col_is_unique('pmo','plan','plan_code','plan.plan_code unique');
+SELECT fk_ok('pmo','plan','project_id','core','project','project_id');
+SELECT fk_ok('pmo','plan','plan_template_id','pmo','plan_template','plan_template_id');
+SELECT fk_ok('pmo','plan_task','plan_id','pmo','plan','plan_id');
+SELECT fk_ok('pmo','plan_task','assignee_id','core','employee','employee_id');
+SELECT col_is_unique('pmo','plan_task', ARRAY['plan_id','task_code'], 'plan_task unique per (plan,task)');
+SELECT fk_ok('pmo','plan_section_check','plan_id','pmo','plan','plan_id');
+SELECT fk_ok('pmo','plan_task_dependency','plan_task_id','pmo','plan_task','plan_task_id');
+SELECT has_table('pmo','resource_allocation','resource_allocation exists');
+SELECT has_table('pmo','role_capacity','role_capacity exists');
+SELECT has_table('pmo','historical_benchmark','historical_benchmark exists');
+SELECT has_table('pmo','velocity_history','velocity_history exists');
+SELECT fk_ok('pmo','resource_allocation','employee_id','core','employee','employee_id');
+SELECT fk_ok('pmo','resource_allocation','project_id','core','project','project_id');
+SELECT col_is_unique('pmo','role_capacity','role_id','role_capacity.role_id unique');
+SELECT col_is_unique('pmo','historical_benchmark','project_id','historical_benchmark.project_id unique');
+SELECT col_is_unique('pmo','velocity_history', ARRAY['project_id','sprint_no'], 'velocity_history unique per sprint');
+SELECT has_view('pmo','v_plan_summary','v_plan_summary view exists');
+SELECT has_view('pmo','v_member_busy_rate','v_member_busy_rate view exists');
+SELECT * FROM finish();
+ROLLBACK;
