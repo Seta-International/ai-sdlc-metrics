@@ -115,3 +115,62 @@ from (values
  ('SC-FE-SR-001','Communication & Culture Fit',0.150)
 ) as v(scorecard_code, criteria, weight)
 join ta.scorecard sc on sc.scorecard_code = v.scorecard_code;
+
+-- ===== BEGIN ENHANCED DATA =====
+-- ── 5a. ta.business_context (new contexts only) ────────────────
+INSERT INTO ta.business_context (context_code, project_name, roadmap_summary)
+VALUES
+  ('CTX-008', 'Project Theta', 'Expand backend engineering capacity for fintech payment system'),
+  ('CTX-009', 'Project Iota', 'Develop enterprise chatbot for internal automation'),
+  ('CTX-010', 'Project Kappa', 'Build loyalty mobile application for retail client'),
+  ('CTX-011', 'Project Lambda', 'Modernize reporting infrastructure with data lake architecture'),
+  ('CTX-012', 'Project Mu', 'Increase automation coverage for enterprise system'),
+  ('CTX-013', 'Project Nu', 'Support cloud migration initiative'),
+  ('CTX-014', 'Project Xi', 'Rebuild frontend architecture for SaaS dashboard'),
+  ('CTX-015', 'Project Omicron', 'Build customer analytics platform'),
+  ('CTX-016', 'Project Pi', 'Create AI recommendation engine for e-commerce'),
+  ('CTX-017', 'Project Rho', 'Expand mobile engineering capability'),
+  ('CTX-018', 'Project Sigma', 'Scale API gateway architecture'),
+  ('CTX-019', 'Project Tau', 'Improve business intelligence reporting'),
+  ('CTX-020', 'Project Upsilon', 'Establish centralized automation framework'),
+  ('CTX-021', 'Project Vega', 'Build centralized data warehouse for cross-functional reporting'),
+  ('CTX-022', 'Project Orion', 'Develop predictive churn model for enterprise customers'),
+  ('CTX-023', 'Project Nova', 'Expand BI reporting capability for executive dashboard')
+ON CONFLICT (context_code) DO NOTHING;
+
+-- ── 5b. ta.headcount_plan (new plans only) ─────────────────────
+INSERT INTO ta.headcount_plan
+  (hc_plan_code, context_id, position, headcount,
+   salary_min_scaled, salary_max_scaled, target_start_date)
+SELECT
+  v.code,
+  (SELECT business_context_id FROM ta.business_context WHERE context_code = v.ctx),
+  v.position, v.hc::int, v.smin, v.smax, v.tsd::date
+FROM (VALUES
+  ('HC-2025-Q2-008', 'CTX-008', 'Backend Developer', 2, 1.8, 2.5, '2025-07-01'),
+  ('HC-2025-Q2-009', 'CTX-009', 'AI Agent Engineer', 2, 3.0, 4.0, '2025-07-15'),
+  ('HC-2025-Q2-010', 'CTX-010', 'Flutter Developer', 2, 1.5, 2.2, '2025-08-01'),
+  ('HC-2025-Q2-011', 'CTX-011', 'Data Engineer', 2, 2.2, 3.2, '2025-07-20'),
+  ('HC-2025-Q2-012', 'CTX-012', 'QA Automation Engineer', 2, 1.4, 2.2, '2025-08-10'),
+  ('HC-2025-Q2-013', 'CTX-013', 'DevOps Engineer', 2, 2.5, 3.5, '2025-07-25'),
+  ('HC-2025-Q2-014', 'CTX-014', 'Frontend Developer', 3, 1.8, 2.6, '2025-08-05'),
+  ('HC-2025-Q2-015', 'CTX-015', 'Python Developer', 2, 1.8, 2.6, '2025-07-10'),
+  ('HC-2025-Q2-016', 'CTX-016', 'ML Engineer', 2, 3.0, 3.8, '2025-08-01'),
+  ('HC-2025-Q2-017', 'CTX-017', 'Mobile Developer (React Native)', 2, 1.6, 2.3, '2025-08-15'),
+  ('HC-2025-Q2-018', 'CTX-018', 'Senior Backend Developer', 2, 2.8, 3.5, '2025-07-01'),
+  ('HC-2025-Q2-019', 'CTX-019', 'Data Analyst', 1, 1.4, 2.2, '2025-08-10'),
+  ('HC-2025-Q2-020', 'CTX-020', 'QA Automation Engineer', 2, 1.5, 2.2, '2025-08-01'),
+  ('HC-2025-Q2-021', 'CTX-021', 'Data Engineer', 2, 2.5, 3.5, '2025-07-15'),
+  ('HC-2025-Q2-022', 'CTX-022', 'Data Scientist', 2, 3.0, 4.0, '2025-07-20'),
+  ('HC-2025-Q2-023', 'CTX-023', 'BI Analyst', 2, 1.8, 2.5, '2025-08-01'),
+  ('HC-2025-Q2-024', 'CTX-024', 'Data Engineer', 3, 2.8, 3.6, '2025-07-10'),
+  ('HC-2025-Q2-025', 'CTX-025', 'Data Scientist', 2, 3.2, 4.2, '2025-08-01'),
+  ('HC-2025-Q2-026', 'CTX-026', 'Data Engineer', 2, 2.2, 3.0, '2025-08-15'),
+  ('HC-2025-Q2-027', 'CTX-027', 'NLP Data Scientist', 2, 3.2, 4.5, '2025-07-25'),
+  ('HC-2025-Q2-028', 'CTX-028', 'BI Engineer', 2, 1.8, 2.6, '2025-08-05'),
+  ('HC-2025-Q2-029', 'CTX-029', 'Senior Data Engineer', 2, 3.0, 3.8, '2025-07-15'),
+  ('HC-2025-Q2-030', 'CTX-030', 'Data Scientist', 2, 3.2, 4.2, '2025-08-01')
+) AS v(code, ctx, position, hc, smin, smax, tsd)
+ON CONFLICT (hc_plan_code) DO NOTHING;
+
+-- ===== END ENHANCED DATA =====
