@@ -202,3 +202,213 @@ join pmo.template_component c
 insert into pmo.plan_section_check (plan_id, custom_name, status, note)
 select p.plan_id, 'EVM_Cost_Tracking', 'Custom', 'PM own section -> flag for review, not a gap'
 from pmo.plan p where p.plan_code = 'PLAN-002';
+
+-- ===== BEGIN ENHANCED DATA =====
+
+-- ── E1. New projects (historical benchmarks + active plan projects) ──────────
+insert into core.project (project_code, name, account_id, project_type_id, status, is_historical, start_date, planned_end_date)
+select v.code, v.name, a.account_id, pt.project_type_id, v.status, v.hist, v.sd::date, v.ed::date
+from (values
+ ('PRJ-H-201','Migration Project Saturn 2','ACC-A','Software/Migration','Completed',true,'2025-04-01','2025-10-31'),
+ ('PRJ-H-202','Migration Project Saturn 3','ACC-A','Software/Migration','Completed',true,'2025-05-01','2025-09-30'),
+ ('PRJ-H-203','Software Project Neptune',  'ACC-C','Software','Completed',true,'2025-02-01','2025-09-30'),
+ ('PRJ-H-204','Data Platform Helios',       'ACC-B','Data','Completed',true,'2025-03-01','2025-09-30'),
+ ('PRJ-H-205','Software Project Ceres',     'ACC-C','Software','Completed',true,'2025-04-01','2025-09-30'),
+ ('PRJ-101','Project Apollo','ACC-A','Software','Active',false,'2026-04-05','2026-11-05'),
+ ('PRJ-102','Project Vega','ACC-B','Software','Active',false,'2026-04-11','2026-12-11'),
+ ('PRJ-103','Project Lyra','ACC-A','Integration','Active',false,'2026-03-08','2026-10-31'),
+ ('PRJ-104','Project Draco','ACC-B','Data','Active',false,'2026-04-27','2026-12-31')
+) as v(code,name,acc,ptype,status,hist,sd,ed)
+join core.account a on a.account_code = v.acc
+join core.project_type pt on pt.type_code = v.ptype
+on conflict (project_code) do nothing;
+
+-- ── E2. Historical benchmarks ────────────────────────────────────────────────
+insert into pmo.historical_benchmark
+  (project_id, team_size, duration_days, planned_duration_days, total_effort_days,
+   total_budget_scaled, avg_velocity_ratio, risk_count, key_risks, pmo_standard_ver, final_outcome, is_outlier)
+select p.project_id, v.ts, v.dur, v.pdur, v.eff, v.bud, v.vel, v.risks, v.rn, v.ver, v.outcome, v.outlier
+from (values
+ ('PRJ-H-201',7,210,210,165.3,4.1,0.953,2,'Standard delivery risks','2.1','On Time',false),
+ ('PRJ-H-202',6,150,150,119.4,3,0.892,3,'Standard delivery risks','2.1','Delayed',false),
+ ('PRJ-H-203',10,240,210,172.4,4.3,0.907,3,'Standard delivery risks','2.1','Delayed',false),
+ ('PRJ-H-204',4,150,150,143.7,3.6,0.9,6,'Standard delivery risks','2.1','Delayed',false),
+ ('PRJ-H-205',6,120,105,82.9,2.1,0.945,3,'Standard delivery risks','2.1','On Time',false)
+) as v(code,ts,dur,pdur,eff,bud,vel,risks,rn,ver,outcome,outlier)
+join core.project p on p.project_code = v.code
+on conflict (project_id) do nothing;
+
+-- ── E3. Velocity history (velocity_ratio is a generated column, omitted) ─────
+insert into pmo.velocity_history
+  (project_id, sprint_no, sprint_duration_days, planned_points, completed_points, team_size, outcome)
+select p.project_id, v.sp, v.dur, v.plan_pts, v.done_pts, v.team, v.outcome
+from (values
+ ('PRJ-H-102',1,14,40,36.8,7,'Completed'),
+ ('PRJ-H-102',2,14,40,38,7,'Completed'),
+ ('PRJ-H-102',3,14,40,38.4,7,'Completed'),
+ ('PRJ-H-102',4,14,40,38,7,'Completed'),
+ ('PRJ-H-102',5,14,40,38.8,7,'Completed'),
+ ('PRJ-H-105',1,14,40,36,5,'Completed'),
+ ('PRJ-H-105',2,14,40,37.2,5,'Completed'),
+ ('PRJ-H-105',3,14,40,38,5,'Completed'),
+ ('PRJ-H-105',4,14,40,38.4,5,'Completed'),
+ ('PRJ-H-105',5,14,40,38.4,5,'Completed'),
+ ('PRJ-H-199',1,7,40,40,2,'Completed'),
+ ('PRJ-H-201',1,14,40,39.8,7,'Completed'),
+ ('PRJ-H-201',2,14,40,38.4,7,'Completed'),
+ ('PRJ-H-201',3,14,40,37,7,'Completed'),
+ ('PRJ-H-201',4,14,40,40.1,7,'Completed'),
+ ('PRJ-H-201',5,14,40,39.3,7,'Completed'),
+ ('PRJ-H-202',1,14,40,36.2,6,'Completed'),
+ ('PRJ-H-202',2,14,40,37,6,'Completed'),
+ ('PRJ-H-202',3,14,40,35.2,6,'Completed'),
+ ('PRJ-H-202',4,14,40,36.3,6,'Completed'),
+ ('PRJ-H-202',5,14,40,34.8,6,'Completed'),
+ ('PRJ-H-203',1,14,40,38.2,10,'Completed'),
+ ('PRJ-H-203',2,14,40,35.1,10,'Completed'),
+ ('PRJ-H-203',3,14,40,34.4,10,'Completed'),
+ ('PRJ-H-203',4,14,40,38.2,10,'Completed'),
+ ('PRJ-H-203',5,14,40,36.9,10,'Completed'),
+ ('PRJ-H-204',1,14,40,37.8,4,'Completed'),
+ ('PRJ-H-204',2,14,40,34.6,4,'Completed'),
+ ('PRJ-H-204',3,14,40,34.6,4,'Completed'),
+ ('PRJ-H-204',4,14,40,34.3,4,'Completed'),
+ ('PRJ-H-204',5,14,40,37.4,4,'Completed'),
+ ('PRJ-H-205',1,14,40,38.6,6,'Completed'),
+ ('PRJ-H-205',2,14,40,39.2,6,'Completed'),
+ ('PRJ-H-205',3,14,40,36,6,'Completed'),
+ ('PRJ-H-205',4,14,40,37.4,6,'Completed'),
+ ('PRJ-H-205',5,14,40,39.6,6,'Completed'),
+ ('PRJ-H-206',1,14,40,35.8,4,'Completed'),
+ ('PRJ-H-206',2,14,40,35.6,4,'Completed'),
+ ('PRJ-H-206',3,14,40,35,4,'Completed'),
+ ('PRJ-H-206',4,14,40,34.8,4,'Completed'),
+ ('PRJ-H-206',5,14,40,36.4,4,'Completed')
+) as v(code,sp,dur,plan_pts,done_pts,team,outcome)
+join core.project p on p.project_code = v.code
+on conflict do nothing;
+
+-- ── E4. New plans PLAN-101..104 ─────────────────────────────────────────────
+insert into pmo.plan
+  (plan_code, project_id, plan_template_id, plan_set,
+   planned_duration_months, team_size_planned, registered_risk_count,
+   top_risk_score, thi_pct, peak_role_busy_rate_pct, on_time_history_pct, feasibility_status)
+select v.code, p.project_id, pt.plan_template_id, 'To_Review',
+       v.dur, v.ts, v.risks, v.top_risk, v.thi, v.busy, v.otpct, v.status
+from (values
+ ('PLAN-101','PRJ-101',7,6,6,8,18.9,103,94,'Feasible (Green)'),
+ ('PLAN-102','PRJ-102',8,8,4,10,21.8,108,89,'Feasible (Green)'),
+ ('PLAN-103','PRJ-103',8,8,6,13,21.2,89,91,'Feasible (Green)'),
+ ('PLAN-104','PRJ-104',5,12,4,13,17.9,96,93,'Feasible (Green)')
+) as v(code,proj,dur,ts,risks,top_risk,thi,busy,otpct,status)
+join core.project p on p.project_code = v.proj
+join pmo.plan_template pt on pt.template_code = 'TPL-2026-v3'
+on conflict (plan_code) do nothing;
+
+-- ── E5. Plan tasks (6 per plan) ─────────────────────────────────────────────
+insert into pmo.plan_task
+  (plan_id, task_code, task_name, start_date, end_date, effort_days,
+   percent_complete, status, is_milestone, phase)
+select pl.plan_id, v.tc, v.tn, v.sd::date, v.ed::date, v.eff,
+       v.pct, v.status, v.ms, v.phase
+from (values
+ ('PLAN-101','TASK-101-01','Discovery work package 1','2026-04-05','2026-09-12',26.2,0.54,'Completed',false,'Discovery'),
+ ('PLAN-101','TASK-101-02','Design work package 2','2026-04-05','2026-09-12',26.3,0,'In Progress',true,'Design'),
+ ('PLAN-101','TASK-101-03','Development work package 3','2026-04-05','2026-09-12',26.2,0.29,'In Progress',false,'Development'),
+ ('PLAN-101','TASK-101-04','Development work package 4','2026-04-05','2026-09-12',26.3,0.35,'In Progress',false,'Development'),
+ ('PLAN-101','TASK-101-05','Testing work package 5','2026-04-05','2026-09-12',26.2,0.15,'In Progress',false,'Testing'),
+ ('PLAN-101','TASK-101-06','Deployment work package 6','2026-04-05','2026-09-12',26.3,0.07,'Completed',true,'Deployment'),
+ ('PLAN-102','TASK-102-01','Discovery work package 1','2026-04-11','2026-11-11',30,0.35,'In Progress',false,'Discovery'),
+ ('PLAN-102','TASK-102-02','Design work package 2','2026-04-11','2026-11-11',30,0.07,'Not Started',true,'Design'),
+ ('PLAN-102','TASK-102-03','Development work package 3','2026-04-11','2026-11-11',30,0.4,'Completed',false,'Development'),
+ ('PLAN-102','TASK-102-04','Development work package 4','2026-04-11','2026-11-11',30,0.41,'In Progress',false,'Development'),
+ ('PLAN-102','TASK-102-05','Testing work package 5','2026-04-11','2026-11-11',30,0.31,'Not Started',false,'Testing'),
+ ('PLAN-102','TASK-102-06','Deployment work package 6','2026-04-11','2026-11-11',30,0.53,'Completed',true,'Deployment'),
+ ('PLAN-103','TASK-103-01','Discovery work package 1','2026-03-08','2026-10-16',30,0.41,'Not Started',false,'Discovery'),
+ ('PLAN-103','TASK-103-02','Design work package 2','2026-03-08','2026-10-16',30,0.27,'Not Started',true,'Design'),
+ ('PLAN-103','TASK-103-03','Development work package 3','2026-03-08','2026-10-16',30,0.19,'In Progress',false,'Development'),
+ ('PLAN-103','TASK-103-04','Development work package 4','2026-03-08','2026-10-16',30,0.42,'In Progress',false,'Development'),
+ ('PLAN-103','TASK-103-05','Testing work package 5','2026-03-08','2026-10-16',30,0.3,'Not Started',false,'Testing'),
+ ('PLAN-103','TASK-103-06','Deployment work package 6','2026-03-08','2026-10-16',30,0.35,'Completed',true,'Deployment'),
+ ('PLAN-104','TASK-104-01','Discovery work package 1','2026-04-27','2026-12-06',23.3,0.36,'Completed',false,'Discovery'),
+ ('PLAN-104','TASK-104-02','Design work package 2','2026-04-27','2026-12-06',23.3,0.02,'In Progress',true,'Design'),
+ ('PLAN-104','TASK-104-03','Development work package 3','2026-04-27','2026-12-06',23.4,0.29,'In Progress',false,'Development'),
+ ('PLAN-104','TASK-104-04','Development work package 4','2026-04-27','2026-12-06',23.3,0.31,'In Progress',false,'Development'),
+ ('PLAN-104','TASK-104-05','Testing work package 5','2026-04-27','2026-12-06',23.4,0.52,'Completed',false,'Testing'),
+ ('PLAN-104','TASK-104-06','Deployment work package 6','2026-04-27','2026-12-06',23.3,0.43,'Completed',true,'Deployment')
+) as v(plan_code,tc,tn,sd,ed,eff,pct,status,ms,phase)
+join pmo.plan pl on pl.plan_code = v.plan_code
+on conflict (plan_id, task_code) do nothing;
+
+-- ── E6. Task dependencies ────────────────────────────────────────────────────
+insert into pmo.plan_task_dependency (plan_task_id, depends_on_task_id)
+select t.plan_task_id, d.plan_task_id
+from (values
+ ('TASK-101-02','TASK-101-01'),
+ ('TASK-101-03','TASK-101-02'),
+ ('TASK-101-04','TASK-101-03'),
+ ('TASK-101-05','TASK-101-04'),
+ ('TASK-101-06','TASK-101-05'),
+ ('TASK-102-02','TASK-102-01'),
+ ('TASK-102-03','TASK-102-02'),
+ ('TASK-102-04','TASK-102-03'),
+ ('TASK-102-05','TASK-102-04'),
+ ('TASK-102-06','TASK-102-05'),
+ ('TASK-103-02','TASK-103-01'),
+ ('TASK-103-03','TASK-103-02'),
+ ('TASK-103-04','TASK-103-03'),
+ ('TASK-103-05','TASK-103-04'),
+ ('TASK-103-06','TASK-103-05'),
+ ('TASK-104-02','TASK-104-01'),
+ ('TASK-104-03','TASK-104-02'),
+ ('TASK-104-04','TASK-104-03'),
+ ('TASK-104-05','TASK-104-04'),
+ ('TASK-104-06','TASK-104-05')
+) as v(task_code, dep_code)
+join pmo.plan_task t on t.task_code = v.task_code
+join pmo.plan_task d on d.task_code = v.dep_code
+on conflict (plan_task_id, depends_on_task_id) do nothing;
+
+-- ── E7. Plan section checks ──────────────────────────────────────────────────
+insert into pmo.plan_section_check
+  (plan_id, template_component_id, status, note)
+select pl.plan_id, tc.template_component_id, v.status, v.note
+from (values
+ ('PLAN-101','COMP-001','Complete',''),
+ ('PLAN-101','COMP-002','Complete',''),
+ ('PLAN-101','COMP-003','Complete',''),
+ ('PLAN-101','COMP-004','Complete',''),
+ ('PLAN-101','COMP-005','Complete',''),
+ ('PLAN-101','COMP-006','Complete',''),
+ ('PLAN-101','COMP-007','Complete',''),
+ ('PLAN-101','COMP-008','Complete',''),
+ ('PLAN-102','COMP-001','Complete',''),
+ ('PLAN-102','COMP-002','Complete',''),
+ ('PLAN-102','COMP-003','Complete',''),
+ ('PLAN-102','COMP-004','Complete',''),
+ ('PLAN-102','COMP-005','Complete',''),
+ ('PLAN-102','COMP-006','Complete',''),
+ ('PLAN-102','COMP-007','Complete',''),
+ ('PLAN-102','COMP-008','Complete',''),
+ ('PLAN-103','COMP-001','Complete',''),
+ ('PLAN-103','COMP-002','Complete',''),
+ ('PLAN-103','COMP-003','Complete',''),
+ ('PLAN-103','COMP-004','Complete',''),
+ ('PLAN-103','COMP-005','Complete',''),
+ ('PLAN-103','COMP-006','Complete',''),
+ ('PLAN-103','COMP-007','Complete',''),
+ ('PLAN-103','COMP-008','Complete',''),
+ ('PLAN-104','COMP-001','Complete',''),
+ ('PLAN-104','COMP-002','Complete',''),
+ ('PLAN-104','COMP-003','Complete',''),
+ ('PLAN-104','COMP-004','Complete',''),
+ ('PLAN-104','COMP-005','Complete',''),
+ ('PLAN-104','COMP-006','Complete',''),
+ ('PLAN-104','COMP-007','Complete',''),
+ ('PLAN-104','COMP-008','Complete','')
+) as v(plan_code,comp_code,status,note)
+join pmo.plan pl on pl.plan_code = v.plan_code
+join pmo.template_component tc on tc.component_code = v.comp_code
+on conflict do nothing;
+
+-- ===== END ENHANCED DATA =====

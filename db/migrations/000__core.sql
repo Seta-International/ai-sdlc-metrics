@@ -100,6 +100,7 @@ create table core.employee (
   join_date            date not null,
   exit_date            date,
   line_manager_id      bigint references core.employee(employee_id),
+  position_title       text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint employee_exit_after_join check (exit_date is null or exit_date >= join_date)
@@ -116,6 +117,7 @@ create table core.project (
   pm_id bigint references core.employee(employee_id),
   start_date date not null,
   planned_end_date date,
+  timeline     text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint project_end_after_start check (planned_end_date is null or planned_end_date >= start_date)
@@ -135,6 +137,7 @@ create table core.trainer (
   trainer_code text not null unique,
   employee_id  bigint references core.employee(employee_id),
   display_name text,
+  expertise    text,
   availability_hours_per_month numeric(5,2) check (availability_hours_per_month >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),

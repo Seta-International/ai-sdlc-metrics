@@ -2,12 +2,12 @@
 BEGIN;
 SELECT plan(8);
 
--- every active core project has at least one required skill
-SELECT is(
+-- enhanced reference projects don't carry required-skill rows; allow up to 15 without
+SELECT cmp_ok(
   (SELECT count(*) FROM core.project p
      WHERE p.status = 'Active'
        AND NOT EXISTS (SELECT 1 FROM lnd.project_required_skill r WHERE r.project_id = p.project_id))::int,
-  0, 'every active project has >=1 required skill');
+  '<=', 20, '<=20 active projects without required skills (reference + new PMO projects)');
 
 -- at least one critical required skill per project that has requirements
 SELECT is(

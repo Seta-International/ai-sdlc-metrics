@@ -30,6 +30,9 @@ export-csv:
 export-excel:
 	@python3 scripts/export_excel.py
 
-export: export-csv export-excel
+export-excel-datasets:
+	@python3 scripts/export_excel_datasets.py
 
-.PHONY: up down migrate seed reset rebuild test export export-csv export-excel
+export: export-csv export-excel export-excel-datasets
+
+.PHONY: up down migrate seed reset rebuild test export export-csv export-excel export-excel-datasets

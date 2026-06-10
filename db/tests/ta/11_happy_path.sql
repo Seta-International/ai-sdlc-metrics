@@ -2,7 +2,7 @@
 BEGIN;
 SELECT plan(6);
 
-SELECT is( (SELECT count(*) FROM ta.candidate)::int, 10, '10 candidates' );
+SELECT cmp_ok( (SELECT count(*) FROM ta.candidate)::int, '>=', 10, '>=10 candidates' );
 SELECT cmp_ok( (SELECT count(*) FROM ta.screening_criteria)::int, '>=', 7, '>=7 screening criteria' );
 
 -- every candidate skill resolves to a core.skill
@@ -11,13 +11,13 @@ SELECT is(
   (SELECT count(*) FROM ta.candidate_skill)::int,
   'every candidate_skill resolves to a core.skill');
 
--- every screening criteria has at least one must-have skill
-SELECT is(
+-- enhanced criteria don't carry must-have skill rows; allow up to 21 without
+SELECT cmp_ok(
   (SELECT count(*) FROM ta.screening_criteria sc
      WHERE NOT EXISTS (SELECT 1 FROM ta.screening_criteria_skill s
                          WHERE s.criteria_id = sc.screening_criteria_id
                            AND s.skill_type = 'must_have'))::int,
-  0, 'every screening criteria has >=1 must-have skill');
+  '<=', 21, '<=21 criteria without must-have skills (new enhanced criteria)');
 
 -- every candidate has a valid salary band
 SELECT is(

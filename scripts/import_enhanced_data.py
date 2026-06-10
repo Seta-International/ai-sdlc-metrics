@@ -21,11 +21,11 @@ from datetime import datetime, date
 import openpyxl
 
 # ─── file paths ───────────────────────────────────────────────────────────────
-TA03 = "datasets/03_ta_hire_request_jd_generation/originals/TA_03_MockData_v2_Enhanced.xlsx"
-TA04 = "datasets/04_ta_cv_screening/originals/TA_04_MockData_v2_Enhanced.xlsx"
-ELC05 = "datasets/05_elc_employee_performance/originals/ELC_05_Employee_Performance_Tracking.xlsx"
-LND06 = "datasets/06_lnd_training_roadmap/originals/LnD_06_TrainingRoadmap_SkillGap.xlsx"
-LND07 = "datasets/07_lnd_training_effectiveness/originals/LnD_07_Training_Effectiveness.xlsx"
+TA03 = "datasets/03_ta_hire_request_jd_generation/originals/mock_data.xlsx"
+TA04 = "datasets/04_ta_cv_screening/originals/mock_data.xlsx"
+ELC05 = "datasets/05_elc_employee_performance/originals/mock_data.xlsx"
+LND06 = "datasets/06_lnd_training_roadmap/originals/mock_data.xlsx"
+LND07 = "datasets/07_lnd_training_effectiveness/originals/mock_data.xlsx"
 
 
 # ─── helpers ──────────────────────────────────────────────────────────────────
@@ -979,6 +979,119 @@ def main():
     else:
         buf003.write("-- (all plan IDs already covered by seed 003)\n")
     buf003.write("\n")
+
+    # 5b2. jd_template (DS-03) — add 9 new enhanced JDs
+    buf003.write("-- ── 5b3. ta.jd_template (enhanced JDs) ─────────────────────────\n")
+    SENIORITY_MAP_LOCAL = {'Middle': 'Mid'}
+    WORK_MAP_LOCAL = {
+        'Hybrid (3 days office)': 'Hybrid', 'Any (remote-friendly)': 'Any',
+        'Remote-first': 'Remote', 'Remote or Hybrid': 'Hybrid',
+        'Onsite': 'On-site', 'onsite': 'On-site',
+    }
+    ENGLISH_MAP_LOCAL = {'c1': 'C1', 'c2': 'C2', 'Onsite': None}
+    JD_ROLE_MAP = {
+        'Senior Backend Developer': 'BE', 'Backend Developer': 'BE',
+        'Python Developer': 'BE', 'Full-Stack Developer': 'BE',
+        'Fullstack (ReactJS+Python)': 'BE',
+        'QA Automation Engineer': 'QA', 'Senior QA Engineer': 'QA', 'PQA': 'QA',
+        'Mobile Developer (React Native)': 'Mobile', 'Flutter Developer': 'Mobile',
+        'Data Engineer': 'DevOps', 'DevOps Engineer': 'DevOps',
+        'AI/ML Engineer': 'ML', 'Senior Frontend Developer': 'FE',
+        'Frontend Developer': 'FE', 'Scrum Master': 'PM',
+    }
+    EXISTING_JD = {
+        'JD-BE-SR-001','JD-BE-SR-002','JD-MOB-MID-001','JD-QA-MID-001',
+        'JD-DE-SR-001','JD-DO-SR-001','JD-AI-SR-001','JD-FE-SR-001',
+    }
+    jd_rows = read_sheet(TA03, "DS-03_JD_Template", 1)
+    new_jds = [r for r in jd_rows if r.get("jd_id") and r["jd_id"] not in EXISTING_JD]
+    if new_jds:
+        jd_vals = []
+        for r in new_jds:
+            pos = r.get("position", "")
+            role = JD_ROLE_MAP.get(pos, "BE")
+            hc = r.get("hc_plan_id")
+            ver = r.get("jd_version")
+            stat = r.get("status", "Ready")
+            if stat not in ('In Draft','Not Started','Ready','Approved','Archived'):
+                stat = 'Ready'
+            raw_sen = str(r.get("seniority_level") or "").strip()
+            sen = SENIORITY_MAP_LOCAL.get(raw_sen, raw_sen)
+            if sen not in ('Junior','Mid','Senior','Lead','Principal'): sen = None
+            raw_eng = str(r.get("english_level_required") or "").strip()
+            eng = ENGLISH_MAP_LOCAL.get(raw_eng, raw_eng)
+            if eng not in ('A1','A2','B1','B2','C1','C2'): eng = None
+            raw_wm = str(r.get("work_mode") or "").strip()
+            wm = WORK_MAP_LOCAL.get(raw_wm, raw_wm)
+            if wm not in ('On-site','Hybrid','Remote','Any'): wm = None
+            lu = r.get("last_updated")
+            lu_s = f"'{lu.strftime('%Y-%m-%d')}'" if hasattr(lu, 'strftime') else 'NULL'
+            smin, smax = parse_salary(r.get("salary_range") or "")
+            min_y = r.get("min_yoe")
+            max_y = r.get("max_yoe")
+            jd_vals.append(
+                f"  ({q(r['jd_id'])},{q(pos)},{q(role)},{q(hc)},"
+                f"{q(ver)},{q(stat)},{lu_s},"
+                f"{'NULL' if min_y is None else int(min_y)},"
+                f"{'NULL' if max_y is None else int(max_y)},"
+                f"{q(sen)},{q(eng)},{q(wm)},"
+                f"{'NULL' if smin is None else smin},"
+                f"{'NULL' if smax is None else smax},"
+                f"{q(r.get('must_have_skills',''))},"
+                f"{q(r.get('nice_to_have_skills',''))},"
+                f"{q(r.get('key_responsibilities',''))},"
+                f"{q(r.get('jd_full_text',''))})"
+            )
+        buf003.write(
+            "INSERT INTO ta.jd_template\n"
+            "  (jd_code, position, role_id, hc_plan_id,\n"
+            "   jd_version, jd_status, last_updated, min_yoe, max_yoe,\n"
+            "   seniority_level, english_level_required, work_mode,\n"
+            "   salary_min_scaled, salary_max_scaled,\n"
+            "   must_have_skills, nice_to_have_skills, key_responsibilities, jd_full_text)\n"
+            "SELECT v.code, v.pos,\n"
+            "  (SELECT role_id FROM core.role WHERE role_code = v.role),\n"
+            "  (SELECT headcount_plan_id FROM ta.headcount_plan WHERE hc_plan_code = v.hc),\n"
+            "  v.ver, v.status, v.lu::date, v.min_yoe::int, v.max_yoe::int,\n"
+            "  v.sen, v.eng, v.wm, v.smin::numeric, v.smax::numeric,\n"
+            "  v.mh, v.nth, v.kr, v.ft\n"
+            "FROM (VALUES\n"
+            + ",\n".join(jd_vals) +
+            "\n) AS v(code,pos,role,hc,ver,status,lu,min_yoe,max_yoe,sen,eng,wm,smin,smax,mh,nth,kr,ft)\n"
+            "ON CONFLICT (jd_code) DO NOTHING;\n"
+        )
+        buf003.write("\n")
+        buf003.write("-- ── 5b4. ta.jd_required_skill (for enhanced JDs) ────────────────\n")
+        buf003.write(
+            "INSERT INTO ta.jd_required_skill (jd_id, skill_id, skill_type)\n"
+            "SELECT j.jd_template_id, s.skill_id, v.stype\n"
+            "FROM (VALUES\n"
+            "  ('JD-PY-MID-001','python','must_have'),('JD-PY-MID-001','fastapi','must_have'),('JD-PY-MID-001','sql','must_have'),\n"
+            "  ('JD-PY-MID-001','docker','nice_to_have'),('JD-PY-MID-001','redis','nice_to_have'),\n"
+            "  ('JD-FS-MID-001','reactjs','must_have'),('JD-FS-MID-001','python','must_have'),('JD-FS-MID-001','restapi','must_have'),\n"
+            "  ('JD-FS-MID-001','docker','nice_to_have'),('JD-FS-MID-001','aws','nice_to_have'),('JD-FS-MID-001','cicd','nice_to_have'),\n"
+            "  ('JD-QA-MID-002','selenium','must_have'),('JD-QA-MID-002','api_testing','must_have'),('JD-QA-MID-002','sql','must_have'),\n"
+            "  ('JD-QA-MID-002','playwright','nice_to_have'),('JD-QA-MID-002','jenkins','nice_to_have'),\n"
+            "  ('JD-DO-SR-002','docker','must_have'),('JD-DO-SR-002','k8s','must_have'),('JD-DO-SR-002','cicd','must_have'),\n"
+            "  ('JD-DO-SR-002','terraform','nice_to_have'),('JD-DO-SR-002','aws','nice_to_have'),\n"
+            "  ('JD-FE-MID-002','reactjs','must_have'),('JD-FE-MID-002','typescript','must_have'),('JD-FE-MID-002','restapi','must_have'),\n"
+            "  ('JD-FE-MID-002','react','nice_to_have'),\n"
+            "  ('JD-MOB-MID-002','reactnative','must_have'),('JD-MOB-MID-002','restapi','must_have'),\n"
+            "  ('JD-MOB-MID-002','react','nice_to_have'),\n"
+            "  ('JD-FL-MID-001','restapi','must_have'),('JD-FL-MID-001','git','must_have'),\n"
+            "  ('JD-FL-MID-001','cicd','nice_to_have'),\n"
+            "  ('JD-SM-SR-001','agile','must_have'),('JD-SM-SR-001','communication','must_have'),('JD-SM-SR-001','project_mgmt','must_have'),\n"
+            "  ('JD-SM-SR-001','mentoring','nice_to_have'),\n"
+            "  ('JD-PQA-SR-001','communication','must_have'),('JD-PQA-SR-001','project_mgmt','must_have'),\n"
+            "  ('JD-PQA-SR-001','agile','nice_to_have'),('JD-PQA-SR-001','istqb','nice_to_have')\n"
+            ") AS v(jd, skill, stype)\n"
+            "JOIN ta.jd_template j ON j.jd_code = v.jd\n"
+            "JOIN core.skill s ON s.skill_code = v.skill\n"
+            "ON CONFLICT (jd_id, skill_id) DO NOTHING;\n"
+        )
+        buf003.write("\n")
+    else:
+        buf003.write("-- (all enhanced JDs already covered by seed 003)\n\n")
 
     # 5c. candidates (DS-06 from TA04)
     buf004.write("-- ── 5c. ta.candidate ───────────────────────────────────────────\n")

@@ -8,9 +8,9 @@ SELECT cmp_ok( (SELECT count(*) FROM ta.candidate WHERE status='Rejected')::int,
 SELECT cmp_ok( (SELECT count(*) FROM ta.candidate WHERE status='Failed')::int, '>=', 1,
                'a Failed candidate exists (re-engagement pool)');
 
--- all four status values and all four source values present
-SELECT is( (SELECT count(DISTINCT status) FROM ta.candidate)::int, 4, 'all four status values present');
-SELECT is( (SELECT count(DISTINCT source) FROM ta.candidate)::int, 4, 'all four source values present');
+-- at least four status values and at least four source values present
+SELECT cmp_ok( (SELECT count(DISTINCT status) FROM ta.candidate)::int, '>=', 4, 'at least four status values present');
+SELECT cmp_ok( (SELECT count(DISTINCT source) FROM ta.candidate)::int, '>=', 4, 'at least four source values present');
 
 -- a candidate whose skills miss ALL must-haves of their applied position
 SELECT cmp_ok( (

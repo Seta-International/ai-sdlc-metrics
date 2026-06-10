@@ -120,3 +120,24 @@ from core.employee e where e.emp_code = 'EMP-0014';
 insert into pmo.leave_record (leave_record_code, employee_id, leave_date, leave_type, approved, duration_days, note)
 select 'LV-0005', e.employee_id, '2026-06-29', 'Training', true, 1.0, 'Internal training day'
 from core.employee e where e.emp_code = 'EMP-0007';
+
+-- ===== BEGIN ENHANCED DATA =====
+insert into pmo.leave_record (leave_record_code, employee_id, leave_date, leave_type, approved, duration_days)
+select 'LV-0006', e.employee_id, '2026-07-10', 'Annual Leave', true, 1.0
+from core.employee e where e.emp_code = 'EMP-0003';
+insert into pmo.leave_record (leave_record_code, employee_id, leave_date, leave_type, approved, duration_days)
+select 'LV-0007', e.employee_id, '2026-07-27', 'Approved OT Comp', true, 1.0
+from core.employee e where e.emp_code = 'EMP-0003';
+insert into pmo.leave_record (leave_record_code, employee_id, leave_date, leave_type, approved, duration_days)
+select 'LV-0008', e.employee_id, '2026-07-28', 'Approved OT Comp', true, 1.0
+from core.employee e where e.emp_code = 'EMP-0003';
+insert into pmo.leave_record (leave_record_code, employee_id, leave_date, leave_type, approved, duration_days)
+select 'LV-0009', e.employee_id, '2026-07-14', 'Training', true, 1.0
+from core.employee e where e.emp_code = 'EMP-0009';
+insert into pmo.leave_record (leave_record_code, employee_id, leave_date, leave_type, approved, duration_days)
+select 'LV-0010', e.employee_id, '2026-07-15', 'Training', true, 1.0
+from core.employee e where e.emp_code = 'EMP-0009';
+insert into pmo.leave_record (leave_record_code, employee_id, leave_date, leave_type, approved, duration_days)
+select 'LV-0011', e.employee_id, '2026-07-16', 'Training', true, 1.0
+from core.employee e where e.emp_code = 'EMP-0009';
+-- ===== END ENHANCED DATA =====

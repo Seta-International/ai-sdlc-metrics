@@ -2,9 +2,9 @@
 BEGIN;
 SELECT plan(8);
 
-SELECT is( (SELECT count(*) FROM ta.business_context)::int, 7, '7 business contexts' );
-SELECT is( (SELECT count(*) FROM ta.headcount_plan)::int, 7, '7 headcount plans' );
-SELECT is( (SELECT count(*) FROM ta.jd_template)::int, 8, '8 JD templates (one position has two versions)' );
+SELECT cmp_ok( (SELECT count(*) FROM ta.business_context)::int, '>=', 7, '>=7 business contexts' );
+SELECT cmp_ok( (SELECT count(*) FROM ta.headcount_plan)::int, '>=', 7, '>=7 headcount plans' );
+SELECT cmp_ok( (SELECT count(*) FROM ta.jd_template)::int, '>=', 8, '>=8 JD templates' );
 SELECT cmp_ok( (SELECT count(*) FROM ta.scorecard)::int, '>=', 7, '>=7 scorecards' );
 
 -- every headcount plan has a valid salary band
