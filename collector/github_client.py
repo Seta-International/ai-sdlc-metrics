@@ -72,7 +72,9 @@ class GitHubClient:
             f"{self._BASE}/repos/{self._repo}/code-scanning/alerts",
             params={"per_page": 100, "state": "open"},
         )
-        if r.status_code == 404:
+        if r.status_code in (403, 404):
+            # 404 = code scanning never configured; 403 = no GitHub Advanced
+            # Security license on this private repo. Both mean "no alerts to report".
             return []
         r.raise_for_status()
         alerts = r.json()

@@ -49,6 +49,14 @@ def test_get_code_scanning_alerts_returns_404_gracefully():
     assert alerts == []
 
 @rsps_lib.activate
+def test_get_code_scanning_alerts_returns_403_gracefully():
+    rsps_lib.add(rsps_lib.GET, f"{BASE}/repos/{REPO}/code-scanning/alerts", status=403)
+
+    client = GitHubClient("fake-token", REPO)
+    alerts = client.get_code_scanning_alerts(SINCE, UNTIL)
+    assert alerts == []
+
+@rsps_lib.activate
 def test_get_deployments_filters_by_env():
     rsps_lib.add(rsps_lib.GET, f"{BASE}/repos/{REPO}/deployments", json=[
         {"id": 1, "environment": "production", "created_at": "2026-07-02T12:00:00Z"},
