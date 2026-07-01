@@ -1,6 +1,15 @@
 # Jira Setup Guide
 
-Creates the 4 custom fields, Incident issue type, and screen association needed for AI SDLC metrics collection.
+Creates the 3 custom fields needed for AI SDLC metrics collection: AI Usage,
+AI Time Saved, AI Tool.
+
+**Team-managed ("next-gen") Jira projects** — the common case on Jira Cloud
+today — don't expose issue-type-scheme or screen/tab APIs publicly. If your
+project is team-managed (check `simplified: true` on `GET
+/rest/api/3/project/{key}`), skip straight to the "Manual" steps at the
+bottom for field association and the Incident issue type; the API calls
+below only get you as far as *creating* the fields, not attaching them to a
+project.
 
 ## Prerequisites
 
@@ -13,7 +22,7 @@ Then export your credentials once before running any command below:
 ```bash
 export JIRA_EMAIL="your-email@seta-international.vn"
 export JIRA_TOKEN="your-api-token-here"
-export JIRA_BASE="https://all-it.atlassian.net"
+export JIRA_BASE="https://your-site.atlassian.net"
 ```
 
 Verify it works:
@@ -21,11 +30,15 @@ Verify it works:
 curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" "$JIRA_BASE/rest/api/3/myself" | python3 -c "import sys,json; d=json.load(sys.stdin); print('Logged in as:', d['displayName'])"
 ```
 
-Expected: `Logged in as: Canh Ta`
+Expected: `Logged in as: <your name>`
 
 ---
 
 ## Step 1 — Create "AI Usage" field (single select)
+
+Omit `searcherKey` — Jira assigns a default searcher automatically, and
+passing an explicit one (e.g. `selectsearcher`) fails with `"Unknown
+searcher chosen"`.
 
 ```bash
 AI_USAGE_FIELD_ID=$(curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
@@ -33,8 +46,7 @@ AI_USAGE_FIELD_ID=$(curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "AI Usage",
-    "type": "com.atlassian.jira.plugin.system.customfieldtypes:select",
-    "searcherKey": "com.atlassian.jira.plugin.system.customfieldtypes:selectsearcher"
+    "type": "com.atlassian.jira.plugin.system.customfieldtypes:select"
   }' | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
 
 echo "AI_USAGE_FIELD_ID=$AI_USAGE_FIELD_ID"
@@ -44,20 +56,17 @@ Expected: `AI_USAGE_FIELD_ID=customfield_10XXX`
 
 ### Add options to AI Usage
 
+Jira auto-creates a default global context when the field is created — fetch
+its id rather than POSTing a new context (POSTing a second global context
+for the same field fails with `"Invalid request payload"`).
+
 ```bash
-# Create a global context first
 AI_USAGE_CONTEXT_ID=$(curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
-  -X POST "$JIRA_BASE/rest/api/3/field/$AI_USAGE_FIELD_ID/context" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "AI Usage Global Context",
-    "isGlobalContext": true,
-    "isAnyIssueType": true
-  }' | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+  "$JIRA_BASE/rest/api/3/field/$AI_USAGE_FIELD_ID/context" \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['values'][0]['id'])")
 
 echo "AI_USAGE_CONTEXT_ID=$AI_USAGE_CONTEXT_ID"
 
-# Add the three options
 curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
   -X POST "$JIRA_BASE/rest/api/3/field/$AI_USAGE_FIELD_ID/context/$AI_USAGE_CONTEXT_ID/option" \
   -H "Content-Type: application/json" \
@@ -70,7 +79,10 @@ curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
   }' | python3 -m json.tool
 ```
 
-Expected: 3 options returned with IDs.
+Expected: 3 options returned with IDs. Record the `id` of the "Assisted"
+option and "Agent" option — `collector/metrics.py`'s `calc_a3`/`calc_a4`
+match on the option **value** ("Agent"/anything but "None"), not the id, so
+no further wiring is needed here.
 
 ---
 
@@ -82,16 +94,17 @@ AI_TIME_SAVED_ID=$(curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "AI Time Saved",
-    "type": "com.atlassian.jira.plugin.system.customfieldtypes:float",
-    "searcherKey": "com.atlassian.jira.plugin.system.customfieldtypes:exactnumber"
+    "type": "com.atlassian.jira.plugin.system.customfieldtypes:float"
   }' | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
 
 echo "AI_TIME_SAVED_ID=$AI_TIME_SAVED_ID"
 ```
 
+Not consumed by the collector today — captured for future use.
+
 ---
 
-## Step 3 — Create "AI Tool" field (single select)
+## Step 3 — Create "AI Tool" field (single select), default "Claude Code"
 
 ```bash
 AI_TOOL_ID=$(curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
@@ -99,23 +112,16 @@ AI_TOOL_ID=$(curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "AI Tool",
-    "type": "com.atlassian.jira.plugin.system.customfieldtypes:select",
-    "searcherKey": "com.atlassian.jira.plugin.system.customfieldtypes:selectsearcher"
+    "type": "com.atlassian.jira.plugin.system.customfieldtypes:select"
   }' | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
 
 echo "AI_TOOL_ID=$AI_TOOL_ID"
 
-# Create context + options
 AI_TOOL_CONTEXT_ID=$(curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
-  -X POST "$JIRA_BASE/rest/api/3/field/$AI_TOOL_ID/context" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "AI Tool Global Context",
-    "isGlobalContext": true,
-    "isAnyIssueType": true
-  }' | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+  "$JIRA_BASE/rest/api/3/field/$AI_TOOL_ID/context" \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['values'][0]['id'])")
 
-curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
+OPTIONS_JSON=$(curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
   -X POST "$JIRA_BASE/rest/api/3/field/$AI_TOOL_ID/context/$AI_TOOL_CONTEXT_ID/option" \
   -H "Content-Type: application/json" \
   -d '{
@@ -125,122 +131,62 @@ curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
       {"value": "Cursor"},
       {"value": "Khác"}
     ]
-  }' | python3 -m json.tool
-```
+  }')
+echo "$OPTIONS_JSON" | python3 -m json.tool
 
----
-
-## Step 4 — Create "Caused by deploy" field (URL)
-
-```bash
-CAUSED_BY_DEPLOY_ID=$(curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
-  -X POST "$JIRA_BASE/rest/api/3/field" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Caused by deploy",
-    "type": "com.atlassian.jira.plugin.system.customfieldtypes:url",
-    "searcherKey": "com.atlassian.jira.plugin.system.customfieldtypes:textsearcher"
-  }' | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
-
-echo "CAUSED_BY_DEPLOY_ID=$CAUSED_BY_DEPLOY_ID"
-```
-
----
-
-## Step 5 — Create "Incident" issue type
-
-```bash
-INCIDENT_TYPE_ID=$(curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
-  -X POST "$JIRA_BASE/rest/api/3/issuetype" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Incident",
-    "type": "standard",
-    "description": "Production incident — used for CFR and MTTR metrics"
-  }' | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
-
-echo "INCIDENT_TYPE_ID=$INCIDENT_TYPE_ID"
-```
-
-### Add Incident type to the FUT project
-
-```bash
-# Get the FUT project's issue type scheme ID
-SCHEME_ID=$(curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
-  "$JIRA_BASE/rest/api/3/project/FUT/issueTypeScheme" \
-  | python3 -c "import sys,json; print(json.load(sys.stdin)['issueTypeScheme']['id'])")
-
-echo "SCHEME_ID=$SCHEME_ID"
+# Default to "Claude Code" — note the endpoint is .../context/defaultValue
+# (contextId in the BODY), not .../context/{id}/defaultValue.
+CLAUDE_OPTION_ID=$(echo "$OPTIONS_JSON" | python3 -c "import sys,json; opts=json.load(sys.stdin)['options']; print(next(o['id'] for o in opts if o['value']=='Claude Code'))")
 
 curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
-  -X PUT "$JIRA_BASE/rest/api/3/issuetypescheme/$SCHEME_ID/issuetype" \
+  -X PUT "$JIRA_BASE/rest/api/3/field/$AI_TOOL_ID/context/defaultValue" \
   -H "Content-Type: application/json" \
-  -d "{\"issueTypeIds\": [\"$INCIDENT_TYPE_ID\"]}"
+  -d "{\"defaultValues\": [{\"contextId\": \"$AI_TOOL_CONTEXT_ID\", \"optionId\": \"$CLAUDE_OPTION_ID\", \"type\": \"option.single\"}]}"
 ```
 
+Not consumed by the collector today — captured for future use.
+
 ---
 
-## Step 6 — Add all 4 fields to the FUT default screen
+## Manual steps (team-managed projects)
+
+These have no public REST API for team-managed ("next-gen") projects — do
+them in the browser. (A company-managed project *does* expose
+`issuetypescheme`/`screens` APIs; if yours is company-managed, the original
+plan's scripted approach works and these manual steps aren't needed.)
+
+1. **Attach the 3 fields to the project**: `<project>` → **Project settings**
+   → **Fields** → use the **Search** box at the top (the page says *"Add a
+   global field to the table below to use it on work items in this
+   space"*) → search "AI Usage" / "AI Time Saved" / "AI Tool" → add each one.
+   Repeat per issue type if the UI asks (Task/Bug/Story etc. each need the
+   field attached).
+
+2. **Incident issue type** (for B3/B4 metrics — change failure rate, MTTR):
+   `<project>` → **Project settings** → **Issue types** → **Add issue
+   type** → name it "Incident". A globally-created "Incident" issue type
+   (via `POST /rest/api/3/issuetype`) is *not* usable here — team-managed
+   projects only recognize issue types created directly within their own
+   settings.
+
+3. **"AI Usage" required on Done** (2 min):
+   `<project>` → **Project settings** → **Workflows** → edit the active
+   workflow → click the **Done** transition → **Validators** → **Add
+   validator** → **Field Required** → select **AI Usage** → **Add** →
+   **Publish**.
+
+---
+
+## Note your field IDs for GitHub secrets
 
 ```bash
-# Find the FUT default screen
-SCREEN_ID=$(curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
-  "$JIRA_BASE/rest/api/3/screens?queryString=FUT&maxResults=10" \
-  | python3 -c "import sys,json; screens=json.load(sys.stdin)['values']; print(screens[0]['id']) if screens else print('NOT FOUND')")
-
-echo "SCREEN_ID=$SCREEN_ID"
-
-# Get the first tab of that screen
-TAB_ID=$(curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
-  "$JIRA_BASE/rest/api/3/screens/$SCREEN_ID/tabs" \
-  | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['id'])")
-
-echo "TAB_ID=$TAB_ID"
-
-# Add each field (replace IDs with the values you captured above)
-for FIELD_ID in "$AI_USAGE_FIELD_ID" "$AI_TIME_SAVED_ID" "$AI_TOOL_ID" "$CAUSED_BY_DEPLOY_ID"; do
-  echo "Adding $FIELD_ID..."
-  curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
-    -X POST "$JIRA_BASE/rest/api/3/screens/$SCREEN_ID/tabs/$TAB_ID/fields" \
-    -H "Content-Type: application/json" \
-    -d "{\"fieldId\": \"$FIELD_ID\"}" | python3 -c "import sys,json; d=json.load(sys.stdin); print('  added:', d.get('id', d))"
-done
-```
-
----
-
-## Step 7 — Manual: add workflow validator (2 min in browser)
-
-This cannot be done via API — requires the Jira workflow editor:
-
-1. Go to: `https://all-it.atlassian.net/jira/software/projects/FUT/project-settings/workflows`
-2. Click **Edit** on the active workflow
-3. Click the **Done** transition arrow
-4. Click **Validators** → **Add validator** → **Field Required**
-5. Select **AI Usage** → **Add**
-6. Click **Publish workflow**
-
----
-
-## Step 8 — Note your field IDs for GitHub secrets
-
-At the end of all steps, run:
-
-```bash
-echo ""
-echo "=== Copy these for GitHub secrets ==="
 echo "JIRA_AI_USAGE_FIELD=$AI_USAGE_FIELD_ID"
-echo ""
-echo "=== For reference only (not used by collector) ==="
-echo "AI_TIME_SAVED_ID=$AI_TIME_SAVED_ID"
-echo "AI_TOOL_ID=$AI_TOOL_ID"
-echo "CAUSED_BY_DEPLOY_ID=$CAUSED_BY_DEPLOY_ID"
-echo "INCIDENT_TYPE_ID=$INCIDENT_TYPE_ID"
 ```
 
-Then set the org secret:
+Set it as a **repo secret** (not org — org-level secret management needs
+`admin:org`, which most accounts don't have) on the project's own repo:
 
 ```bash
 gh auth switch --user seta-canhta
-gh secret set JIRA_AI_USAGE_FIELD --body "$AI_USAGE_FIELD_ID" --org Seta-International
+gh secret set JIRA_AI_USAGE_FIELD --body "$AI_USAGE_FIELD_ID" --repo <org>/<repo>
 ```
