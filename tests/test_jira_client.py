@@ -13,8 +13,8 @@ def make_client():
 
 @rsps_lib.activate
 def test_get_closed_issues_returns_issues():
-    rsps_lib.add(rsps_lib.GET, f"{BASE}/rest/api/3/search", json={
-        "total": 1, "startAt": 0, "maxResults": 100,
+    rsps_lib.add(rsps_lib.GET, f"{BASE}/rest/api/3/search/jql", json={
+        "isLast": True,
         "issues": [{"id": "10001", "fields": {FIELD: {"value": "Assisted"}}}],
     })
     client = make_client()
@@ -24,9 +24,13 @@ def test_get_closed_issues_returns_issues():
 
 @rsps_lib.activate
 def test_get_closed_issues_paginates():
-    rsps_lib.add(rsps_lib.GET, f"{BASE}/rest/api/3/search", json={
-        "total": 2, "startAt": 0, "maxResults": 100,
-        "issues": [{"id": "10001", "fields": {FIELD: None}}, {"id": "10002", "fields": {FIELD: None}}],
+    rsps_lib.add(rsps_lib.GET, f"{BASE}/rest/api/3/search/jql", json={
+        "isLast": False, "nextPageToken": "token-page-2",
+        "issues": [{"id": "10001", "fields": {FIELD: None}}],
+    })
+    rsps_lib.add(rsps_lib.GET, f"{BASE}/rest/api/3/search/jql", json={
+        "isLast": True,
+        "issues": [{"id": "10002", "fields": {FIELD: None}}],
     })
     client = make_client()
     issues = client.get_closed_issues(SINCE, UNTIL)
@@ -34,9 +38,9 @@ def test_get_closed_issues_paginates():
 
 @rsps_lib.activate
 def test_get_incidents_filters_by_type():
-    rsps_lib.add(rsps_lib.GET, f"{BASE}/rest/api/3/search", json={
-        "total": 1, "startAt": 0, "maxResults": 100,
-        "issues": [{"id": "20001", "fields": {"created": "2026-07-01T10:00:00.000+0000", "resolutiondate": "2026-07-01T12:00:00.000+0000", "customfield_caused_by_deploy": None}}],
+    rsps_lib.add(rsps_lib.GET, f"{BASE}/rest/api/3/search/jql", json={
+        "isLast": True,
+        "issues": [{"id": "20001", "fields": {"created": "2026-07-01T10:00:00.000+0000", "resolutiondate": "2026-07-01T12:00:00.000+0000"}}],
     })
     client = make_client()
     incidents = client.get_incidents(SINCE, UNTIL)

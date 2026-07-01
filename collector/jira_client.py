@@ -18,19 +18,18 @@ class JiraClient:
 
     def _jql_all(self, jql: str, fields: list[str]) -> list[dict]:
         issues: list[dict] = []
-        start = 0
+        page_token = None
         while True:
-            r = self._s.get(
-                f"{self._base}/rest/api/3/search",
-                params={"jql": jql, "startAt": start, "maxResults": 100,
-                        "fields": ",".join(fields)},
-            )
+            params = {"jql": jql, "maxResults": 100, "fields": ",".join(fields)}
+            if page_token:
+                params["nextPageToken"] = page_token
+            r = self._s.get(f"{self._base}/rest/api/3/search/jql", params=params)
             r.raise_for_status()
             data = r.json()
             issues.extend(data["issues"])
-            start += len(data["issues"])
-            if start >= data["total"]:
+            if data.get("isLast", True):
                 break
+            page_token = data["nextPageToken"]
         return issues
 
     def get_closed_issues(self, since: datetime, until: datetime) -> list[dict]:
@@ -49,4 +48,4 @@ class JiraClient:
             f'AND created >= "{since.strftime("%Y-%m-%d")}" '
             f'AND created <= "{until.strftime("%Y-%m-%d")}"'
         )
-        return self._jql_all(jql, ["created", "resolutiondate", "customfield_caused_by_deploy"])
+        return self._jql_all(jql, ["created", "resolutiondate"])

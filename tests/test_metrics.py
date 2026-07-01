@@ -34,9 +34,7 @@ def test_calc_b2_two_deploys():  assert calc_b2([{}, {}], 2.0) == 1.0
 # B3
 def test_calc_b3_no_deploys():   assert calc_b3([], []) is None
 def test_calc_b3_no_incidents(): assert calc_b3([], [{}]) == 0.0
-def test_calc_b3_with_incident():
-    incidents = [{"fields": {"customfield_caused_by_deploy": "http://x"}}]
-    assert calc_b3(incidents, [{}]) == 1.0
+def test_calc_b3_with_incident(): assert calc_b3([{}], [{}]) == 1.0
 
 # B4
 def test_calc_b4_no_incidents(): assert calc_b4([]) is None

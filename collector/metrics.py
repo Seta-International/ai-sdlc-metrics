@@ -27,10 +27,11 @@ def calc_b2(deployments: list[dict], sprint_weeks: float) -> Optional[float]:
     return round(len(deployments) / sprint_weeks, 2)
 
 def calc_b3(incidents: list[dict], deployments: list[dict]) -> Optional[float]:
+    """Change failure rate, approximated as incidents-per-deploy in the
+    period (no per-incident deploy linkage is tracked)."""
     if not deployments:
         return None
-    caused = sum(1 for i in incidents if i["fields"].get("customfield_caused_by_deploy"))
-    return round(caused / len(deployments), 4)
+    return round(len(incidents) / len(deployments), 4)
 
 def calc_b4(incidents: list[dict]) -> Optional[float]:
     hours = []
