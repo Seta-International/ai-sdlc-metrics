@@ -1,10 +1,11 @@
 import os
 from datetime import date
 
-# Add a new entry for each sprint: label → sprint start date (Monday)
+# Add a new entry for each sprint: label → sprint start date (Monday).
+# Future's sprints are 2 weeks long, starting Monday.
 SPRINTS: dict[str, date] = {
-    "S1": date(2026, 6, 30),
-    # "S2": date(2026, 7, 14),
+    "S1": date(2026, 6, 29),
+    # "S2": date(2026, 7, 13),
 }
 
 GITHUB_TOKEN: str = os.environ["METRICS_GH_TOKEN"]
@@ -18,7 +19,7 @@ JIRA_TOKEN: str = os.environ["JIRA_TOKEN"]
 JIRA_AI_USAGE_FIELD: str = os.environ["JIRA_AI_USAGE_FIELD"]
 
 REPORTING_DB_URL: str = os.environ["REPORTING_DB_URL"]
-PROJECT_LABEL: str = os.getenv("PROJECT_LABEL", "FUT")
+PROJECT_LABEL: str = os.getenv("PROJECT_LABEL", "Future")
 
 # Bot logins excluded from "human intervention" check (D2/D3)
 BOT_LOGINS: frozenset[str] = frozenset({
