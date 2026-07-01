@@ -1,12 +1,12 @@
 import os
 from datetime import date
 
-# Add a new entry for each sprint: label → sprint start date (Monday).
-# Future's sprints are 2 weeks long, starting Monday.
-SPRINTS: dict[str, date] = {
-    "S1": date(2026, 6, 29),
-    # "S2": date(2026, 7, 13),
-}
+# Sprint calendar is per-project config, not hardcoded here — this repo is
+# shared across every project's collector runs. Each project sets its own
+# SPRINT_ANCHOR (first sprint's start date, ISO) and SPRINT_LENGTH_DAYS as
+# env vars on its own workflow. Sprint N's start = anchor + (N-1)*length.
+SPRINT_ANCHOR: date = date.fromisoformat(os.environ["SPRINT_ANCHOR"])
+SPRINT_LENGTH_DAYS: int = int(os.getenv("SPRINT_LENGTH_DAYS", "14"))
 
 GITHUB_TOKEN: str = os.environ["METRICS_GH_TOKEN"]
 GITHUB_REPO: str = os.getenv("GH_REPO", "seta-international/agent-platform")

@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
 Usage:
-  python collect.py [--sprint S1] [--project FUT] [--repo owner/repo]
+  python collect.py [--sprint S1] [--project Future] [--repo owner/repo]
                     [--a1 0.8] [--b5 0.1] [--c3 0.65]
 """
 import argparse
+import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from collector.config import (
-    SPRINTS, GITHUB_TOKEN, GITHUB_REPO, GH_PROD_ENV,
+    SPRINT_ANCHOR, SPRINT_LENGTH_DAYS, GITHUB_TOKEN, GITHUB_REPO, GH_PROD_ENV,
     JIRA_BASE, JIRA_PROJECT, JIRA_EMAIL, JIRA_TOKEN, JIRA_AI_USAGE_FIELD,
     REPORTING_DB_URL, PROJECT_LABEL,
 )
@@ -21,21 +22,27 @@ from collector.metrics import (
 from collector.db import upsert_metrics
 
 def resolve_sprint(label: str | None) -> tuple[str, datetime, datetime]:
+    """Sprint N starts at SPRINT_ANCHOR + (N-1)*SPRINT_LENGTH_DAYS. With no
+    label, resolves to whichever sprint contains today."""
+    today = datetime.now(timezone.utc).date()
     if label:
-        if label not in SPRINTS:
-            print(f"ERROR: sprint '{label}' not in SPRINTS dict. Add it to collector/config.py", file=sys.stderr)
+        m = re.fullmatch(r"S(\d+)", label)
+        if not m:
+            print(f"ERROR: sprint label must look like 'S<n>' (e.g. S3), got {label!r}", file=sys.stderr)
             sys.exit(1)
-        start = SPRINTS[label]
+        index = int(m.group(1))
+        if index < 1:
+            print(f"ERROR: sprint index must be >= 1, got {index}", file=sys.stderr)
+            sys.exit(1)
     else:
-        today = datetime.now(timezone.utc).date()
-        candidates = {k: v for k, v in SPRINTS.items() if v <= today}
-        if not candidates:
-            print("ERROR: no sprint has started yet. Add entries to SPRINTS in collector/config.py", file=sys.stderr)
+        if today < SPRINT_ANCHOR:
+            print(f"ERROR: SPRINT_ANCHOR ({SPRINT_ANCHOR}) is in the future", file=sys.stderr)
             sys.exit(1)
-        label, start = max(candidates.items(), key=lambda x: x[1])
+        index = (today - SPRINT_ANCHOR).days // SPRINT_LENGTH_DAYS + 1
+    start = SPRINT_ANCHOR + timedelta(days=(index - 1) * SPRINT_LENGTH_DAYS)
     since = datetime(start.year, start.month, start.day, tzinfo=timezone.utc)
     until = datetime.now(timezone.utc)
-    return label, since, until
+    return f"S{index}", since, until
 
 def enrich_prs_with_review_count(gh: GitHubClient, prs: list[dict]) -> list[dict]:
     """Adds review_count to ai-assisted PRs (needed for C2)."""
