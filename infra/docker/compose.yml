@@ -7,7 +7,7 @@
 #   export REPORTING_DB_PASSWORD=<reporting-role-password>
 #   docker compose -f infra/docker/compose.yml up -d
 #
-# Open: http://192.168.90.127:3100   (read-only, no login)
+# Open: http://192.168.90.127:3100   (login required)
 # Admins edit: same URL, log in top-right with admin / $GF_ADMIN_PASSWORD.
 #
 # `name:` below pins the compose project name so this stack never collides
@@ -23,8 +23,7 @@ services:
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GF_ADMIN_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_AUTH_ANONYMOUS_ENABLED: "true"
-      GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_SERVER_ROOT_URL: "http://192.168.90.127:3100"
       REPORTING_DB_HOST: ${REPORTING_DB_HOST}
       REPORTING_DB_PASSWORD: ${REPORTING_DB_PASSWORD}
