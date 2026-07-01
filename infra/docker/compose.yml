@@ -7,7 +7,8 @@
 #   export REPORTING_DB_PASSWORD=<reporting-role-password>
 #   docker compose -f infra/docker/compose.yml up -d
 #
-# Open: http://192.168.90.127:3100   (login required)
+# Open: https://ai-metrics.seta-international.com (or http://192.168.90.127:3030
+# on the LAN/VPN)   (login required)
 # Admins edit: same URL, log in top-right with admin / $GF_ADMIN_PASSWORD.
 #
 # `name:` below pins the compose project name so this stack never collides
@@ -24,11 +25,11 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GF_ADMIN_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
-      GF_SERVER_ROOT_URL: "http://192.168.90.127:3100"
+      GF_SERVER_ROOT_URL: "https://ai-metrics.seta-international.com"
       REPORTING_DB_HOST: ${REPORTING_DB_HOST}
       REPORTING_DB_PASSWORD: ${REPORTING_DB_PASSWORD}
     ports:
-      - "3100:3000"
+      - "3030:3000"
     volumes:
       - ../../infra/grafana/provisioning:/etc/grafana/provisioning:ro
       - ../../infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
