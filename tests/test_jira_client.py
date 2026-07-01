@@ -45,3 +45,20 @@ def test_get_incidents_filters_by_type():
     client = make_client()
     incidents = client.get_incidents(SINCE, UNTIL)
     assert len(incidents) == 1
+
+@rsps_lib.activate
+def test_get_issue_fields_returns_fields():
+    rsps_lib.add(rsps_lib.GET, f"{BASE}/rest/api/3/issue/FUT-123", json={
+        "fields": {FIELD: {"value": "Assisted"}},
+    })
+    client = make_client()
+    fields = client.get_issue_fields("FUT-123", [FIELD])
+    assert fields[FIELD]["value"] == "Assisted"
+
+@rsps_lib.activate
+def test_update_issue_fields_puts_payload():
+    rsps_lib.add(rsps_lib.PUT, f"{BASE}/rest/api/3/issue/FUT-123", status=204)
+    client = make_client()
+    client.update_issue_fields("FUT-123", {FIELD: {"value": "Agent"}})
+    assert len(rsps_lib.calls) == 1
+    assert rsps_lib.calls[0].request.url == f"{BASE}/rest/api/3/issue/FUT-123"

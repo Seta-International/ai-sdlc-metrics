@@ -83,6 +83,12 @@ class GitHubClient:
             if since <= datetime.fromisoformat(a["created_at"].replace("Z", "+00:00")) <= until
         ]
 
+    def get_pr(self, pr_number: int) -> dict:
+        """A single PR's metadata (title, body, labels, head branch, ...)."""
+        r = self._s.get(f"{self._BASE}/repos/{self._repo}/pulls/{pr_number}")
+        r.raise_for_status()
+        return r.json()
+
     def get_pr_commits(self, pr_number: int) -> list[dict]:
         """Commits on a PR with author login info."""
         r = self._s.get(

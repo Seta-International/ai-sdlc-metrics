@@ -57,6 +57,19 @@ def test_get_code_scanning_alerts_returns_403_gracefully():
     assert alerts == []
 
 @rsps_lib.activate
+def test_get_pr_returns_metadata():
+    rsps_lib.add(rsps_lib.GET, f"{BASE}/repos/{REPO}/pulls/7", json={
+        "number": 7, "title": "feat(planner): FUT-123 add thing",
+        "body": "AI time saved (hours): 2", "labels": [{"name": "ai-assisted"}],
+        "head": {"ref": "feat/FUT-123-add-thing"},
+    }, status=200)
+
+    client = GitHubClient("fake-token", REPO)
+    pr = client.get_pr(7)
+    assert pr["title"] == "feat(planner): FUT-123 add thing"
+    assert pr["head"]["ref"] == "feat/FUT-123-add-thing"
+
+@rsps_lib.activate
 def test_get_deployments_filters_by_env():
     rsps_lib.add(rsps_lib.GET, f"{BASE}/repos/{REPO}/deployments", json=[
         {"id": 1, "environment": "production", "created_at": "2026-07-02T12:00:00Z"},

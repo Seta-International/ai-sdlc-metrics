@@ -100,11 +100,12 @@ AI_TIME_SAVED_ID=$(curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
 echo "AI_TIME_SAVED_ID=$AI_TIME_SAVED_ID"
 ```
 
-Not consumed by the collector today — captured for future use.
+Consumed by `collector/update_ticket.py`, which accumulates hours parsed from each
+merged PR's "AI time saved (hours)" description field onto this field.
 
 ---
 
-## Step 3 — Create "AI Tool" field (single select), default "Claude Code"
+## Step 3 — Create "AI Tool" field (single select), no default
 
 ```bash
 AI_TOOL_ID=$(curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
@@ -133,18 +134,20 @@ OPTIONS_JSON=$(curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
     ]
   }')
 echo "$OPTIONS_JSON" | python3 -m json.tool
-
-# Default to "Claude Code" — note the endpoint is .../context/defaultValue
-# (contextId in the BODY), not .../context/{id}/defaultValue.
-CLAUDE_OPTION_ID=$(echo "$OPTIONS_JSON" | python3 -c "import sys,json; opts=json.load(sys.stdin)['options']; print(next(o['id'] for o in opts if o['value']=='Claude Code'))")
-
-curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
-  -X PUT "$JIRA_BASE/rest/api/3/field/$AI_TOOL_ID/context/defaultValue" \
-  -H "Content-Type: application/json" \
-  -d "{\"defaultValues\": [{\"contextId\": \"$AI_TOOL_CONTEXT_ID\", \"optionId\": \"$CLAUDE_OPTION_ID\", \"type\": \"option.single\"}]}"
 ```
 
-Not consumed by the collector today — captured for future use.
+Deliberately no default value here. `collector/update_ticket.py` writes this
+field once per ticket, from the merged PR's Co-authored-by trailer
+(Claude/Copilot), and only when the field is currently empty. A context
+default value auto-fills new issues at creation time in Jira Cloud, which
+would make every ticket look pre-attributed to whatever the default is and
+defeat that detection.
+
+If a default value was set on this field from an earlier setup, clear it in
+the browser instead of via API (the default-value REST endpoint's "clear"
+payload isn't reliably documented): `<project>` → **Project settings** →
+**Fields** → find "AI Tool" → its context → **Edit default value** →
+clear the selection → **Save**.
 
 ---
 
@@ -181,12 +184,18 @@ plan's scripted approach works and these manual steps aren't needed.)
 
 ```bash
 echo "JIRA_AI_USAGE_FIELD=$AI_USAGE_FIELD_ID"
+echo "JIRA_AI_TOOL_FIELD=$AI_TOOL_ID"
+echo "JIRA_AI_TIME_SAVED_FIELD=$AI_TIME_SAVED_ID"
 ```
 
-Set it as a **repo secret** (not org — org-level secret management needs
-`admin:org`, which most accounts don't have) on the project's own repo:
+Set them as **repo secrets** (not org — org-level secret management needs
+`admin:org`, which most accounts don't have) on the project's own repo. All
+three are required for `collector/update_ticket.py` (the PR-merge → Jira
+ticket automation) as well as `JIRA_AI_USAGE_FIELD` alone for `collect.py`:
 
 ```bash
 gh auth switch --user seta-canhta
 gh secret set JIRA_AI_USAGE_FIELD --body "$AI_USAGE_FIELD_ID" --repo <org>/<repo>
+gh secret set JIRA_AI_TOOL_FIELD --body "$AI_TOOL_ID" --repo <org>/<repo>
+gh secret set JIRA_AI_TIME_SAVED_FIELD --body "$AI_TIME_SAVED_ID" --repo <org>/<repo>
 ```

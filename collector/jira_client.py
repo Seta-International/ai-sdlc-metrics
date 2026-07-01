@@ -49,3 +49,13 @@ class JiraClient:
             f'AND created <= "{until.strftime("%Y-%m-%d")}"'
         )
         return self._jql_all(jql, ["created", "resolutiondate"])
+
+    def get_issue_fields(self, key: str, fields: list[str]) -> dict:
+        """Current values of the given fields on one issue."""
+        r = self._s.get(f"{self._base}/rest/api/3/issue/{key}", params={"fields": ",".join(fields)})
+        r.raise_for_status()
+        return r.json()["fields"]
+
+    def update_issue_fields(self, key: str, fields: dict) -> None:
+        r = self._s.put(f"{self._base}/rest/api/3/issue/{key}", json={"fields": fields})
+        r.raise_for_status()
