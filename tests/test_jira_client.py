@@ -15,12 +15,12 @@ def make_client():
 def test_get_closed_issues_returns_issues():
     rsps_lib.add(rsps_lib.GET, f"{BASE}/rest/api/3/search", json={
         "total": 1, "startAt": 0, "maxResults": 100,
-        "issues": [{"id": "10001", "fields": {FIELD: {"value": "Có hỗ trợ"}}}],
+        "issues": [{"id": "10001", "fields": {FIELD: {"value": "Assisted"}}}],
     })
     client = make_client()
     issues = client.get_closed_issues(SINCE, UNTIL)
     assert len(issues) == 1
-    assert issues[0]["fields"][FIELD]["value"] == "Có hỗ trợ"
+    assert issues[0]["fields"][FIELD]["value"] == "Assisted"
 
 @rsps_lib.activate
 def test_get_closed_issues_paginates():

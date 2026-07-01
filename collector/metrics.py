@@ -12,13 +12,13 @@ def calc_a2(prs: list[dict]) -> Optional[float]:
 def calc_a3(issues: list[dict], field: str) -> Optional[float]:
     if not issues:
         return None
-    agent = sum(1 for i in issues if (i["fields"].get(field) or {}).get("value") == "Tác tử")
+    agent = sum(1 for i in issues if (i["fields"].get(field) or {}).get("value") == "Agent")
     return round(agent / len(issues), 4)
 
 def calc_a4(issues: list[dict], field: str) -> Optional[float]:
     if not issues:
         return None
-    ai = sum(1 for i in issues if (i["fields"].get(field) or {}).get("value", "Không") != "Không")
+    ai = sum(1 for i in issues if (i["fields"].get(field) or {}).get("value", "None") != "None")
     return round(ai / len(issues), 4)
 
 def calc_b2(deployments: list[dict], sprint_weeks: float) -> Optional[float]:

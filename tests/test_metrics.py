@@ -21,11 +21,11 @@ def test_calc_a2_half_ai():      assert calc_a2([pr(["ai-assisted"]), pr()]) == 
 
 # A3
 def test_calc_a3_empty():        assert calc_a3([], FIELD) is None
-def test_calc_a3_agent_issues(): assert calc_a3([issue("Tác tử"), issue("Không")], FIELD) == 0.5
+def test_calc_a3_agent_issues(): assert calc_a3([issue("Agent"), issue("None")], FIELD) == 0.5
 
 # A4
-def test_calc_a4_all_none():     assert calc_a4([issue("Không"), issue(None)], FIELD) == 0.0
-def test_calc_a4_mixed():        assert calc_a4([issue("Có hỗ trợ"), issue("Không")], FIELD) == 0.5
+def test_calc_a4_all_none():     assert calc_a4([issue("None"), issue(None)], FIELD) == 0.0
+def test_calc_a4_mixed():        assert calc_a4([issue("Assisted"), issue("None")], FIELD) == 0.5
 
 # B2
 def test_calc_b2_zero_weeks():   assert calc_b2([{}, {}], 0) is None

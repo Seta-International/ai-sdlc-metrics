@@ -63,9 +63,9 @@ curl -s -u "$JIRA_EMAIL:$JIRA_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "options": [
-      {"value": "Không"},
-      {"value": "Có hỗ trợ"},
-      {"value": "Tác tử"}
+      {"value": "None"},
+      {"value": "Assisted"},
+      {"value": "Agent"}
     ]
   }' | python3 -m json.tool
 ```
