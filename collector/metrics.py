@@ -115,6 +115,33 @@ def pr_size_medians(prs: list[dict], pr_file_details: dict[int, list[dict]]) -> 
             "pr_size_nonai": _median([p for p in prs if not _is_ai_pr(p)])}
 
 
+def review_metrics(prs: list[dict], pr_reviews: dict[int, list]) -> dict:
+    """Verification burden per AI segment: hours to first review (median) and
+    CHANGES_REQUESTED rounds per PR (mean)."""
+    def _first_review_h(subset: list[dict]):
+        spans = []
+        for p in subset:
+            submitted = sorted(_dt(r["submitted_at"]) for r in pr_reviews.get(p["number"], [])
+                               if r.get("submitted_at"))
+            if submitted and p.get("created_at"):
+                spans.append((submitted[0] - _dt(p["created_at"])).total_seconds() / 3600)
+        return round(statistics.median(spans), 2) if spans else None
+
+    def _rounds(subset: list[dict]):
+        if not subset:
+            return None
+        per_pr = [sum(1 for r in pr_reviews.get(p["number"], [])
+                      if r["state"] == "CHANGES_REQUESTED") for p in subset]
+        return round(statistics.mean(per_pr), 2)
+
+    ai = [p for p in prs if _is_ai_pr(p)]
+    nonai = [p for p in prs if not _is_ai_pr(p)]
+    return {"first_review_ai_h": _first_review_h(ai),
+            "first_review_nonai_h": _first_review_h(nonai),
+            "review_rounds_ai": _rounds(ai),
+            "review_rounds_nonai": _rounds(nonai)}
+
+
 _FIX_PREFIXES = ("revert", "fix", "bugfix", "hotfix")
 _INTEGRATION_BRANCHES = ("main", "master", "develop")
 

@@ -3,7 +3,7 @@ import pytest
 from collector.metrics import (
     adoption_counts, ai_users_weekly_avg, delivery_counts, lead_time_hours,
     rework_counts, quality_counts, agent_counts, segmented_lead_time,
-    pr_size_medians,
+    pr_size_medians, review_metrics,
 )
 
 FIELD = "customfield_10200"
@@ -119,6 +119,28 @@ def test_pr_size_medians_by_segment():
 
 def test_pr_size_medians_none_without_details():
     assert pr_size_medians([pr()], {}) == {"pr_size_ai": None, "pr_size_nonai": None}
+
+
+# review_metrics
+def _rev(state, at):
+    return {"state": state, "submitted_at": at}
+
+
+def test_review_metrics_by_segment():
+    prs = [pr(["ai-assisted"], number=1, created="2026-07-01T08:00:00Z"),
+           pr(number=2, created="2026-07-01T08:00:00Z")]
+    reviews = {1: [_rev("CHANGES_REQUESTED", "2026-07-01T10:00:00Z"),
+                   _rev("APPROVED", "2026-07-01T12:00:00Z")],
+               2: [_rev("APPROVED", "2026-07-01T09:00:00Z")]}
+    m = review_metrics(prs, reviews)
+    assert m == {"first_review_ai_h": 2.0, "first_review_nonai_h": 1.0,
+                 "review_rounds_ai": 1.0, "review_rounds_nonai": 0.0}
+
+
+def test_review_metrics_none_without_reviews_or_segment():
+    m = review_metrics([pr(["ai-assisted"], number=1)], {})
+    assert m["first_review_ai_h"] is None and m["first_review_nonai_h"] is None
+    assert m["review_rounds_ai"] == 0.0 and m["review_rounds_nonai"] is None
 
 
 # rework_counts
