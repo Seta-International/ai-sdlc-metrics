@@ -1,51 +1,36 @@
 #!/usr/bin/env python3
 """
+Collect AI SDLC raw metric counts for one sprint or month window.
+
 Usage:
-  python collect.py [--sprint S1] [--project Future] [--repo owner/repo]
-                    [--a1 0.8] [--b5 0.1] [--c3 0.65]
+  python -m collector.collect [--sprint S6 | --month 2026-06]
+                              [--project Future] [--repo owner/repo]
+                              [--jira-project FUT]
 """
 import argparse
-import re
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from collector.config import (
     SPRINT_ANCHOR, SPRINT_LENGTH_DAYS, GITHUB_TOKEN, GITHUB_REPO, GH_PROD_ENV,
-    JIRA_BASE, JIRA_PROJECT, JIRA_EMAIL, JIRA_TOKEN, JIRA_AI_USAGE_FIELD,
-    REPORTING_DB_URL, PROJECT_LABEL,
+    DEPLOY_COUNT_STRATEGY, JIRA_BASE, JIRA_PROJECT, JIRA_EMAIL, JIRA_TOKEN,
+    JIRA_AI_USAGE_FIELD, JIRA_BOARD_ID, REPORTING_DB_URL, PROJECT_LABEL,
 )
 from collector.github_client import GitHubClient
 from collector.jira_client import JiraClient
+from collector.windows import Window, resolve_window
 from collector.metrics import (
-    calc_a2, calc_a3, calc_a4, calc_b2, calc_b3, calc_b4,
-    calc_c1, calc_c2, calc_c4, calc_d_metrics,
+    adoption_counts, ai_users_weekly_avg, delivery_counts, lead_time_hours,
+    rework_pr_count, quality_counts, agent_counts,
 )
-from collector.db import upsert_metrics
+from collector.db import upsert_counts
 
-def resolve_sprint(label: str | None) -> tuple[str, datetime, datetime]:
-    """Sprint N starts at SPRINT_ANCHOR + (N-1)*SPRINT_LENGTH_DAYS. With no
-    label, resolves to whichever sprint contains today."""
-    today = datetime.now(timezone.utc).date()
-    if label:
-        m = re.fullmatch(r"S(\d+)", label)
-        if not m:
-            print(f"ERROR: sprint label must look like 'S<n>' (e.g. S3), got {label!r}", file=sys.stderr)
-            sys.exit(1)
-        index = int(m.group(1))
-        if index < 1:
-            print(f"ERROR: sprint index must be >= 1, got {index}", file=sys.stderr)
-            sys.exit(1)
-    else:
-        if today < SPRINT_ANCHOR:
-            print(f"ERROR: SPRINT_ANCHOR ({SPRINT_ANCHOR}) is in the future", file=sys.stderr)
-            sys.exit(1)
-        index = (today - SPRINT_ANCHOR).days // SPRINT_LENGTH_DAYS + 1
-    start = SPRINT_ANCHOR + timedelta(days=(index - 1) * SPRINT_LENGTH_DAYS)
-    since = datetime(start.year, start.month, start.day, tzinfo=timezone.utc)
-    until = datetime.now(timezone.utc)
-    return f"S{index}", since, until
+
+def _merged_dt(pr: dict) -> datetime:
+    return datetime.fromisoformat(pr["merged_at"].replace("Z", "+00:00"))
+
 
 def enrich_prs_with_review_count(gh: GitHubClient, prs: list[dict]) -> list[dict]:
-    """Adds review_count to ai-assisted PRs (needed for C2)."""
+    """Adds review_count to ai-assisted PRs (needed for ai_prs_reviewed)."""
     for pr in prs:
         if any(l["name"] == "ai-assisted" for l in pr.get("labels", [])):
             r = gh._s.get(
@@ -56,52 +41,82 @@ def enrich_prs_with_review_count(gh: GitHubClient, prs: list[dict]) -> list[dict
                 pr["review_count"] = sum(1 for rev in r.json() if rev["state"] == "APPROVED")
     return prs
 
+
+def build_counts(window: Window, prs: list[dict], all_prs: list[dict],
+                 pr_files: dict[int, list[str]], deploy_times: list[datetime],
+                 code_alerts: list[dict], secret_alerts: list[dict],
+                 issues: list[dict], incidents: list[dict], field: str,
+                 sprint_issue_counts: tuple[int, int] | None,
+                 pr_commits: dict[int, list] | None = None) -> dict:
+    """Pure assembly of all raw counts for one window. No IO."""
+    counts = {
+        **adoption_counts(prs, issues, field),
+        **delivery_counts(deploy_times, incidents, window.weeks),
+        **quality_counts(prs, code_alerts, secret_alerts),
+        **agent_counts(prs, pr_commits or {}),
+        "lead_time_h": lead_time_hours(prs, deploy_times),
+        "rework_prs": rework_pr_count(prs, all_prs, pr_files),
+        "ai_users_weekly_avg": ai_users_weekly_avg(prs, issues, field, window.since, window.until),
+    }
+    if sprint_issue_counts is not None:
+        counts["sprint_committed"], counts["sprint_completed"] = sprint_issue_counts
+    return counts
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Collect AI SDLC metrics")
-    parser.add_argument("--sprint", default=None)
+    parser = argparse.ArgumentParser(description="Collect AI SDLC raw metric counts")
+    scope = parser.add_mutually_exclusive_group()
+    scope.add_argument("--sprint", default=None, help="Sprint label, e.g. S6")
+    scope.add_argument("--month", default=None, help="Calendar month, e.g. 2026-06")
     parser.add_argument("--project", default=PROJECT_LABEL)
     parser.add_argument("--jira-project", default=JIRA_PROJECT)
     parser.add_argument("--repo", default=GITHUB_REPO)
-    parser.add_argument("--a1", type=float, default=None, help="Manual: seat adoption rate 0-1")
-    parser.add_argument("--b5", type=float, default=None, help="Manual: cost improvement 0-1")
-    parser.add_argument("--c3", type=float, default=None, help="Manual: AI code coverage 0-1")
     args = parser.parse_args()
 
-    sprint_label, since, until = resolve_sprint(args.sprint)
-    sprint_weeks = (until - since).total_seconds() / (7 * 86400)
-    print(f"[{args.project}] {sprint_label}: {since.date()} -> {until.date()} ({sprint_weeks:.1f} weeks)")
+    try:
+        window = resolve_window(args.sprint, args.month, SPRINT_ANCHOR, SPRINT_LENGTH_DAYS)
+    except ValueError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"[{args.project}] {window.period_key}: "
+          f"{window.since.date()} -> {window.until.date()} ({window.weeks:.1f} weeks)")
 
     gh = GitHubClient(GITHUB_TOKEN, args.repo)
     jira = JiraClient(JIRA_BASE, JIRA_EMAIL, JIRA_TOKEN, args.jira_project, JIRA_AI_USAGE_FIELD)
 
-    prs = gh.get_merged_prs(since, until)
+    # Fetch a 14-day lookback superset so rework can see pre-window merges.
+    all_prs = gh.get_merged_prs(window.since - timedelta(days=14), window.until)
+    prs = [p for p in all_prs if _merged_dt(p) >= window.since]
     prs = enrich_prs_with_review_count(gh, prs)
-    deploys = gh.get_deployments(GH_PROD_ENV, since, until)
-    alerts = gh.get_code_scanning_alerts(since, until)
-    issues = jira.get_closed_issues(since, until)
-    incidents = jira.get_incidents(since, until)
+    pr_files = {p["number"]: gh.get_pr_files(p["number"]) for p in all_prs}
+    agent_numbers = [p["number"] for p in prs
+                     if any(l["name"] == "ai-agent" for l in p.get("labels", []))]
+    pr_commits = {n: gh.get_pr_commits(n) for n in agent_numbers}
 
-    agent_pr_numbers = [p["number"] for p in prs if any(l["name"] == "ai-agent" for l in p.get("labels", []))]
-    pr_commits = {n: gh.get_pr_commits(n) for n in agent_pr_numbers}
-    d = calc_d_metrics(prs, pr_commits)
+    deploy_times = gh.get_production_deploy_times(
+        DEPLOY_COUNT_STRATEGY, GH_PROD_ENV, window.since, window.until)
+    code_alerts = gh.get_code_scanning_alerts(window.since, window.until)
+    secret_alerts = gh.get_secret_scanning_alerts(window.since, window.until)
+    issues = jira.get_closed_issues(window.since, window.until)
+    incidents = jira.get_incidents(window.since, window.until)
 
-    metrics = {
-        "a2": calc_a2(prs),
-        "a3": calc_a3(issues, JIRA_AI_USAGE_FIELD),
-        "a4": calc_a4(issues, JIRA_AI_USAGE_FIELD),
-        "b2": calc_b2(deploys, sprint_weeks),
-        "b3": calc_b3(incidents, deploys),
-        "b4": calc_b4(incidents),
-        "c1": calc_c1(prs),
-        "c2": calc_c2(prs),
-        "c4": calc_c4(alerts),
-        "d1": d["d1"], "d2": d["d2"], "d3": d["d3"], "d4": d["d4"],
-        "a1": args.a1, "b5": args.b5, "c3": args.c3,
-    }
+    sprint_issue_counts = None
+    if window.period_type == "sprint" and JIRA_BOARD_ID:
+        sprint_issue_counts = jira.get_sprint_issue_counts(
+            JIRA_BOARD_ID, window.since, window.until)
 
-    upsert_metrics(REPORTING_DB_URL, sprint_label, args.project, metrics)
-    non_null = {k: v for k, v in metrics.items() if v is not None}
-    print(f"Upserted: {non_null}")
+    counts = build_counts(window, prs, all_prs, pr_files, deploy_times,
+                          code_alerts, secret_alerts, issues, incidents,
+                          JIRA_AI_USAGE_FIELD, sprint_issue_counts,
+                          pr_commits=pr_commits)
+
+    written = upsert_counts(REPORTING_DB_URL, args.project, window.period_type,
+                            window.period_key, window.since.date(),
+                            window.until.date(), counts)
+    non_null = {k: v for k, v in counts.items() if v is not None}
+    print(f"Upserted {written} metric rows: {non_null}")
+
 
 if __name__ == "__main__":
     main()
