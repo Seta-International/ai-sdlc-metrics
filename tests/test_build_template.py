@@ -1,18 +1,25 @@
 from pathlib import Path
 import openpyxl
 import pytest
-from exporter.build_template import DST, _VN
+from exporter.build_template import DST, _LITERAL, _VN
 
 pytestmark = pytest.mark.skipif(not DST.exists(), reason="EN template not built yet")
 
 
 def test_template_fully_english():
     wb = openpyxl.load_workbook(DST)
-    offenders = [
-        f"{ws.title}!{c.coordinate}"
-        for ws in wb.worksheets for row in ws.iter_rows() for c in row
-        if isinstance(c.value, str) and not c.value.startswith("=") and _VN.search(c.value)
-    ]
+    offenders = []
+    for ws in wb.worksheets:
+        for row in ws.iter_rows():
+            for c in row:
+                v = c.value
+                if not isinstance(v, str):
+                    continue
+                if v.startswith("="):  # also scan formula string literals
+                    if any(_VN.search(s) for s in _LITERAL.findall(v)):
+                        offenders.append(f"{ws.title}!{c.coordinate}")
+                elif _VN.search(v):
+                    offenders.append(f"{ws.title}!{c.coordinate}")
     assert offenders == []
 
 

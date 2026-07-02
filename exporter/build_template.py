@@ -15,13 +15,21 @@ from pathlib import Path
 import openpyxl
 from exporter.charts import add_charts
 
-SRC = Path("docs/SETA_AI_SDLC_Maturity.xlsx")
-DST = Path("docs/SETA_AI_SDLC_Maturity_EN.xlsx")
+SRC = Path("docs/SETA_AI_SDLC_Maturity.xlsx")          # Vietnamese source (input)
+DST = Path("docs/AI SDLC Maturity.xlsx")               # English deliverable (output)
 
 _VN = re.compile("[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡ"
                  "ùúụủũưừứựửữỳýỵỷỹđ]", re.IGNORECASE)
 
 SHEET_RENAMES = {"1. Cách đo & HD": "1. Guide"}
+
+# Vietnamese string literals embedded inside formulas (e.g. HYPERLINK display
+# text). Applied by substring replacement within formula cells.
+FORMULA_TRANSLATIONS = {
+    "ĐỊNH TÍNH  (tick → 4. Quarterly)": "QUALITATIVE  (tick → 4. Quarterly)",
+    "ĐỊNH LƯỢNG  (auto ← 3. Monthly / 5. Metrics)":
+        "QUANTITATIVE  (auto ← 3. Monthly / 5. Metrics)",
+}
 
 # Seed map — known headers. Extend until --report is empty (translate every
 # remaining cell of sheets 1, 6, 7, 8, 9, 10 the same way).
@@ -191,9 +199,10 @@ def _translate_cell(cell) -> None:
         if v in TRANSLATIONS:
             cell.value = TRANSLATIONS[v]
     elif isinstance(v, str) and v.startswith("="):
-        for old, new in SHEET_RENAMES.items():
+        for old, new in {**SHEET_RENAMES, **FORMULA_TRANSLATIONS}.items():
             if old in v:
-                cell.value = v.replace(old, new)
+                v = v.replace(old, new)
+        cell.value = v
 
 
 def build() -> None:
@@ -214,6 +223,9 @@ def build() -> None:
     print(f"wrote {DST}")
 
 
+_LITERAL = re.compile(r'"((?:[^"]|"")*)"')  # quoted string literals inside a formula
+
+
 def report() -> None:
     wb = openpyxl.load_workbook(DST)
     remaining = 0
@@ -221,7 +233,14 @@ def report() -> None:
         for row in ws.iter_rows():
             for cell in row:
                 v = cell.value
-                if isinstance(v, str) and not v.startswith("=") and _VN.search(v):
+                if not isinstance(v, str):
+                    continue
+                if v.startswith("="):
+                    for s in _LITERAL.findall(v):
+                        if _VN.search(s):
+                            print(f"{ws.title}!{cell.coordinate} [formula]: {s[:80]}")
+                            remaining += 1
+                elif _VN.search(v):
                     print(f"{ws.title}!{cell.coordinate}: {v[:80]}")
                     remaining += 1
     print(f"{remaining} untranslated cell(s)")
