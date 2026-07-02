@@ -1,7 +1,7 @@
 # Standalone Grafana for AI SDLC metrics dashboards.
 # Separate from agent-platform's own monitoring Grafana (different instance,
-# different port) — this one only reads from the reporting.ai_sprint_metrics
-# table via the ReportingPostgres datasource.
+# different port) — this one only reads from reporting.metric_counts (via the
+# metrics_wide/metrics_ratios views) through the ReportingPostgres datasource.
 #
 #   export REPORTING_DB_HOST=<rds-endpoint>
 #   export REPORTING_DB_PASSWORD=<reporting-role-password>
