@@ -50,3 +50,43 @@ def test_dashboards_have_download_links(tmp_path):
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())
     assert any("export.xlsx?project=Future" in l["url"] for l in proj["links"])
     assert any("project=all" in l["url"] for l in bod["links"])
+
+
+def test_future_has_no_production_panels(tmp_path):
+    out = _generate(tmp_path)
+    future = json.loads((out / "Future" / "project.json").read_text())
+    titles = [p.get("title", "") for p in future["panels"]]
+    assert "Change Failure Rate" not in titles
+    assert "Deploys / Week" not in titles
+    assert any("Merge Lead Time" in t for t in titles)
+
+
+def test_teacherzone_keeps_production_panels(tmp_path):
+    out = _generate(tmp_path)
+    tz = json.loads((out / "TeacherZone" / "project.json").read_text())
+    titles = [p.get("title", "") for p in tz["panels"]]
+    assert "Change Failure Rate" in titles
+
+
+def test_config_literals_embedded_in_sql(tmp_path):
+    out = _generate(tmp_path)
+    future = json.loads((out / "Future" / "project.json").read_text())
+    sql = json.dumps(future)
+    assert "ai_time_saved_h * 25" in sql          # blended rate literal
+    assert ">= 80" in sql and ">= 50" in sql      # maturity gate thresholds
+
+
+def test_sections_config_controls_rows(tmp_path):
+    out = _generate(tmp_path)
+    future = json.loads((out / "Future" / "project.json").read_text())
+    rows = [p["title"] for p in future["panels"] if p["type"] == "row"]
+    assert rows[0].startswith("Sprint Steering")
+    assert any("paying off" in r for r in rows)
+    assert any("Monthly Record" in r for r in rows)
+
+
+def test_tool_breakdown_reads_metric_counts(tmp_path):
+    out = _generate(tmp_path)
+    future = json.loads((out / "Future" / "project.json").read_text())
+    sql = json.dumps(future)
+    assert "ai_tasks_tool_" in sql and "metric_counts" in sql

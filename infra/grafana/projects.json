@@ -1,8 +1,20 @@
 {
   "exporter_url": "https://ai-metrics.seta-international.com",
+  "defaults": {
+    "blended_hourly_rate": 25,
+    "has_production": true,
+    "sections": ["steering", "roi", "cause_effect", "dora", "maturity", "adoption"],
+    "thresholds": {"lead_time_h": [72, 168], "predictability_pct": [80, 60]},
+    "maturity": {"adopted_breadth_pct": 50, "adopted_ai_pr_pct": 30,
+                 "agentic_pr_pct": 10, "autonomous_share_pct": 50,
+                 "gate_review_pct": 80, "gate_test_pct": 50}
+  },
   "projects": [
-    {"name": "Future", "pm_login": "pm-future", "pm_email": "pm-future@seta-international.vn"},
-    {"name": "TeacherZone", "pm_login": "pm-teacherzone", "pm_email": "pm-teacherzone@seta-international.vn"}
+    {"name": "Future", "pm_login": "pm-future",
+     "pm_email": "pm-future@seta-international.vn",
+     "overrides": {"has_production": false}},
+    {"name": "TeacherZone", "pm_login": "pm-teacherzone",
+     "pm_email": "pm-teacherzone@seta-international.vn"}
   ],
   "bod_viewers": [
     {"login": "bod-viewer", "email": "bod@seta-international.vn"}

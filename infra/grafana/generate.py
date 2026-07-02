@@ -62,6 +62,61 @@ TH = {
 }
 
 
+DEFAULTS = {
+    "blended_hourly_rate": 25,
+    "has_production": True,
+    "sections": ["steering", "roi", "cause_effect", "dora", "maturity", "adoption"],
+    "thresholds": {"lead_time_h": [72, 168], "predictability_pct": [80, 60]},
+    "maturity": {"adopted_breadth_pct": 50, "adopted_ai_pr_pct": 30,
+                 "agentic_pr_pct": 10, "autonomous_share_pct": 50,
+                 "gate_review_pct": 80, "gate_test_pct": 50},
+}
+
+
+def _merge(base: dict, override: dict) -> dict:
+    out = dict(base)
+    for k, v in override.items():
+        out[k] = _merge(out[k], v) if isinstance(v, dict) and isinstance(out.get(k), dict) else v
+    return out
+
+
+def load_config() -> tuple[str, list[dict]]:
+    raw = json.loads((HERE / "projects.json").read_text())
+    defaults = _merge(DEFAULTS, raw.get("defaults", {}))
+    cfgs = []
+    for p in raw["projects"]:
+        cfg = _merge(defaults, p.get("overrides", {}))
+        cfg.update({k: p[k] for k in ("name", "pm_login", "pm_email") if k in p})
+        cfgs.append(cfg)
+    return raw.get("exporter_url", "http://localhost:3031"), cfgs
+
+
+def _cfg_th(cfg: dict) -> dict:
+    t = cfg["thresholds"]
+    lead_w, lead_c = t["lead_time_h"]
+    pred_g, pred_w = t["predictability_pct"]
+    th = dict(TH)
+    th["lead"] = _th(GOOD, (lead_w, WARN), (lead_c, CRIT))
+    th["predictability"] = _th(SERIOUS, (pred_w, WARN), (pred_g, GOOD))
+    return th
+
+
+def _maturity_case(cfg: dict) -> str:
+    m = cfg["maturity"]
+    assisted = "(COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0)"
+    adopted = (f"(COALESCE(usage_rate_pct, 0) >= {m['adopted_breadth_pct']} "
+               f"AND COALESCE(ai_pr_pct, 0) >= {m['adopted_ai_pr_pct']})")
+    gate = (f"(COALESCE(ai_pr_review_pct, 0) >= {m['gate_review_pct']} "
+            f"AND COALESCE(ai_pr_test_pct, 0) >= {m['gate_test_pct']})")
+    agentic = f"(COALESCE(agent_pr_pct, 0) >= {m['agentic_pr_pct']} AND {gate})"
+    autonomous = f"(COALESCE(autonomy_pct, 0) >= {m['autonomous_share_pct']} AND {gate})"
+    return ("CASE "
+            f"WHEN {assisted} AND {adopted} AND {agentic} AND {autonomous} THEN 4 "
+            f"WHEN {assisted} AND {adopted} AND {agentic} THEN 3 "
+            f"WHEN {assisted} AND {adopted} THEN 2 "
+            f"WHEN {assisted} THEN 1 ELSE 0 END")
+
+
 def _target(sql: str, fmt: str) -> dict:
     return {"datasource": DS, "format": fmt, "rawQuery": True,
             "rawSql": sql, "refId": "A"}
@@ -180,20 +235,110 @@ def _stat(project: str, title: str, col: str, unit: str = "none",
     return spec
 
 
-def build_project_dashboard(project: str, exporter_url: str) -> dict:
+def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
+    project = cfg["name"]
+    th = _cfg_th(cfg)
+    rate = cfg["blended_hourly_rate"]
+    has_prod = cfg["has_production"]
     p = f"project = '{project}'"
     trend = (f"FROM {RATIOS} WHERE {p} AND period_type = 'sprint' "
              "ORDER BY period_start")
 
-    throughput = [
-        _stat(project, "Tasks Completed", "total_tasks", w=6,
-              desc="Jira issues moved to Done this sprint."),
-        _stat(project, "PRs Merged", "total_prs", w=6),
-        _stat(project, "Deploys", "deploys", w=4),
+    steering = [
+        _stat(project, "Sprint Predictability", "predictability_pct", "percent",
+              th["predictability"],
+              desc="Completed ÷ committed issues in the Jira sprint."),
+        _stat(project, "Lead Time" if has_prod else "Merge Lead Time (no prod env)",
+              "lead_time_h", "h", th["lead"]),
         _stat(project, "Incidents", "incidents", th=TH["incidents"], w=4),
-        _stat(project, "Agent Tasks", "agent_tasks", w=4,
-              desc="Jira issues done with AI usage = Agent."),
+        _stat(project, "MTTR", "mttr_h", "h", TH["mttr"], w=4),
+        _stat(project, "Rework %", "rework_pct", "percent", TH["rework"], w=4),
     ]
+
+    monthly_roi_sql = (
+        f"SELECT w.period_start AS time, w.ai_time_saved_h * {rate} AS \"Savings $\", "
+        "t.value::numeric AS \"Tool cost $\" "
+        f"FROM {WIDE} w LEFT JOIN {MANUAL} t ON t.project = w.project "
+        "AND t.period_key = w.period_key AND t.field = 'ai_tool_cost_monthly' "
+        f"WHERE w.{p} AND w.period_type = 'month' ORDER BY w.period_start")
+    net_sql = (
+        f"SELECT (w.ai_time_saved_h * {rate}) - COALESCE(t.value::numeric, 0) "
+        f"FROM {WIDE} w LEFT JOIN {MANUAL} t ON t.project = w.project "
+        "AND t.period_key = w.period_key AND t.field = 'ai_tool_cost_monthly' "
+        f"WHERE w.{p} AND w.period_type = 'month' AND w.ai_time_saved_h IS NOT NULL "
+        "ORDER BY w.period_key DESC LIMIT 1")
+    tools_sql = (
+        "SELECT replace(metric_key, 'ai_tasks_tool_', '') AS \"Tool\", "
+        "value AS \"Tasks\" FROM reporting.metric_counts "
+        f"WHERE {p} AND period_type = 'sprint' AND period_key = '$sprint' "
+        "AND metric_key LIKE 'ai_tasks_tool_%' ORDER BY value DESC")
+    roi = [
+        {"kind": "stat", "title": "AI Net $ (latest month)", "sql": net_sql,
+         "unit": "currencyUSD", "w": 6, "graph": "none",
+         "th": _th(CRIT, (0, GOOD)),
+         "desc": f"Hours saved × ${rate}/h blended rate − monthly AI tool cost "
+                 "(seats + API). Green when net-positive."},
+        _stat(project, "AI Hours Saved", "ai_time_saved_h", "h", w=6,
+              desc="Sum of per-ticket 'AI Time Saved' on issues done this sprint."),
+        _stat(project, "Throughput / Engineer", "throughput_per_engineer", w=4,
+              desc="Tasks done ÷ active engineers — ROI supporting evidence."),
+        {"kind": "timeseries", "title": "Savings vs Tool Cost by Month",
+         "sql": monthly_roi_sql, "format": "time_series", "unit": "currencyUSD",
+         "w": 8, "h": 4},
+        {"kind": "barchart", "title": "AI Tasks by Tool ($sprint)", "sql": tools_sql,
+         "unit": "none", "w": 8, "h": 6, "color": ACCENT,
+         "desc": "Which tool's licenses produce. From the Jira AI Tool field."},
+    ]
+
+    cause_effect = [
+        {"kind": "timeseries", "title": "Lead Time — AI vs non-AI",
+         "sql": ("SELECT period_start AS time, lead_time_ai_h AS \"AI PRs\", "
+                 f"lead_time_nonai_h AS \"Non-AI PRs\" {trend}"),
+         "format": "time_series", "unit": "h", "w": 8, "h": 8,
+         "overrides": [
+             {"matcher": {"id": "byName", "options": "AI PRs"},
+              "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": ACCENT}}]},
+             {"matcher": {"id": "byName", "options": "Non-AI PRs"},
+              "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": DEEMPH}}]}],
+         "desc": ("Neutral comparison — AI being slower on some work is a "
+                  "legitimate finding (verification overhead), not an error.")},
+        {"kind": "timeseries", "title": "Hours to First Review — AI vs non-AI",
+         "sql": ("SELECT period_start AS time, first_review_ai_h AS \"AI PRs\", "
+                 f"first_review_nonai_h AS \"Non-AI PRs\" {trend}"),
+         "format": "time_series", "unit": "h", "w": 8, "h": 8,
+         "overrides": [
+             {"matcher": {"id": "byName", "options": "AI PRs"},
+              "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": ACCENT}}]},
+             {"matcher": {"id": "byName", "options": "Non-AI PRs"},
+              "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": DEEMPH}}]}]},
+        _stat(project, "PR Size (AI)", "pr_size_ai", w=4, h=4,
+              desc="Median lines changed per AI PR."),
+        _stat(project, "PR Size (non-AI)", "pr_size_nonai", w=4, h=4),
+        _stat(project, "Review Rounds (AI)", "review_rounds_ai", w=4, h=4,
+              desc="Mean CHANGES_REQUESTED per AI PR — verification burden."),
+        _stat(project, "Rework from AI %", "rework_from_ai_pct", "percent", w=4, h=4,
+              desc="Share of rework whose culprit PR was AI-labeled."),
+        _stat(project, "AI PR Test %", "ai_pr_test_pct", "percent", w=4, h=4,
+              desc="AI PRs touching test files. Maturity gate input."),
+        _stat(project, "AI PR Review %", "ai_pr_review_pct", "percent",
+              TH["review"], w=4, h=4),
+    ]
+
+    dora = [
+        _stat(project, "Lead Time" if has_prod else "Merge Lead Time (no prod env)",
+              "lead_time_h", "h", th["lead"],
+              desc="Median hours from PR merge to next production deploy."
+                   if has_prod else "Median PR open→merge; no production env yet."),
+        _stat(project, "MTTR", "mttr_h", "h", TH["mttr"]),
+    ]
+    if has_prod:
+        dora[1:1] = [
+            _stat(project, "Deploys / Week", "deploys_per_week", "none", TH["deploy_freq"]),
+            _stat(project, "Change Failure Rate", "cfr_pct", "percent", TH["cfr"],
+                  desc="Incidents per deploy (proxy). Target ≤15%."),
+        ]
+    dora.append(_stat(project, "Sprint Predictability", "predictability_pct",
+                      "percent", th["predictability"]))
 
     adoption = [
         _stat(project, "AI Engineers / Week", "ai_users_weekly_avg", w=4,
@@ -209,29 +354,17 @@ def build_project_dashboard(project: str, exporter_url: str) -> dict:
               desc="Done Jira issues with any AI usage."),
         _stat(project, "Agent Task %", "agent_task_pct", "percent", w=4,
               desc="Done Jira issues delegated to autonomous agents."),
-    ]
-
-    dora = [
-        _stat(project, "Lead Time", "lead_time_h", "h", TH["lead"],
-              desc="Median hours from PR merge to the next production deploy."),
-        _stat(project, "Deploys / Week", "deploys_per_week", "none", TH["deploy_freq"]),
-        _stat(project, "Change Failure Rate", "cfr_pct", "percent", TH["cfr"],
-              desc="Incidents per deploy. Target ≤15%."),
-        _stat(project, "MTTR", "mttr_h", "h", TH["mttr"],
-              desc="Mean hours from incident created to resolved."),
-    ]
-
-    quality = [
-        _stat(project, "AI PR Review Coverage", "ai_pr_review_pct", "percent",
-              TH["review"], desc="AI PRs with ≥1 human approval. Gate: 100%."),
-        _stat(project, "Rework %", "rework_pct", "percent", TH["rework"],
-              desc="PRs reverted or re-touching files merged in the prior 14 days."),
-        _stat(project, "Security Alerts", "security_alerts", "none", TH["alerts"],
-              desc="Code-scanning + secret-scanning alerts opened this sprint."),
-        _stat(project, "Sprint Predictability", "predictability_pct", "percent",
-              TH["predictability"],
-              desc="Completed ÷ committed issues in the Jira sprint "
-                   "(board auto-detected from the Jira project)."),
+        {"kind": "timeseries", "title": "AI Share of Work",
+         "sql": ("SELECT period_start AS time, ai_pr_pct AS \"AI PR %\", "
+                 "ai_task_pct AS \"AI Task %\", agent_task_pct AS \"Agent Task %\" "
+                 f"{trend}"),
+         "format": "time_series", "unit": "percent", "w": 8, "h": 8,
+         "overrides": [
+             {"matcher": {"id": "byName", "options": name},
+              "properties": [{"id": "color",
+                              "value": {"mode": "fixed", "fixedColor": color}}]}
+             for name, color in [("AI PR %", PALETTE[0]), ("AI Task %", PALETTE[1]),
+                                 ("Agent Task %", PALETTE[2])]]},
     ]
 
     agent_bars_sql = (
@@ -261,27 +394,15 @@ def build_project_dashboard(project: str, exporter_url: str) -> dict:
               w=4, h=8, desc="Median hours from agent PR opened to merged."),
     ]
 
-    trends = [
-        {"kind": "timeseries", "title": "AI Share of Work",
-         "sql": ("SELECT period_start AS time, ai_pr_pct AS \"AI PR %\", "
-                 "ai_task_pct AS \"AI Task %\", agent_task_pct AS \"Agent Task %\" "
-                 f"{trend}"),
-         "format": "time_series", "unit": "percent", "w": 8, "h": 8,
-         "overrides": [
-             {"matcher": {"id": "byName", "options": name},
-              "properties": [{"id": "color",
-                              "value": {"mode": "fixed", "fixedColor": color}}]}
-             for name, color in [("AI PR %", PALETTE[0]), ("AI Task %", PALETTE[1]),
-                                 ("Agent Task %", PALETTE[2])]]},
-        {"kind": "timeseries", "title": "Lead Time by Sprint",
-         "sql": f"SELECT period_start AS time, lead_time_h AS \"Lead time\" {trend}",
-         "format": "time_series", "unit": "h", "w": 8, "h": 8,
-         "single": True, "color": ACCENT},
-        {"kind": "timeseries", "title": "Deploys per Week by Sprint",
-         "sql": f"SELECT period_start AS time, deploys_per_week AS \"Deploys/wk\" {trend}",
-         "format": "time_series", "unit": "none", "w": 8, "h": 8,
-         "single": True, "color": PALETTE[1],
-         "custom": {"drawStyle": "bars", "fillOpacity": 80, "lineWidth": 0}},
+    maturity = [
+        {"kind": "stat", "title": "Maturity Stage (1-4)",
+         "sql": _spark(project, _maturity_case(cfg)),
+         "format": "time_series", "unit": "none", "w": 4, "h": 8,
+         "th": _th("text", (2, BLUE_SOFT), (3, BLUE_MID), (4, ACCENT)),
+         "desc": ("1 Assisted · 2 Adopted · 3 Agentic · 4 Autonomous. "
+                  "Stages 3-4 gated on AI-PR review % and test % — "
+                  "high agent volume with weak verification caps at 2.")},
+        *agent,
     ]
 
     monthly_sql = (
@@ -293,6 +414,8 @@ def build_project_dashboard(project: str, exporter_url: str) -> dict:
         "/ NULLIF(COALESCE(e.value::numeric, w.engineers_active), 0), 0) AS \"Usage %\", "
         "round(100.0 * w.ai_prs / NULLIF(w.total_prs, 0), 1) AS \"AI PR %\", "
         "w.total_tasks AS \"Tasks\", w.deploys AS \"Deploys\", "
+        f"round(w.ai_time_saved_h * {rate}, 0) AS \"AI $ Saved\", "
+        "tc.value::numeric AS \"Tool Cost $\", "
         "round(100 * c.value::numeric, 0) AS \"Coverage %\", "
         "cb.value::numeric AS \"Cost Baseline\", ca.value::numeric AS \"Cost Actual\", "
         "round(100 * (cb.value::numeric - ca.value::numeric) "
@@ -300,6 +423,8 @@ def build_project_dashboard(project: str, exporter_url: str) -> dict:
         f"FROM {WIDE} w "
         f"LEFT JOIN {MANUAL} e ON e.project = w.project AND e.period_key = w.period_key "
         "AND e.field = 'total_engineers' "
+        f"LEFT JOIN {MANUAL} tc ON tc.project = w.project AND tc.period_key = w.period_key "
+        "AND tc.field = 'ai_tool_cost_monthly' "
         f"LEFT JOIN {MANUAL} c ON c.project = w.project AND c.period_key = w.period_key "
         "AND c.field = 'coverage_ai' "
         f"LEFT JOIN {MANUAL} cb ON cb.project = w.project AND cb.period_key = w.period_key "
@@ -317,18 +442,21 @@ def build_project_dashboard(project: str, exporter_url: str) -> dict:
                               "value": {"type": "color-background", "mode": "basic"}}]}],
          "desc": ("Empty cells mean a manual input is missing — run the "
                   "'AI SDLC — Metrics Collection' workflow with manual_period=<month> "
-                  "(total_engineers, coverage_ai, cost_baseline, cost_actual).")},
+                  "(total_engineers, ai_tool_cost_monthly, coverage_ai, "
+                  "cost_baseline, cost_actual).")},
     ]
 
-    sections = [
-        ("Sprint Throughput ($sprint)", throughput),
-        ("AI Adoption", adoption),
-        ("Delivery — DORA", dora),
-        ("Quality Gate", quality),
-        ("Agent Maturity", agent),
-        ("Trends", trends),
-        ("Monthly Record", monthly),
-    ]
+    story_sections = {
+        "steering": ("Sprint Steering ($sprint)", steering),
+        "roi": ("Is AI paying off?", roi),
+        "cause_effect": ("Is AI work faster — and as good?", cause_effect),
+        "dora": ("Delivery Health — DORA", dora),
+        "maturity": ("Maturity Ladder", maturity),
+        "adoption": ("Adoption Breadth", adoption),
+    }
+    sections = [story_sections[key] for key in cfg["sections"] if key in story_sections]
+    sections.append(("Monthly Record", monthly))
+
     links = [
         {"type": "link", "title": "Download Excel (all sprints)", "icon": "doc",
          "targetBlank": True, "url": f"{exporter_url}/export.xlsx?project={project}"},
@@ -475,13 +603,12 @@ def main() -> None:
     args = parser.parse_args()
     out = Path(args.out)
 
-    config = json.loads((HERE / "projects.json").read_text())
-    names = [p["name"] for p in config["projects"]]
-    exporter = config.get("exporter_url", "http://localhost:3031")
+    exporter, cfgs = load_config()
+    names = [c["name"] for c in cfgs]
 
-    for name in names:
-        d = build_project_dashboard(name, exporter)
-        path = out / name / "project.json"
+    for cfg in cfgs:
+        d = build_project_dashboard(cfg, exporter)
+        path = out / cfg["name"] / "project.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(d, indent=2))
         print(f"wrote {path}")
