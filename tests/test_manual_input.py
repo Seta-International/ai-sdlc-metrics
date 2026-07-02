@@ -10,6 +10,14 @@ def test_monthly_numeric_fields(pg_url):
     assert get_manual_input(pg_url, "P-MI", "2026-06", "total_engineers") == ("18", "pm@seta")
 
 
+def test_ai_tool_cost_monthly_accepted(pg_url):
+    n = validate_and_store(pg_url, "P-MI", "2026-07",
+                           ["ai_tool_cost_monthly=1200"], "pm")
+    assert n == 1
+    assert get_manual_input(pg_url, "P-MI", "2026-07",
+                            "ai_tool_cost_monthly") == ("1200", "pm")
+
+
 def test_quarter_flag_and_text_fields(pg_url):
     n = validate_and_store(pg_url, "P-MI", "2026-Q3",
                            ["g2_ai_policy=Yes", "evidence_a=Broad adoption"], "pm@seta")

@@ -12,7 +12,8 @@ import sys
 from collector.config import REPORTING_DB_URL, PROJECT_LABEL
 from collector.db import upsert_manual_input
 
-MONTHLY_NUMERIC_FIELDS = {"total_engineers", "cost_baseline", "cost_actual", "coverage_ai"}
+MONTHLY_NUMERIC_FIELDS = {"total_engineers", "cost_baseline", "cost_actual",
+                          "coverage_ai", "ai_tool_cost_monthly"}
 QUARTER_FLAG_FIELDS = {
     "g1_agents_md", "g2_ai_policy", "g3_required_review", "g4_eval_suite",
     "g5_shared_library", "g6_security_controls", "g7_traceability",
