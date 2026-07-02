@@ -72,6 +72,9 @@ def main() -> None:
     parser.add_argument("--set", dest="pairs", action="append", default=[],
                         metavar="FIELD=VALUE", help="repeatable")
     args = parser.parse_args()
+    if not args.project:
+        print("ERROR: --project (or PROJECT_LABEL) is required.", file=sys.stderr)
+        sys.exit(1)
     if not args.pairs:
         print("Nothing to store (no --set given).")
         return

@@ -1,4 +1,4 @@
-name: AI SDLC Metrics — <PROJECT_NAME>
+name: AI SDLC — Metrics Collection (<PROJECT_NAME>)
 
 # Thin caller: all logic lives in Seta-International/ai-sdlc-metrics.
 # Onboarding: fill the <PLACEHOLDERS>, add the three repo secrets
@@ -36,11 +36,12 @@ jobs:
       project: <PROJECT_NAME>
       gh-repo: ${{ github.repository }}
       jira-project: <JIRA_KEY>
+      jira-base: '<JIRA_SITE_URL>'     # e.g. https://all-it.atlassian.net — the project's own Jira Cloud site
       sprint-anchor: '<YYYY-MM-DD>'
       sprint-length-days: '14'
       prod-env: '<ENV_NAMES>'          # e.g. 'dev,uat' or 'production'
       deploy-strategy: 'deployments'   # or releases | tags:<pat> | workflow_runs:<file>
-      jira-board-id: '<BOARD_ID_OR_EMPTY>'
+      jira-board-id: ''                # blank = auto-detect the project's scrum board
       sprint: ${{ inputs.sprint || '' }}
       mode: sprint
     secrets:
@@ -56,10 +57,11 @@ jobs:
       project: <PROJECT_NAME>
       gh-repo: ${{ github.repository }}
       jira-project: <JIRA_KEY>
+      jira-base: '<JIRA_SITE_URL>'
       sprint-anchor: '<YYYY-MM-DD>'
       prod-env: '<ENV_NAMES>'
       deploy-strategy: 'deployments'
-      jira-board-id: '<BOARD_ID_OR_EMPTY>'
+      jira-board-id: ''
       mode: previous-month
     secrets:
       jira-email: ${{ secrets.JIRA_EMAIL }}

@@ -91,7 +91,12 @@ def _panel(spec: dict, x: int, y: int) -> dict:
         defaults["color"] = {"mode": "fixed", "fixedColor": spec["color"]}
     elif "th" in spec:
         defaults["color"] = {"mode": "thresholds"}
-    if "custom" in spec:
+    if spec["kind"] == "timeseries":
+        # A one-sprint history (every project's first weeks) draws no line;
+        # always render the points so a single sprint is still visible.
+        defaults["custom"] = {"showPoints": "always", "pointSize": 6,
+                              **spec.get("custom", {})}
+    elif "custom" in spec:
         defaults["custom"] = spec["custom"]
     panel = {
         "type": spec["kind"], "title": spec["title"], "datasource": DS,
@@ -134,7 +139,9 @@ def _dashboard(uid: str, title: str, panels: list[dict],
     return {
         "uid": uid, "title": title, "schemaVersion": 39, "version": 1,
         "editable": True, "timezone": "Asia/Ho_Chi_Minh",  # UTC+7 (Vietnam)
-        "time": {"from": "now-180d", "to": "now"},
+        # Window extends past "now" so the current sprint (whose period_start
+        # can be days ahead of today's data) and seeded demo sprints render.
+        "time": {"from": "now-180d", "to": "now+90d"},
         "templating": {"list": templating},
         "links": links,
         "panels": panels,
@@ -179,34 +186,29 @@ def build_project_dashboard(project: str, exporter_url: str) -> dict:
              "ORDER BY period_start")
 
     throughput = [
-        _stat(project, "Tasks Completed", "total_tasks", w=4,
+        _stat(project, "Tasks Completed", "total_tasks", w=6,
               desc="Jira issues moved to Done this sprint."),
-        _stat(project, "PRs Merged", "total_prs", w=4),
+        _stat(project, "PRs Merged", "total_prs", w=6),
         _stat(project, "Deploys", "deploys", w=4),
         _stat(project, "Incidents", "incidents", th=TH["incidents"], w=4),
-        _stat(project, "AI Engineers / Week", "ai_users_weekly_avg", w=4,
-              desc="Distinct people using AI per week (PR + Jira proxy)."),
         _stat(project, "Agent Tasks", "agent_tasks", w=4,
               desc="Jira issues done with AI usage = Agent."),
     ]
 
-    usage_rate_sql = (
-        "SELECT w.period_start AS time, "
-        "100 * w.ai_users_weekly_avg / NULLIF(e.value::numeric, 0) AS value "
-        f"FROM {WIDE} w JOIN {MANUAL} e ON e.project = w.project "
-        "AND e.period_key = w.period_key AND e.field = 'total_engineers' "
-        f"WHERE w.{p} AND w.period_type = 'month' ORDER BY w.period_start")
     adoption = [
-        _stat(project, "AI PR %", "ai_pr_pct", "percent", TH["ai_share"],
+        _stat(project, "AI Engineers / Week", "ai_users_weekly_avg", w=4,
+              desc="Distinct people using AI per week (PR + Jira proxy)."),
+        _stat(project, "Contributors", "engineers_active", w=4,
+              desc="Distinct engineers who merged a PR this sprint (bots excluded)."),
+        _stat(project, "Engineer Usage Rate", "usage_rate_pct", "percent",
+              TH["usage"], w=4,
+              desc="AI engineers ÷ active contributors. Target ≥80%."),
+        _stat(project, "AI PR %", "ai_pr_pct", "percent", TH["ai_share"], w=4,
               desc="Merged PRs labeled ai-assisted. Framework: ≥30% = L3, >50% = L4."),
-        _stat(project, "AI Task %", "ai_task_pct", "percent", TH["ai_share"],
+        _stat(project, "AI Task %", "ai_task_pct", "percent", TH["ai_share"], w=4,
               desc="Done Jira issues with any AI usage."),
-        _stat(project, "Agent Task %", "agent_task_pct", "percent",
+        _stat(project, "Agent Task %", "agent_task_pct", "percent", w=4,
               desc="Done Jira issues delegated to autonomous agents."),
-        {"kind": "stat", "title": "Engineer Usage Rate (monthly)",
-         "sql": usage_rate_sql, "format": "time_series", "unit": "percent",
-         "th": TH["usage"], "w": 6, "h": 4,
-         "desc": "AI engineers ÷ team size (manual input). Target ≥80%."},
     ]
 
     dora = [
@@ -228,7 +230,8 @@ def build_project_dashboard(project: str, exporter_url: str) -> dict:
               desc="Code-scanning + secret-scanning alerts opened this sprint."),
         _stat(project, "Sprint Predictability", "predictability_pct", "percent",
               TH["predictability"],
-              desc="Completed ÷ committed issues in the Jira sprint. Needs JIRA_BOARD_ID."),
+              desc="Completed ÷ committed issues in the Jira sprint "
+                   "(board auto-detected from the Jira project)."),
     ]
 
     agent_bars_sql = (
@@ -284,8 +287,10 @@ def build_project_dashboard(project: str, exporter_url: str) -> dict:
     monthly_sql = (
         "SELECT w.period_key AS \"Month\", "
         "round(w.ai_users_weekly_avg, 1) AS \"AI Engineers/wk\", "
+        "w.engineers_active AS \"Contributors\", "
         "e.value::numeric AS \"Team Size\", "
-        "round(100 * w.ai_users_weekly_avg / NULLIF(e.value::numeric, 0), 0) AS \"Usage %\", "
+        "round(100 * w.ai_users_weekly_avg "
+        "/ NULLIF(COALESCE(e.value::numeric, w.engineers_active), 0), 0) AS \"Usage %\", "
         "round(100.0 * w.ai_prs / NULLIF(w.total_prs, 0), 1) AS \"AI PR %\", "
         "w.total_tasks AS \"Tasks\", w.deploys AS \"Deploys\", "
         "round(100 * c.value::numeric, 0) AS \"Coverage %\", "
@@ -311,7 +316,7 @@ def build_project_dashboard(project: str, exporter_url: str) -> dict:
                              {"id": "custom.cellOptions",
                               "value": {"type": "color-background", "mode": "basic"}}]}],
          "desc": ("Empty cells mean a manual input is missing — run the "
-                  "'AI SDLC Metrics' workflow with manual_period=<month> "
+                  "'AI SDLC — Metrics Collection' workflow with manual_period=<month> "
                   "(total_engineers, coverage_ai, cost_baseline, cost_actual).")},
     ]
 
@@ -433,8 +438,9 @@ def build_bod_dashboard(projects: list[str], exporter_url: str) -> dict:
 
     usage_by_project = (
         "SELECT DISTINCT ON (w.project) w.project AS \"Project\", "
-        "round(100 * w.ai_users_weekly_avg / NULLIF(e.value::numeric, 0), 0) AS \"Usage %\" "
-        f"FROM {WIDE} w JOIN {MANUAL} e ON e.project = w.project "
+        "round(100 * w.ai_users_weekly_avg "
+        "/ NULLIF(COALESCE(e.value::numeric, w.engineers_active), 0), 0) AS \"Usage %\" "
+        f"FROM {WIDE} w LEFT JOIN {MANUAL} e ON e.project = w.project "
         "AND e.period_key = w.period_key AND e.field = 'total_engineers' "
         "WHERE w.period_type = 'month' ORDER BY w.project, w.period_key DESC")
     value = [
@@ -447,7 +453,8 @@ def build_bod_dashboard(projects: list[str], exporter_url: str) -> dict:
         {"kind": "barchart", "title": "Engineer Usage Rate by Project (latest month)",
          "sql": usage_by_project, "unit": "percent", "w": 12, "h": 8,
          "color": PALETTE[1],
-         "desc": "AI engineers ÷ team size. Framework target ≥80%."},
+         "desc": ("AI engineers ÷ team size (manual input, falls back to "
+                  "active PR contributors). Framework target ≥80%.")},
     ]
 
     sections = [

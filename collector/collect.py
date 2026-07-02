@@ -73,6 +73,14 @@ def main() -> None:
     parser.add_argument("--repo", default=GITHUB_REPO)
     args = parser.parse_args()
 
+    missing = [flag for flag, value in [("--project (or PROJECT_LABEL)", args.project),
+                                        ("--repo (or GH_REPO)", args.repo),
+                                        ("--jira-project (or JIRA_PROJECT)", args.jira_project)]
+               if not value]
+    if missing:
+        print(f"ERROR: missing required project config: {', '.join(missing)}", file=sys.stderr)
+        sys.exit(1)
+
     try:
         window = resolve_window(args.sprint, args.month, SPRINT_ANCHOR, SPRINT_LENGTH_DAYS)
     except ValueError as e:
@@ -102,9 +110,11 @@ def main() -> None:
     incidents = jira.get_incidents(window.since, window.until)
 
     sprint_issue_counts = None
-    if window.period_type == "sprint" and JIRA_BOARD_ID:
-        sprint_issue_counts = jira.get_sprint_issue_counts(
-            JIRA_BOARD_ID, window.since, window.until)
+    if window.period_type == "sprint":
+        board_id = JIRA_BOARD_ID or jira.resolve_board_id()
+        if board_id:
+            sprint_issue_counts = jira.get_sprint_issue_counts(
+                board_id, window.since, window.until)
 
     counts = build_counts(window, prs, all_prs, pr_files, deploy_times,
                           code_alerts, secret_alerts, issues, incidents,

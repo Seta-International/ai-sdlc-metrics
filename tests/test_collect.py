@@ -24,6 +24,7 @@ def test_build_counts_produces_canonical_keys():
     )
     assert counts["ai_prs"] == 1
     assert counts["total_prs"] == 1
+    assert counts["engineers_active"] == 1
     assert counts["deploys"] == 1
     assert counts["weeks"] == 2.0
     assert counts["sprint_committed"] == 10

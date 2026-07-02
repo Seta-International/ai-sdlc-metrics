@@ -31,6 +31,8 @@ def main() -> None:
         "JIRA_AI_USAGE_FIELD": JIRA_AI_USAGE_FIELD,
         "JIRA_AI_TOOL_FIELD": JIRA_AI_TOOL_FIELD,
         "JIRA_AI_TIME_SAVED_FIELD": JIRA_AI_TIME_SAVED_FIELD,
+        "GH_REPO (--repo)": args.repo,
+        "JIRA_PROJECT (--jira-project)": args.jira_project,
     }.items() if not val]
     if missing:
         print(f"WARNING: missing env vars {missing}, skipping ticket update.", file=sys.stderr)

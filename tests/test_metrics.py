@@ -34,7 +34,15 @@ def test_adoption_counts():
     prs = [pr(["ai-assisted"]), pr(), pr(["ai-agent"], number=2)]
     issues = [issue("Agent"), issue("Assisted"), issue("None"), issue(None)]
     c = adoption_counts(prs, issues, FIELD)
-    assert c == {"ai_prs": 1, "total_prs": 3, "agent_tasks": 1, "ai_tasks": 2, "total_tasks": 4}
+    assert c == {"ai_prs": 1, "total_prs": 3, "agent_tasks": 1, "ai_tasks": 2,
+                 "total_tasks": 4, "engineers_active": 1}
+
+
+def test_engineers_active_distinct_humans_only():
+    prs = [pr(login="alice"), pr(login="alice", number=2), pr(login="bob", number=3),
+           pr(login="dependabot[bot]", number=4)]
+    c = adoption_counts(prs, [], FIELD)
+    assert c["engineers_active"] == 2  # alice counted once, bot excluded
 
 
 # ai_users_weekly_avg

@@ -1,4 +1,4 @@
-name: Quarterly governance auto-check (reusable)
+name: AI SDLC — Quarterly Governance Check (Reusable)
 
 on:
   workflow_call:

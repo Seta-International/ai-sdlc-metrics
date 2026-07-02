@@ -12,6 +12,7 @@ WITH periods(period_key, period_start, period_end) AS (VALUES
 vals(period_key, metric_key, value) AS (VALUES
   -- adoption
   ('S1','ai_users_weekly_avg',6.0), ('S2','ai_users_weekly_avg',8.0), ('S3','ai_users_weekly_avg',10.0),
+  ('S1','engineers_active',12), ('S2','engineers_active',13), ('S3','engineers_active',14),
   ('S1','ai_prs',16),  ('S2','ai_prs',22),  ('S3','ai_prs',30),
   ('S1','total_prs',40),('S2','total_prs',44),('S3','total_prs',48),
   ('S1','agent_tasks',8), ('S2','agent_tasks',12),('S3','agent_tasks',18),
@@ -57,6 +58,7 @@ vals(period_key, metric_key, value) AS (VALUES
   ('2026-06','total_prs',85),  ('2026-07','total_prs',92),
   ('2026-06','ai_prs',34),     ('2026-07','ai_prs',50),
   ('2026-06','ai_users_weekly_avg',7.5),('2026-07','ai_users_weekly_avg',10.0),
+  ('2026-06','engineers_active',16),('2026-07','engineers_active',17),
   ('2026-06','total_tasks',105),('2026-07','total_tasks',112)
 )
 INSERT INTO reporting.metric_counts
@@ -74,6 +76,7 @@ WITH periods(period_key, period_start, period_end) AS (VALUES
 ),
 vals(period_key, metric_key, value) AS (VALUES
   ('S1','ai_users_weekly_avg',4.0), ('S2','ai_users_weekly_avg',5.0), ('S3','ai_users_weekly_avg',7.0),
+  ('S1','engineers_active',9), ('S2','engineers_active',10), ('S3','engineers_active',11),
   ('S1','ai_prs',10), ('S2','ai_prs',16), ('S3','ai_prs',24),
   ('S1','total_prs',50),('S2','total_prs',52),('S3','total_prs',55),
   ('S1','agent_tasks',4), ('S2','agent_tasks',7), ('S3','agent_tasks',11),
@@ -115,6 +118,7 @@ vals(period_key, metric_key, value) AS (VALUES
   ('2026-06','total_prs',95),  ('2026-07','total_prs',100),
   ('2026-06','ai_prs',24),     ('2026-07','ai_prs',38),
   ('2026-06','ai_users_weekly_avg',4.5),('2026-07','ai_users_weekly_avg',6.0),
+  ('2026-06','engineers_active',11),('2026-07','engineers_active',12),
   ('2026-06','total_tasks',82),('2026-07','total_tasks',90)
 )
 INSERT INTO reporting.metric_counts

@@ -7,7 +7,7 @@
   "timezone": "Asia/Ho_Chi_Minh",
   "time": {
     "from": "now-180d",
-    "to": "now"
+    "to": "now+90d"
   },
   "templating": {
     "list": [
@@ -65,7 +65,7 @@
       "gridPos": {
         "x": 0,
         "y": 1,
-        "w": 4,
+        "w": 6,
         "h": 4
       },
       "targets": [
@@ -118,9 +118,9 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 4,
+        "x": 6,
         "y": 1,
-        "w": 4,
+        "w": 6,
         "h": 4
       },
       "targets": [
@@ -172,7 +172,7 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 8,
+        "x": 12,
         "y": 1,
         "w": 4,
         "h": 4
@@ -226,7 +226,7 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 12,
+        "x": 16,
         "y": 1,
         "w": 4,
         "h": 4
@@ -282,61 +282,6 @@
         "justifyMode": "auto",
         "textMode": "auto"
       }
-    },
-    {
-      "type": "stat",
-      "title": "AI Engineers / Week",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 1,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, ai_users_weekly_avg AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "graphMode": "area",
-        "colorMode": "value",
-        "justifyMode": "auto",
-        "textMode": "auto"
-      },
-      "description": "Distinct people using AI per week (PR + Jira proxy)."
     },
     {
       "type": "stat",
@@ -407,7 +352,7 @@
     },
     {
       "type": "stat",
-      "title": "AI PR %",
+      "title": "AI Engineers / Week",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -415,7 +360,183 @@
       "gridPos": {
         "x": 0,
         "y": 6,
-        "w": 6,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, ai_users_weekly_avg AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "Distinct people using AI per week (PR + Jira proxy)."
+    },
+    {
+      "type": "stat",
+      "title": "Contributors",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 6,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, engineers_active AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "Distinct engineers who merged a PR this sprint (bots excluded)."
+    },
+    {
+      "type": "stat",
+      "title": "Engineer Usage Rate",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 6,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, usage_rate_pct AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#ec835a",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 50
+              },
+              {
+                "color": "#0ca30c",
+                "value": 80
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "AI engineers \u00f7 active contributors. Target \u226580%."
+    },
+    {
+      "type": "stat",
+      "title": "AI PR %",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 6,
+        "w": 4,
         "h": 4
       },
       "targets": [
@@ -479,9 +600,9 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 6,
+        "x": 16,
         "y": 6,
-        "w": 6,
+        "w": 4,
         "h": 4
       },
       "targets": [
@@ -545,9 +666,9 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 12,
+        "x": 20,
         "y": 6,
-        "w": 6,
+        "w": 4,
         "h": 4
       },
       "targets": [
@@ -591,72 +712,6 @@
         "textMode": "auto"
       },
       "description": "Done Jira issues delegated to autonomous agents."
-    },
-    {
-      "type": "stat",
-      "title": "Engineer Usage Rate (monthly)",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 18,
-        "y": 6,
-        "w": 6,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT w.period_start AS time, 100 * w.ai_users_weekly_avg / NULLIF(e.value::numeric, 0) AS value FROM reporting.metrics_wide w JOIN reporting.manual_inputs e ON e.project = w.project AND e.period_key = w.period_key AND e.field = 'total_engineers' WHERE w.project = 'Future' AND w.period_type = 'month' ORDER BY w.period_start",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#ec835a",
-                "value": null
-              },
-              {
-                "color": "#fab219",
-                "value": 50
-              },
-              {
-                "color": "#0ca30c",
-                "value": 80
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "graphMode": "area",
-        "colorMode": "value",
-        "justifyMode": "auto",
-        "textMode": "auto"
-      },
-      "description": "AI engineers \u00f7 team size (manual input). Target \u226580%."
     },
     {
       "type": "row",
@@ -1203,7 +1258,7 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
-      "description": "Completed \u00f7 committed issues in the Jira sprint. Needs JIRA_BOARD_ID."
+      "description": "Completed \u00f7 committed issues in the Jira sprint (board auto-detected from the Jira project)."
     },
     {
       "type": "row",
@@ -1255,6 +1310,8 @@
             ]
           },
           "custom": {
+            "showPoints": "always",
+            "pointSize": 6,
             "drawStyle": "bars",
             "stacking": {
               "mode": "normal"
@@ -1587,6 +1644,10 @@
                 "value": null
               }
             ]
+          },
+          "custom": {
+            "showPoints": "always",
+            "pointSize": 6
           }
         },
         "overrides": [
@@ -1688,6 +1749,10 @@
           "color": {
             "mode": "fixed",
             "fixedColor": "#3987e5"
+          },
+          "custom": {
+            "showPoints": "always",
+            "pointSize": 6
           }
         },
         "overrides": []
@@ -1745,6 +1810,8 @@
             "fixedColor": "#199e70"
           },
           "custom": {
+            "showPoints": "always",
+            "pointSize": 6,
             "drawStyle": "bars",
             "fillOpacity": 80,
             "lineWidth": 0
@@ -1796,7 +1863,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT w.period_key AS \"Month\", round(w.ai_users_weekly_avg, 1) AS \"AI Engineers/wk\", e.value::numeric AS \"Team Size\", round(100 * w.ai_users_weekly_avg / NULLIF(e.value::numeric, 0), 0) AS \"Usage %\", round(100.0 * w.ai_prs / NULLIF(w.total_prs, 0), 1) AS \"AI PR %\", w.total_tasks AS \"Tasks\", w.deploys AS \"Deploys\", round(100 * c.value::numeric, 0) AS \"Coverage %\", cb.value::numeric AS \"Cost Baseline\", ca.value::numeric AS \"Cost Actual\", round(100 * (cb.value::numeric - ca.value::numeric) / NULLIF(cb.value::numeric, 0), 0) AS \"Cost Improvement %\" FROM reporting.metrics_wide w LEFT JOIN reporting.manual_inputs e ON e.project = w.project AND e.period_key = w.period_key AND e.field = 'total_engineers' LEFT JOIN reporting.manual_inputs c ON c.project = w.project AND c.period_key = w.period_key AND c.field = 'coverage_ai' LEFT JOIN reporting.manual_inputs cb ON cb.project = w.project AND cb.period_key = w.period_key AND cb.field = 'cost_baseline' LEFT JOIN reporting.manual_inputs ca ON ca.project = w.project AND ca.period_key = w.period_key AND ca.field = 'cost_actual' WHERE w.project = 'Future' AND w.period_type = 'month' ORDER BY w.period_key DESC",
+          "rawSql": "SELECT w.period_key AS \"Month\", round(w.ai_users_weekly_avg, 1) AS \"AI Engineers/wk\", w.engineers_active AS \"Contributors\", e.value::numeric AS \"Team Size\", round(100 * w.ai_users_weekly_avg / NULLIF(COALESCE(e.value::numeric, w.engineers_active), 0), 0) AS \"Usage %\", round(100.0 * w.ai_prs / NULLIF(w.total_prs, 0), 1) AS \"AI PR %\", w.total_tasks AS \"Tasks\", w.deploys AS \"Deploys\", round(100 * c.value::numeric, 0) AS \"Coverage %\", cb.value::numeric AS \"Cost Baseline\", ca.value::numeric AS \"Cost Actual\", round(100 * (cb.value::numeric - ca.value::numeric) / NULLIF(cb.value::numeric, 0), 0) AS \"Cost Improvement %\" FROM reporting.metrics_wide w LEFT JOIN reporting.manual_inputs e ON e.project = w.project AND e.period_key = w.period_key AND e.field = 'total_engineers' LEFT JOIN reporting.manual_inputs c ON c.project = w.project AND c.period_key = w.period_key AND c.field = 'coverage_ai' LEFT JOIN reporting.manual_inputs cb ON cb.project = w.project AND cb.period_key = w.period_key AND cb.field = 'cost_baseline' LEFT JOIN reporting.manual_inputs ca ON ca.project = w.project AND ca.period_key = w.period_key AND ca.field = 'cost_actual' WHERE w.project = 'Future' AND w.period_type = 'month' ORDER BY w.period_key DESC",
           "refId": "A"
         }
       ],
@@ -1854,7 +1921,7 @@
       "options": {
         "showHeader": true
       },
-      "description": "Empty cells mean a manual input is missing \u2014 run the 'AI SDLC Metrics' workflow with manual_period=<month> (total_engineers, coverage_ai, cost_baseline, cost_actual)."
+      "description": "Empty cells mean a manual input is missing \u2014 run the 'AI SDLC \u2014 Metrics Collection' workflow with manual_period=<month> (total_engineers, coverage_ai, cost_baseline, cost_actual)."
     }
   ]
 }

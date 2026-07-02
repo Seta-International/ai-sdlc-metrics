@@ -1,8 +1,9 @@
 # Onboarding a project to AI SDLC metrics
 
-1. Copy `ai-metrics-caller.yml` to `<your-repo>/.github/workflows/ai-metrics.yml`
-   and fill the `<PLACEHOLDERS>` (project name, Jira key, sprint anchor,
-   deploy environments/strategy, optional Jira board id).
+1. Copy `ai-metrics-caller.yml` to `<your-repo>/.github/workflows/ai-sdlc-metrics.yml`
+   and fill the `<PLACEHOLDERS>` (project name, Jira key + site URL, sprint
+   anchor, deploy environments/strategy; the Jira board is auto-detected —
+   `jira-board-id` is only an override).
 2. Add repo secrets: `JIRA_EMAIL`, `JIRA_TOKEN`, `JIRA_AI_USAGE_FIELD`,
    `REPORTING_DB_URL`.
 3. Adopt the labeling conventions: `ai-assisted` / `ai-agent` PR labels and the
@@ -24,8 +25,8 @@ Raw API call for non-Actions CI/CD:
       https://api.github.com/repos/<owner>/<repo>/deployments \
       -d '{"ref":"<sha>","environment":"production","auto_merge":false,"required_contexts":[]}'
 
-Monthly manual input (first business day): run the "AI SDLC Metrics" workflow
-with `manual_period` = last month (e.g. `2026-06`) and `manual_fields` =
+Monthly manual input (first business day): run the "AI SDLC — Metrics
+Collection" workflow with `manual_period` = last month (e.g. `2026-06`) and `manual_fields` =
 `total_engineers=18; cost_baseline=45; cost_actual=30; coverage_ai=0.55`.
 
 Quarterly review (first week of quarter): the auto-check has pre-filled what it

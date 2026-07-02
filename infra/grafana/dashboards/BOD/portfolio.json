@@ -7,7 +7,7 @@
   "timezone": "Asia/Ho_Chi_Minh",
   "time": {
     "from": "now-180d",
-    "to": "now"
+    "to": "now+90d"
   },
   "templating": {
     "list": []
@@ -791,6 +791,10 @@
                 "value": null
               }
             ]
+          },
+          "custom": {
+            "showPoints": "always",
+            "pointSize": 6
           }
         },
         "overrides": [
@@ -873,6 +877,10 @@
                 "value": null
               }
             ]
+          },
+          "custom": {
+            "showPoints": "always",
+            "pointSize": 6
           }
         },
         "overrides": [
@@ -955,6 +963,10 @@
                 "value": null
               }
             ]
+          },
+          "custom": {
+            "showPoints": "always",
+            "pointSize": 6
           }
         },
         "overrides": [
@@ -1088,7 +1100,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT DISTINCT ON (w.project) w.project AS \"Project\", round(100 * w.ai_users_weekly_avg / NULLIF(e.value::numeric, 0), 0) AS \"Usage %\" FROM reporting.metrics_wide w JOIN reporting.manual_inputs e ON e.project = w.project AND e.period_key = w.period_key AND e.field = 'total_engineers' WHERE w.period_type = 'month' ORDER BY w.project, w.period_key DESC",
+          "rawSql": "SELECT DISTINCT ON (w.project) w.project AS \"Project\", round(100 * w.ai_users_weekly_avg / NULLIF(COALESCE(e.value::numeric, w.engineers_active), 0), 0) AS \"Usage %\" FROM reporting.metrics_wide w LEFT JOIN reporting.manual_inputs e ON e.project = w.project AND e.period_key = w.period_key AND e.field = 'total_engineers' WHERE w.period_type = 'month' ORDER BY w.project, w.period_key DESC",
           "refId": "A"
         }
       ],
@@ -1119,7 +1131,7 @@
           "placement": "bottom"
         }
       },
-      "description": "AI engineers \u00f7 team size. Framework target \u226580%."
+      "description": "AI engineers \u00f7 team size (manual input, falls back to active PR contributors). Framework target \u226580%."
     }
   ]
 }

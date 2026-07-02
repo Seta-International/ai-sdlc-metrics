@@ -50,6 +50,22 @@ class JiraClient:
         )
         return self._jql_all(jql, ["created", "resolutiondate"])
 
+    def resolve_board_id(self) -> str | None:
+        """First sprint-capable board attached to this Jira project; None when
+        the project has none (or the Agile API is unavailable). Lets sprint
+        predictability work without a JIRA_BOARD_ID env var. Company-managed
+        scrum boards are type 'scrum'; team-managed project boards are 'simple'."""
+        r = self._s.get(
+            f"{self._base}/rest/agile/1.0/board",
+            params={"projectKeyOrId": self._project, "maxResults": 50},
+        )
+        if not r.ok:
+            return None
+        for board in r.json().get("values", []):
+            if board.get("type") in ("scrum", "simple"):
+                return str(board["id"])
+        return None
+
     def get_sprint_issue_counts(self, board_id: str, since: datetime,
                                 until: datetime) -> tuple[int, int] | None:
         """(committed, completed) for the board sprint overlapping [since, until]

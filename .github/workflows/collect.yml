@@ -1,4 +1,4 @@
-name: Collect metrics (reusable)
+name: AI SDLC — Collect Metrics (Reusable)
 
 on:
   workflow_call:
@@ -6,6 +6,7 @@ on:
       project:            {required: true,  type: string}
       gh-repo:            {required: true,  type: string}
       jira-project:       {required: true,  type: string}
+      jira-base:          {required: false, type: string, default: 'https://all-it.atlassian.net', description: 'Jira Cloud site URL — set when the project lives on a different site'}
       sprint-anchor:      {required: true,  type: string, description: 'First sprint start, ISO date'}
       sprint-length-days: {required: false, type: string, default: '14'}
       prod-env:           {required: false, type: string, default: 'production'}
@@ -49,6 +50,7 @@ jobs:
           JIRA_AI_USAGE_FIELD: ${{ secrets.jira-ai-usage-field }}
           REPORTING_DB_URL: ${{ secrets.reporting-db-url }}
           GH_REPO: ${{ inputs.gh-repo }}
+          JIRA_BASE: ${{ inputs.jira-base }}
           JIRA_PROJECT: ${{ inputs.jira-project }}
           PROJECT_LABEL: ${{ inputs.project }}
           SPRINT_ANCHOR: ${{ inputs.sprint-anchor }}

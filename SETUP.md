@@ -42,9 +42,10 @@ attachment, Incident issue type, Done-transition validator).
 
 ## 3. Reporting database
 
-The collector writes into one shared Postgres table
-(`reporting.ai_sprint_metrics`, keyed by `sprint_label` + `project`) so all
-projects can share a single Grafana. Two ways to get a database:
+The collector writes raw counts into one shared Postgres schema
+(`reporting.metric_counts` + `reporting.manual_inputs`, keyed by project +
+period; Grafana and the exporter read the `metrics_wide`/`metrics_ratios`
+views) so all projects share a single Grafana. Two ways to get a database:
 
 **Option A — reuse an existing RDS instance** (no new AWS spend):
 ```bash
@@ -54,6 +55,7 @@ psql "$ADMIN_DB_URL" -c "GRANT reporting TO <admin-role>"   # needed to set OWNE
 psql "$ADMIN_DB_URL" -c "CREATE DATABASE reporting OWNER reporting"
 psql "$ADMIN_DB_URL" -c "REVOKE reporting FROM <admin-role>"
 psql "postgresql://reporting:<password>@<host>:5432/reporting?sslmode=require" -f infra/db/init.sql
+psql "postgresql://reporting:<password>@<host>:5432/reporting?sslmode=require" -f infra/db/views.sql
 ```
 The `reporting` role only ever gets access to its own `reporting` database —
 no grants on the instance's other databases.
@@ -65,6 +67,7 @@ export REPORTING_SG_ID="sg-xxxxxxxx"           # must allow 5432 from wherever t
 export REPORTING_DB_SUBNET_GROUP="<subnet-group-in-a-public-subnet>"
 bash infra/rds/setup.sh
 psql "$REPORTING_DB_URL" -f infra/db/init.sql
+psql "$REPORTING_DB_URL" -f infra/db/views.sql
 ```
 
 ⚠️ **Network access**: whichever option you pick, the collector runs on
@@ -107,9 +110,11 @@ has to live in the project's own repo rather than here.
 The AI SDLC dashboards run as their **own standalone Grafana instance**
 (`infra/docker/compose.yml` in this repo), separate from any
 project-specific monitoring stack. It's shared across all projects — you
-don't redeploy it per project, you just point a new project's collector at
-the same `reporting` database and its data shows up automatically via the
-dashboards' `$project` dropdown.
+don't redeploy it per project. Each project gets its own generated
+dashboard folder plus the shared BOD portfolio dashboard: add the project
+to `infra/grafana/projects.json`, run `python3 infra/grafana/generate.py`,
+and (for PM viewer accounts scoped to that folder)
+`python3 infra/grafana/setup_access.py`.
 
 ```bash
 git clone https://github.com/Seta-International/ai-sdlc-metrics.git
@@ -123,19 +128,13 @@ chmod 600 infra/docker/.env
 docker compose -f infra/docker/compose.yml up -d
 ```
 
-Verify: `http://<host>:3100` → log in → the `ReportingPostgres` datasource
+Verify: `http://<host>:3030` → log in → the `ReportingPostgres` datasource
 should show "Database Connection OK" (Configuration → Data Sources).
 
 Login is required (anonymous viewing is disabled). Grafana users are
-managed separately from GitHub/Jira — create them via the admin API or UI,
-e.g.:
-```bash
-curl -u admin:<admin-password> -X POST http://<host>:3100/api/admin/users \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"...","login":"...","password":"...","email":"...","OrgId":1}'
-curl -u admin:<admin-password> -X PATCH http://<host>:3100/api/org/users/<userId> \
-  -H 'Content-Type: application/json' -d '{"role":"Viewer"}'   # or "Editor"
-```
+managed separately from GitHub/Jira: PM viewer accounts (scoped to their
+project's folder) and BOD viewers come from `infra/grafana/projects.json`
+and are applied with `python3 infra/grafana/setup_access.py`.
 
 ⚠️ Both this compose file and a project's own monitoring compose file may
 sit in a directory literally named `docker` — Compose derives its default
@@ -147,15 +146,31 @@ that might share a directory name with another stack on the same host.
 
 ## Adding a new project
 
+Every per-project difference is a **caller-workflow input** — nothing in
+this repo is edited to onboard a project:
+
+| Differs per project | Where it's set |
+|---|---|
+| GitHub repo | `gh-repo` input (always `${{ github.repository }}`) |
+| Jira Cloud site | `jira-base` input (+ that site's own `JIRA_*` secrets) |
+| Jira project key | `jira-project` input |
+| Jira board | auto-detected from `jira-project`; `jira-board-id` only as override |
+| Sprint calendar | `sprint-anchor` + `sprint-length-days` inputs |
+| CI/CD style | `deploy-strategy` (`deployments` \| `releases` \| `tags:<pat>` \| `workflow_runs:<file>`) + `prod-env` |
+
 1. **Workflow must live in the project's own repo**, not here — GitHub only
    fires `pull_request`/`deployment_status` triggers for events in the repo
    the workflow file lives in, and the collector only needs read access to
    that same repo (via the ambient `GITHUB_TOKEN`, no cross-repo PAT).
-   Copy `agent-platform`'s `.github/workflows/ai-sprint-collect.yml` and
-   `ai-label-check.yml`, changing `PROJECT_LABEL`, `JIRA_PROJECT`, `GH_REPO`.
-2. If the new project is on a **different Jira Cloud site**: it needs its
-   own `JIRA_EMAIL`/`JIRA_TOKEN`/`JIRA_AI_USAGE_FIELD` secrets and the full
-   field-setup walkthrough in `docs/jira-setup.md` repeated on that site.
+   Copy `templates/ai-metrics-caller.yml` into the project's
+   `.github/workflows/` and fill the `<PLACEHOLDERS>` (the table above);
+   also copy `agent-platform`'s `ai-sdlc-label-check.yml` and
+   `ai-sdlc-jira-sync.yml` (changing `GH_REPO`/`JIRA_PROJECT`, plus
+   `JIRA_BASE` if on another site).
+2. If the new project is on a **different Jira Cloud site**: set
+   `jira-base` and give the repo that site's own
+   `JIRA_EMAIL`/`JIRA_TOKEN`/`JIRA_AI_USAGE_FIELD` secrets, repeating the
+   field-setup walkthrough in `docs/jira-setup.md` there.
    If it's the **same site**, different project key: reuse
    `JIRA_EMAIL`/`JIRA_TOKEN`, but the 3 fields still need to be attached to
    the new project (team-managed projects manage field association
@@ -164,11 +179,12 @@ that might share a directory name with another stack on the same host.
 3. `REPORTING_DB_URL`/`HOST`/`PASSWORD` are the same values as any other
    project already on the shared database — just copy them as repo
    secrets on the new repo.
-4. Update `SPRINTS` in `collector/config.py` if the new project uses a
-   different sprint calendar than `FUT`'s.
-5. No Grafana changes — the dashboards' `$project` dropdown picks up the
-   new project's rows automatically once it starts writing to the shared
-   `reporting.ai_sprint_metrics` table.
+4. Add the project to `infra/grafana/projects.json` (name, PM login/email,
+   exporter URL), then on the Grafana host run
+   `python3 infra/grafana/generate.py` and
+   `python3 infra/grafana/setup_access.py` — this creates the project's
+   dashboard folder, adds it to the BOD portfolio, and scopes the PM's
+   viewer account to their folder.
 
 ## What lives where
 

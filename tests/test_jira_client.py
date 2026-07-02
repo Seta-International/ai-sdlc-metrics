@@ -111,6 +111,38 @@ def test_sprint_issue_counts_picks_overlapping_sprint():
 
 
 @responses.activate
+def test_resolve_board_id_returns_first_sprint_capable_board():
+    rsp = responses.get(
+        "https://x.atlassian.net/rest/agile/1.0/board",
+        json={"values": [{"id": 9, "name": "Ops", "type": "kanban"},
+                         {"id": 34, "name": "FUT board", "type": "scrum"}]},
+    )
+    assert _jc().resolve_board_id() == "34"
+    assert rsp.calls[0].request.params["projectKeyOrId"] == "FUT"
+
+
+@responses.activate
+def test_resolve_board_id_accepts_team_managed_simple_board():
+    responses.get(
+        "https://x.atlassian.net/rest/agile/1.0/board",
+        json={"values": [{"id": 101, "name": "FUT board", "type": "simple"}]},
+    )
+    assert _jc().resolve_board_id() == "101"
+
+
+@responses.activate
+def test_resolve_board_id_none_when_project_has_no_board():
+    responses.get("https://x.atlassian.net/rest/agile/1.0/board", json={"values": []})
+    assert _jc().resolve_board_id() is None
+
+
+@responses.activate
+def test_resolve_board_id_none_on_api_error():
+    responses.get("https://x.atlassian.net/rest/agile/1.0/board", status=404)
+    assert _jc().resolve_board_id() is None
+
+
+@responses.activate
 def test_sprint_issue_counts_none_when_no_overlap():
     responses.get(
         "https://x.atlassian.net/rest/agile/1.0/board/7/sprint",

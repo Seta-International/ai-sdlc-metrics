@@ -109,6 +109,11 @@ def main() -> None:
     parser.add_argument("--repo", default=GITHUB_REPO)
     args = parser.parse_args()
 
+    if not args.project or not args.repo:
+        print("ERROR: --project (or PROJECT_LABEL) and --repo (or GH_REPO) are required.",
+              file=sys.stderr)
+        sys.exit(1)
+
     try:
         quarter_months(args.quarter)
     except ValueError as e:

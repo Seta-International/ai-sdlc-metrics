@@ -23,12 +23,16 @@ def _usage(issue: dict, field: str) -> str:
 
 
 def adoption_counts(prs: list[dict], issues: list[dict], field: str) -> dict:
+    authors = {(p.get("user") or {}).get("login") for p in prs}
     return {
         "ai_prs": sum(1 for p in prs if _has_label(p, "ai-assisted")),
         "total_prs": len(prs),
         "agent_tasks": sum(1 for i in issues if _usage(i, field) == "Agent"),
         "ai_tasks": sum(1 for i in issues if _usage(i, field) != "None"),
         "total_tasks": len(issues),
+        # Active engineer proxy: distinct humans who merged a PR this window.
+        # Denominator for usage rate when manual total_engineers is absent.
+        "engineers_active": len(authors - BOT_LOGINS - {None}),
     }
 
 

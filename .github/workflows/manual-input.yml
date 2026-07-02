@@ -1,4 +1,4 @@
-name: Manual metric input (reusable)
+name: AI SDLC — Manual Metric Input (Reusable)
 
 on:
   workflow_call:
