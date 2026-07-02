@@ -9,11 +9,12 @@ FIELD = "customfield_10200"
 
 
 def pr(labels=(), title="feat: x", merged="2026-07-01T10:00:00Z",
-       created="2026-07-01T08:00:00Z", number=1, login="alice", reviews=0):
+       created="2026-07-01T08:00:00Z", number=1, login="alice", reviews=0,
+       branch="feat/x"):
     return {
         "number": number, "title": title, "merged_at": merged, "created_at": created,
         "user": {"login": login}, "labels": [{"name": l} for l in labels],
-        "review_count": reviews,
+        "review_count": reviews, "head": {"ref": branch},
     }
 
 
@@ -92,22 +93,43 @@ def test_lead_time_none_without_prs():
 
 
 # rework_pr_count
-def test_rework_by_file_overlap_within_14_days():
+def test_rework_fix_overlapping_recent_feature():
     p_old = pr(number=1, merged="2026-06-25T10:00:00Z")
-    p_new = pr(number=2, merged="2026-07-02T10:00:00Z")
+    p_fix = pr(number=2, title="fix: app crash", branch="fix/app-crash",
+               merged="2026-07-02T10:00:00Z")
     files = {1: ["src/app.py"], 2: ["src/app.py", "README.md"]}
-    assert rework_pr_count([p_new], [p_old, p_new], files) == 1
+    assert rework_pr_count([p_fix], [p_old, p_fix], files) == 1
 
 
-def test_rework_ignores_overlap_older_than_14_days():
-    p_old = pr(number=1, merged="2026-06-01T10:00:00Z")
-    p_new = pr(number=2, merged="2026-07-02T10:00:00Z")
-    files = {1: ["src/app.py"], 2: ["src/app.py"]}
+def test_rework_ignores_feature_next_to_feature():
+    p_old = pr(number=1, merged="2026-06-25T10:00:00Z")
+    p_new = pr(number=2, title="feat: y", branch="feat/y",
+               merged="2026-07-02T10:00:00Z")
+    files = {1: ["src/app.py"], 2: ["src/app.py", "README.md"]}
     assert rework_pr_count([p_new], [p_old, p_new], files) == 0
 
 
+def test_rework_ignores_fix_of_old_code():
+    p_old = pr(number=1, merged="2026-06-01T10:00:00Z")
+    p_fix = pr(number=2, title="fix: z", branch="bugfix/z",
+               merged="2026-07-02T10:00:00Z")
+    files = {1: ["src/app.py"], 2: ["src/app.py"]}
+    assert rework_pr_count([p_fix], [p_old, p_fix], files) == 0
+
+
+def test_rework_ignores_integration_prs_on_both_sides():
+    p_dev = pr(number=1, branch="develop", merged="2026-06-30T10:00:00Z")
+    p_fix = pr(number=2, title="fix: q", branch="fix/q",
+               merged="2026-07-02T10:00:00Z")
+    files = {1: ["src/app.py"], 2: ["src/app.py"]}
+    # overlap only with the develop->main integration PR: not rework,
+    # and the integration PR itself is never counted
+    assert rework_pr_count([p_fix, p_dev], [p_dev, p_fix], files) == 0
+
+
 def test_rework_counts_reverts():
-    p = pr(number=3, title="Revert \"feat: x\"", merged="2026-07-02T10:00:00Z")
+    p = pr(number=3, title="Revert \"feat: x\"", branch="revert-3-feat-x",
+           merged="2026-07-02T10:00:00Z")
     assert rework_pr_count([p], [p], {3: []}) == 1
 
 

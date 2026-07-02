@@ -97,19 +97,46 @@ def lead_time_hours(prs: list[dict], deploy_times: list[datetime]) -> Optional[f
     return round(statistics.median(spans), 2) if spans else None
 
 
+_FIX_PREFIXES = ("revert", "fix", "bugfix", "hotfix")
+_INTEGRATION_BRANCHES = ("main", "master", "develop")
+
+
+def _branch(pr: dict) -> str:
+    return ((pr.get("head") or {}).get("ref") or "").lower()
+
+
+def _is_integration_pr(pr: dict) -> bool:
+    """Branch-integration PRs (e.g. develop -> main) aggregate every other
+    PR's files, so they must not count as (or trigger) rework."""
+    b = _branch(pr)
+    return b in _INTEGRATION_BRANCHES or b.startswith("release/")
+
+
+def _is_fix_pr(pr: dict) -> bool:
+    t = pr["title"].lower()
+    return t.startswith(_FIX_PREFIXES) or _branch(pr).startswith(_FIX_PREFIXES)
+
+
 def rework_pr_count(window_prs: list[dict], all_prs: list[dict],
                     pr_files: dict[int, list[str]]) -> int:
-    """PRs in the window that are rework: revert PRs, or PRs sharing a changed
-    file with a different PR merged in the 14 days before their merge."""
+    """PRs in the window that redo recent work (framework C1): reverts, plus
+    fix/bugfix/hotfix PRs touching a file changed by a different non-fix PR
+    merged in the prior 14 days. Plain file overlap between feature PRs is
+    normal parallel work in a monorepo, not rework."""
     count = 0
     for p in window_prs:
+        if _is_integration_pr(p):
+            continue
         if p["title"].lower().startswith("revert"):
             count += 1
+            continue
+        if not _is_fix_pr(p):
             continue
         merged = _dt(p["merged_at"])
         touched = set(pr_files.get(p["number"], []))
         for q in all_prs:
-            if q["number"] == p["number"] or not q.get("merged_at"):
+            if (q["number"] == p["number"] or not q.get("merged_at")
+                    or _is_integration_pr(q) or _is_fix_pr(q)):
                 continue
             q_merged = _dt(q["merged_at"])
             if (merged - timedelta(days=14) <= q_merged < merged
