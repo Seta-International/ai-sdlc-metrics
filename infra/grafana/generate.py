@@ -25,6 +25,7 @@ DS = {"type": "postgres", "uid": "reporting-postgres"}
 RATIOS = "reporting.metrics_ratios"
 WIDE = "reporting.metrics_wide"
 MANUAL = "reporting.manual_inputs"
+COUNTS = "reporting.metric_counts"
 
 # Fixed categorical slots for project identity (projects.json order).
 PALETTE = ["#3987e5", "#199e70", "#c98500", "#008300",
@@ -487,6 +488,8 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
     sections.append(("Monthly Record", monthly))
 
     links = [
+        {"type": "link", "title": "Raw Data", "icon": "doc", "targetBlank": False,
+         "url": f"/d/ai-sdlc-{project.lower()}-raw"},
         {"type": "link", "title": "Download Excel (all sprints)", "icon": "doc",
          "targetBlank": True, "url": f"{exporter_url}/export.xlsx?project={project}"},
         {"type": "link", "title": "Download Excel (selected sprint)", "icon": "doc",
@@ -495,6 +498,57 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
     ]
     return _dashboard(f"ai-sdlc-{project.lower()}", f"AI SDLC — {project}",
                       _layout(sections), [_sprint_var(project)], links)
+
+
+def build_raw_dashboard(cfg: dict, exporter_url: str) -> dict:
+    """Per-project audit board: the unaggregated collected values, the derived
+    views, and manual inputs — so a team can trace any panel to its source."""
+    project = cfg["name"]
+    p = f"project = '{project}'"
+    raw_counts = [
+        {"kind": "table", "title": "All Collected Metrics",
+         "sql": ("SELECT period_type AS \"Type\", period_key AS \"Period\", "
+                 "metric_key AS \"Metric\", value AS \"Value\", "
+                 "period_start AS \"From\", period_end AS \"To\", "
+                 f"collected_at AS \"Collected\" FROM {COUNTS} WHERE {p} "
+                 "ORDER BY period_start DESC, period_type, metric_key"),
+         "unit": "none", "w": 24, "h": 12,
+         "desc": "Every raw metric value the collector wrote "
+                 "(reporting.metric_counts), newest period first — the "
+                 "unaggregated source behind every dashboard panel."},
+    ]
+    derived = [
+        {"kind": "table", "title": "Derived Values — wide + ratios",
+         "sql": (f"SELECT * FROM {RATIOS} WHERE {p} "
+                 "ORDER BY period_type, period_start DESC"),
+         "unit": "none", "w": 24, "h": 10,
+         "desc": "The metrics_wide + metrics_ratios view: one row per period, "
+                 "every metric pivoted into columns plus the computed ratios."},
+    ]
+    manual = [
+        {"kind": "table", "title": "Manual Inputs",
+         "sql": ("SELECT period_key AS \"Period\", field AS \"Field\", "
+                 "value AS \"Value\", entered_by AS \"By\", "
+                 f"entered_at AS \"Entered\" FROM {MANUAL} WHERE {p} "
+                 "ORDER BY period_key DESC, field"),
+         "unit": "none", "w": 24, "h": 8,
+         "desc": "PM/BOD-entered monthly and quarterly values "
+                 "(reporting.manual_inputs) for this project."},
+    ]
+    sections = [
+        ("Raw Metrics — all collected values", raw_counts),
+        ("Derived Values (views)", derived),
+        ("Manual Inputs", manual),
+    ]
+    links = [
+        {"type": "link", "title": "← Story Dashboard", "icon": "dashboard",
+         "targetBlank": False, "url": f"/d/ai-sdlc-{project.lower()}"},
+        {"type": "link", "title": "Download Excel (all sprints)", "icon": "doc",
+         "targetBlank": True, "url": f"{exporter_url}/export.xlsx?project={project}"},
+    ]
+    return _dashboard(f"ai-sdlc-{project.lower()}-raw",
+                      f"AI SDLC — {project} (Raw Data)",
+                      _layout(sections), [], links)
 
 
 # -------------------------------------------------------------------- BOD ---
@@ -674,11 +728,13 @@ def main() -> None:
     exporter, cfgs = load_config()
 
     for cfg in cfgs:
-        d = build_project_dashboard(cfg, exporter)
-        path = out / cfg["name"] / "project.json"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(d, indent=2))
-        print(f"wrote {path}")
+        for kind, builder in (("project", build_project_dashboard),
+                              ("raw", build_raw_dashboard)):
+            d = builder(cfg, exporter)
+            path = out / cfg["name"] / f"{kind}.json"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(d, indent=2))
+            print(f"wrote {path}")
 
     bod = build_bod_dashboard(cfgs, exporter)
     path = out / "BOD" / "portfolio.json"

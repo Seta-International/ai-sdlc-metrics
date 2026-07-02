@@ -92,6 +92,21 @@ def test_tool_breakdown_reads_metric_counts(tmp_path):
     assert "ai_tasks_tool_" in sql and "metric_counts" in sql
 
 
+def test_raw_dashboard_per_project(tmp_path):
+    out = _generate(tmp_path)
+    raw = json.loads((out / "Future" / "raw.json").read_text())
+    assert raw["title"] == "AI SDLC — Future (Raw Data)"
+    assert raw["uid"] == "ai-sdlc-future-raw"
+    body = json.dumps(raw)
+    assert "reporting.metric_counts" in body   # the raw collected values
+    assert "reporting.manual_inputs" in body   # manual inputs
+    assert "project = 'Future'" in body
+    # story dashboard links to the raw board and back
+    story = json.loads((out / "Future" / "project.json").read_text())
+    assert any("ai-sdlc-future-raw" in l["url"] for l in story["links"])
+    assert any("/d/ai-sdlc-future" == l["url"] for l in raw["links"])
+
+
 def test_every_panel_has_a_description(tmp_path):
     # Every non-row panel must carry a description so Grafana renders an
     # info-tooltip explaining the metric.

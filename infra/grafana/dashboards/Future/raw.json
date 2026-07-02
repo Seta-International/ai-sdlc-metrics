@@ -1,0 +1,204 @@
+{
+  "uid": "ai-sdlc-future-raw",
+  "title": "AI SDLC \u2014 Future (Raw Data)",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "timezone": "Asia/Ho_Chi_Minh",
+  "time": {
+    "from": "now-30d",
+    "to": "now+7d"
+  },
+  "templating": {
+    "list": []
+  },
+  "links": [
+    {
+      "type": "link",
+      "title": "\u2190 Story Dashboard",
+      "icon": "dashboard",
+      "targetBlank": false,
+      "url": "/d/ai-sdlc-future"
+    },
+    {
+      "type": "link",
+      "title": "Download Excel (all sprints)",
+      "icon": "doc",
+      "targetBlank": true,
+      "url": "https://ai-metrics.seta-international.com/export.xlsx?project=Future"
+    }
+  ],
+  "panels": [
+    {
+      "type": "row",
+      "title": "Raw Metrics \u2014 all collected values",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "All Collected Metrics",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 24,
+        "h": 12
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT period_type AS \"Type\", period_key AS \"Period\", metric_key AS \"Metric\", value AS \"Value\", period_start AS \"From\", period_end AS \"To\", collected_at AS \"Collected\" FROM reporting.metric_counts WHERE project = 'Future' ORDER BY period_start DESC, period_type, metric_key",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      },
+      "description": "Every raw metric value the collector wrote (reporting.metric_counts), newest period first \u2014 the unaggregated source behind every dashboard panel."
+    },
+    {
+      "type": "row",
+      "title": "Derived Values (views)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Derived Values \u2014 wide + ratios",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT * FROM reporting.metrics_ratios WHERE project = 'Future' ORDER BY period_type, period_start DESC",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      },
+      "description": "The metrics_wide + metrics_ratios view: one row per period, every metric pivoted into columns plus the computed ratios."
+    },
+    {
+      "type": "row",
+      "title": "Manual Inputs",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Manual Inputs",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT period_key AS \"Period\", field AS \"Field\", value AS \"Value\", entered_by AS \"By\", entered_at AS \"Entered\" FROM reporting.manual_inputs WHERE project = 'Future' ORDER BY period_key DESC, field",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      },
+      "description": "PM/BOD-entered monthly and quarterly values (reporting.manual_inputs) for this project."
+    }
+  ]
+}
