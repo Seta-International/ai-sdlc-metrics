@@ -1,0 +1,8 @@
+{
+  "projects": [
+    {"name": "Future", "pm_login": "pm-future", "pm_email": "pm-future@seta-international.vn"}
+  ],
+  "bod_viewers": [
+    {"login": "bod-viewer", "email": "bod@seta-international.vn"}
+  ]
+}
