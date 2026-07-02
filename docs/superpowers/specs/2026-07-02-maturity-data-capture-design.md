@@ -3,6 +3,7 @@
 **Date:** 2026-07-02
 **Scope:** Future and TeacherZone projects at launch; further projects onboard via the existing caller-workflow pattern.
 **Approach:** Clean refactor (v1). No dual versions, no backward compatibility, no legacy paths. The old schema and code paths are replaced, not wrapped.
+**Reference:** metric definitions follow `docs/Khung chỉ số đo lường AI trong SDLC_24_June_2026.docx` (framework Bản 2.0) — the document the workbook implements.
 
 ## 1. Problem
 
@@ -31,13 +32,13 @@ The collector already pulls much of this from GitHub and Jira, but:
 
 | Col | Meaning (VN header) | Capture | Source & method |
 |-----|--------------------|---------|-----------------|
-| D | KS dùng AI/tuần | **Auto (proxy)** | Weekly distinct humans who authored an `ai-assisted`/`ai-agent` PR or closed a Jira issue with AI-usage ≠ None; month value = mean of weeks. Bots excluded via `BOT_LOGINS`. |
+| D | KS dùng AI/tuần | **Auto (proxy)** | Weekly distinct humans who authored an `ai-assisted`/`ai-agent` PR or closed a Jira issue with AI-usage ≠ None; month value = mean of weeks. Bots excluded via `BOT_LOGINS`. Framework doc prescribes license counts + a short quarterly survey — the quarterly review cross-checks the proxy against license seats/survey and can override via `manual_inputs`. |
 | E | Tổng KS | **Manual** | Monthly input form (prefilled from previous month; changes rarely). |
 | F | PR gắn AI | **Auto** | GitHub merged PRs with `ai-assisted` label (count). |
 | G | Tổng PR | **Auto** | GitHub merged PRs (count). |
 | H | Task giao agent | **Auto** | Jira closed issues with AI-usage field = `Agent` (count). |
 | I | Tổng task | **Auto** | Jira closed issues (count). |
-| J | Lead time (h) | **Auto (new)** | Median hours PR opened → merged. (Upgrade path: commit → production deploy, once deploy linkage is wanted.) |
+| J | Lead time (h) | **Auto (new)** | DORA lead time per the framework doc: median hours from PR merge → first production deploy after it (commit→production approximation from data already fetched). Falls back to PR opened→merged when the period has no deploys. |
 | K | Số deploy | **Auto** | GitHub deployments to `GH_PROD_ENV` (count). |
 | L | Số tuần | **Auto** | Calendar weeks in the period (derived, not fetched). |
 | M | Deploy lỗi | **Auto (proxy)** | Jira incidents created in period (existing CFR-numerator proxy). |
@@ -61,6 +62,7 @@ The collector already pulls much of this from GitHub and Jira, but:
 | G3 Review bắt buộc | **Auto-check** | Branch protection on default branch requires ≥1 review (GitHub API). |
 | G6 Security controls | **Auto-check (partial)** | Code scanning + secret scanning enabled (GitHub API). PM may override. |
 | a2 dashboard, a4 near-universal, b4 DORA cải thiện, c3 scan CI, Z/d4 "đã đo" flags | **Auto-suggest** | Derived from `metric_counts` presence/trends; script proposes Yes/No, PM confirms. |
+| b6 business outcomes (evidence) | **Auto-suggest (partial)** | Sprint predictability (issues completed ÷ committed per Jira sprint) computed into «Sprint data»; production bug trend = incident counts. PM cites these + release speed/CSAT (manual) as b6 evidence. |
 | G2, G4, G5, G7, G8, b5–b8, c4–c9, d3, d5 | **Manual (judgment)** | Ticked at the quarterly review. |
 | Evidence A–E, Improvement action | **Manual (text)** | Written at the quarterly review. |
 
@@ -100,7 +102,7 @@ Ratios are never stored. Grafana panels and the exporter compute them in SQL (e.
 
 - Single window abstraction: `--sprint S6` **or** `--month 2026-06` → `(since, until)`; all fetching/computation downstream is window-agnostic. Sprint resolution keeps the existing anchor+cadence formula.
 - Metric functions return raw `(numerator, denominator)` or scalar values; no ratio math in the collector.
-- New metrics implemented: `lead_time_h`, `rework_prs`, `ai_users_weekly_avg`, `secret_alerts`.
+- New metrics implemented: `lead_time_h` (merge→deploy), `rework_prs`, `ai_users_weekly_avg`, `secret_alerts`, `sprint_predictability` (sprint periods only, from Jira sprint committed vs completed).
 - CLI manual flags (`--a1 --b5 --c3`) **removed**; manual data enters only via `manual_inputs`.
 - Schedules (GitHub Actions, existing caller-workflow pattern):
   - Per sprint: existing cadence, `period_type='sprint'`.
