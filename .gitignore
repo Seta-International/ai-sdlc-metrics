@@ -9,3 +9,6 @@ venv/
 *.egg-info/
 dist/
 .DS_Store
+
+# Ignore documentation build artifacts
+docs/superpowers/
