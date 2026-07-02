@@ -1,0 +1,39 @@
+name: Record deployment
+description: >
+  Create a GitHub Deployment + success status so the AI SDLC metrics collector
+  can count production deploys regardless of how the deploy itself ran.
+inputs:
+  environment:
+    description: Environment name (must match the project's GH_PROD_ENV config)
+    required: true
+  ref:
+    description: Git ref that was deployed
+    required: false
+    default: ${{ github.sha }}
+  token:
+    description: Token with deployments:write
+    required: false
+    default: ${{ github.token }}
+runs:
+  using: composite
+  steps:
+    - name: Create deployment record
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        ENVIRONMENT: ${{ inputs.environment }}
+        REF: ${{ inputs.ref }}
+      run: |
+        set -euo pipefail
+        DEPLOYMENT_ID=$(curl -sf -X POST \
+          -H "Authorization: Bearer $GH_TOKEN" \
+          -H "Accept: application/vnd.github+json" \
+          "https://api.github.com/repos/${{ github.repository }}/deployments" \
+          -d "{\"ref\":\"$REF\",\"environment\":\"$ENVIRONMENT\",\"auto_merge\":false,\"required_contexts\":[]}" \
+          | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
+        curl -sf -X POST \
+          -H "Authorization: Bearer $GH_TOKEN" \
+          -H "Accept: application/vnd.github+json" \
+          "https://api.github.com/repos/${{ github.repository }}/deployments/$DEPLOYMENT_ID/statuses" \
+          -d "{\"state\":\"success\",\"environment\":\"$ENVIRONMENT\"}" > /dev/null
+        echo "Recorded deployment $DEPLOYMENT_ID to $ENVIRONMENT"
