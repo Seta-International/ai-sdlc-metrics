@@ -62,6 +62,62 @@ INSERT INTO reporting.metric_counts
 SELECT 'Future', 'month', v.period_key, p.period_start, p.period_end, v.metric_key, v.value
 FROM vals v JOIN periods p USING (period_key);
 
+-- A second project (TeacherZone) so the BOD portfolio dashboard shows real
+-- cross-project comparison. Same sprint windows as Future, lower-but-improving
+-- adoption. (Not in projects.json — that's the production onboarding switch.)
+WITH periods(period_key, period_start, period_end) AS (VALUES
+  ('S1', DATE '2026-06-29', DATE '2026-07-13'),
+  ('S2', DATE '2026-07-13', DATE '2026-07-27'),
+  ('S3', DATE '2026-07-27', DATE '2026-08-10')
+),
+vals(period_key, metric_key, value) AS (VALUES
+  ('S1','ai_users_weekly_avg',4.0), ('S2','ai_users_weekly_avg',5.0), ('S3','ai_users_weekly_avg',7.0),
+  ('S1','ai_prs',10), ('S2','ai_prs',16), ('S3','ai_prs',24),
+  ('S1','total_prs',50),('S2','total_prs',52),('S3','total_prs',55),
+  ('S1','agent_tasks',4), ('S2','agent_tasks',7), ('S3','agent_tasks',11),
+  ('S1','ai_tasks',16),  ('S2','ai_tasks',22),  ('S3','ai_tasks',30),
+  ('S1','total_tasks',40),('S2','total_tasks',44),('S3','total_tasks',48),
+  ('S1','lead_time_h',80),('S2','lead_time_h',70),('S3','lead_time_h',55),
+  ('S1','deploys',4),  ('S2','deploys',5),  ('S3','deploys',7),
+  ('S1','weeks',2.0),  ('S2','weeks',2.0),  ('S3','weeks',2.0),
+  ('S1','incidents',3),('S2','incidents',2),('S3','incidents',1),
+  ('S1','mttr_h',12),  ('S2','mttr_h',9),   ('S3','mttr_h',7),
+  ('S1','rework_prs',6),('S2','rework_prs',5),('S3','rework_prs',3),
+  ('S1','ai_prs_reviewed',6),('S2','ai_prs_reviewed',12),('S3','ai_prs_reviewed',20),
+  ('S1','security_alerts',5),('S2','security_alerts',4),('S3','security_alerts',2),
+  ('S1','agent_prs_total',4), ('S2','agent_prs_total',6), ('S3','agent_prs_total',9),
+  ('S1','agent_prs_merged',3),('S2','agent_prs_merged',5),('S3','agent_prs_merged',8),
+  ('S1','agent_prs_human_fixed',3),('S2','agent_prs_human_fixed',4),('S3','agent_prs_human_fixed',4),
+  ('S1','agent_prs_autonomous',1),('S2','agent_prs_autonomous',2),('S3','agent_prs_autonomous',5),
+  ('S1','agent_cycle_h',14),('S2','agent_cycle_h',12),('S3','agent_cycle_h',9),
+  ('S1','sprint_committed',18),('S2','sprint_committed',20),('S3','sprint_committed',22),
+  ('S1','sprint_completed',12),('S2','sprint_completed',15),('S3','sprint_completed',19)
+)
+INSERT INTO reporting.metric_counts
+  (project, period_type, period_key, period_start, period_end, metric_key, value)
+SELECT 'TeacherZone', 'sprint', v.period_key, p.period_start, p.period_end, v.metric_key, v.value
+FROM vals v JOIN periods p USING (period_key);
+
+-- TeacherZone month windows.
+WITH periods(period_key, period_start, period_end) AS (VALUES
+  ('2026-06', DATE '2026-06-01', DATE '2026-06-30'),
+  ('2026-07', DATE '2026-07-01', DATE '2026-07-31')
+),
+vals(period_key, metric_key, value) AS (VALUES
+  ('2026-06','lead_time_h',78),('2026-07','lead_time_h',60),
+  ('2026-06','mttr_h',11),     ('2026-07','mttr_h',7),
+  ('2026-06','deploys',8),     ('2026-07','deploys',12),
+  ('2026-06','weeks',4.3),     ('2026-07','weeks',4.3),
+  ('2026-06','incidents',5),   ('2026-07','incidents',3),
+  ('2026-06','agent_cycle_h',13),('2026-07','agent_cycle_h',9),
+  ('2026-06','total_prs',95),  ('2026-07','total_prs',100),
+  ('2026-06','ai_prs',24),     ('2026-07','ai_prs',38)
+)
+INSERT INTO reporting.metric_counts
+  (project, period_type, period_key, period_start, period_end, metric_key, value)
+SELECT 'TeacherZone', 'month', v.period_key, p.period_start, p.period_end, v.metric_key, v.value
+FROM vals v JOIN periods p USING (period_key);
+
 -- Manual inputs: monthly numbers (drive the Manual KPI panels) + a few
 -- quarterly governance flags.
 INSERT INTO reporting.manual_inputs (project, period_key, field, value, entered_by) VALUES
@@ -75,4 +131,14 @@ INSERT INTO reporting.manual_inputs (project, period_key, field, value, entered_
   ('Future','2026-07','cost_actual','30','seed'),
   ('Future','2026-Q3','g1_agents_md','Yes','auto-check'),
   ('Future','2026-Q3','a2_dashboard','Yes','auto-check'),
-  ('Future','2026-Q3','g2_ai_policy','Yes','pm@seta');
+  ('Future','2026-Q3','g2_ai_policy','Yes','pm@seta'),
+  ('TeacherZone','2026-06','total_engineers','12','seed'),
+  ('TeacherZone','2026-06','coverage_ai','0.40','seed'),
+  ('TeacherZone','2026-06','cost_baseline','30','seed'),
+  ('TeacherZone','2026-06','cost_actual','26','seed'),
+  ('TeacherZone','2026-07','total_engineers','13','seed'),
+  ('TeacherZone','2026-07','coverage_ai','0.48','seed'),
+  ('TeacherZone','2026-07','cost_baseline','30','seed'),
+  ('TeacherZone','2026-07','cost_actual','24','seed'),
+  ('TeacherZone','2026-Q3','g1_agents_md','No','auto-check'),
+  ('TeacherZone','2026-Q3','a2_dashboard','Yes','auto-check');

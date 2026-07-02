@@ -23,8 +23,9 @@ docker compose -f infra/docker/compose.local.yml down    # stop (Postgres is eph
 ```
 
 Postgres auto-loads `infra/db/init.sql` → `views.sql` → `seed.sql` on first
-start (host port 5433). Seed data (`infra/db/seed.sql`) is three Future sprints
-with an improving trend plus monthly/quarterly manual inputs — **local only,
+start (host port 5433). Seed data (`infra/db/seed.sql`) is two projects (Future + TeacherZone) across
+three sprints with improving trends, plus monthly/quarterly manual inputs, so
+the BOD portfolio dashboard shows real cross-project comparison — **local only,
 never run it against a real reporting database**. The local datasource in
 `infra/docker/local-provisioning/` reuses the production `reporting-postgres`
 uid so the same generated dashboards bind unchanged (`sslmode: disable`).
