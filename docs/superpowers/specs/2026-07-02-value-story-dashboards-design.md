@@ -58,12 +58,15 @@ except one extra field in the existing Jira issue search.
 | `lead_time_nonai_h` | same, over the complement subset | 2 |
 | `rework_from_ai_prs` | subset of `rework_prs` whose matched culprit PR was AI-labeled. In `rework_pr_count`, when a fix PR matches a prior non-fix PR by file overlap, record the culprit's AI status. Reverts with no file-overlap match stay in the total only (unattributed). | 2 |
 | `ai_time_saved_h` | sum of `JIRA_AI_TIME_SAVED_FIELD` over closed issues in the window. The field is already written per-ticket by `update_ticket.py`; this aggregates it. `JIRA_AI_TIME_SAVED_FIELD` becomes an *optional* env var for the collect entrypoint — metric skipped (None) when unset. | 1 |
+| `ai_prs_with_tests` | count of AI-labeled PRs whose changed files include test files (heuristic on `pr_files`, which collect already fetches for every PR: path contains `test`/`spec`/`__tests__` or matches `test_*.py` / `*.test.*` / `*.spec.*`). Verification-depth signal — feeds the maturity gate. | 2, 4 |
 
 ## New manual input
 
 - `ai_tool_cost_monthly` (USD) — entered via the existing `collector/manual_input.py`
   monthly cadence and canon-field mechanism. Genuinely changes month to month, so
-  it is data, not config.
+  it is data, not config. Must include *all* AI spend for the project: seat
+  licenses AND API/token usage — in the token economy, usage-based spend is the
+  part that grows, and omitting it overstates ROI.
 
 (The blended hourly rate is **config**, not a manual input — see Customization.)
 
@@ -81,6 +84,8 @@ divide-by-zero and missing inputs → NULL):
 - `adoption_breadth_pct` = `ai_users_weekly_avg / engineers_active`
 - `agent_pr_pct` = `agent_prs_total / total_prs`
 - `autonomous_share_pct` = `agent_prs_autonomous / agent_prs_total`
+- `ai_pr_review_pct` = `ai_prs_reviewed / ai_prs`
+- `ai_pr_test_pct` = `ai_prs_with_tests / ai_prs`
 
 **Config-dependent math → SQL emitted by `generate.py`** (a static view cannot
 read `projects.json`; the generator embeds the project's config values as
@@ -98,6 +103,15 @@ literals in the panel SQL, and the exporter does the same in Python):
   - Stages are cumulative: a project holds the highest stage for which it meets
     that stage's condition and every lower one. Thresholds come from
     `projects.json`, not constants.
+  - **Verification gate on stages 3–4:** per Google's "The New SDLC With Vibe
+    Coding" (May 2026), maturity = autonomy *plus* verification discipline —
+    "the key differentiator is not whether you use AI, it's how outputs get
+    verified." High agent volume with weak verification is high-volume vibe
+    coding, not maturity. So stages 3 and 4 additionally require, in the same
+    period: AI-PR review coverage (`ai_prs_reviewed / ai_prs`) ≥ 80% AND
+    AI-PR test coverage (`ai_prs_with_tests / ai_prs`) ≥ 50% (both gate
+    thresholds configurable). A project failing the gate caps at Stage 2 and
+    the dashboard shows why ("gated: review coverage 60% < 80%").
 
 ## Dashboard restructure
 
@@ -109,7 +123,11 @@ hand-edited). `generate.py` becomes a pure renderer over per-project config.
 1. **Is AI paying off?** — headline stat: $ saved vs tool cost this month, green
    when net-positive; savings trend; throughput-per-engineer trend.
 2. **Is AI work faster — and as good?** — AI vs non-AI lead time paired per
-   sprint; rework-from-AI as share of rework; AI PRs reviewed %.
+   sprint; rework-from-AI as share of rework; AI-PR review % and test %.
+   Framed neutrally: the METR study found experienced developers were ~19%
+   *slower* on some AI-assisted tasks, so a negative delta is a legitimate
+   finding (usually a verification-overhead or task-fit signal), not a
+   dashboard error — panels must not color-code on the assumption AI wins.
 3. **Delivery health** — four DORA metrics (incl. change-failure proxy) +
    predictability, threshold-colored.
 4. **Maturity ladder** — per-project current stage (1–4) with direction arrow;
@@ -150,7 +168,8 @@ one home.**
     "sections": ["steering", "roi", "cause_effect", "dora", "maturity", "adoption"],
     "thresholds": {"lead_time_h": [72, 168], "predictability_pct": [80, 60]},
     "maturity": {"adopted_breadth_pct": 50, "adopted_ai_pr_pct": 30,
-                 "agentic_pr_pct": 10, "autonomous_share_pct": 50}
+                 "agentic_pr_pct": 10, "autonomous_share_pct": 50,
+                 "gate_review_pct": 80, "gate_test_pct": 50}
   },
   "projects": [
     {"name": "Future", "pm_login": "pm-future",
@@ -196,7 +215,8 @@ Revisit once the story layout has survived a few BOD/PM review cycles.
 
 - New calculators: unit tests in `tests/test_metrics.py` — segmented lead time
   (incl. empty subsets → None), rework attribution (AI culprit / non-AI culprit /
-  unattributed revert), time-saved summation and unset-field skip.
+  unattributed revert), time-saved summation and unset-field skip, test-file
+  heuristic for `ai_prs_with_tests` (positive/negative paths, no AI PRs → None).
 - View ratios: `tests/test_views.py` — new columns, NULL-safety on zero
   denominators and missing inputs.
 - Config merge + section/flag rendering: `tests/test_dashboards.py` — overrides
@@ -205,6 +225,15 @@ Revisit once the story layout has survived a few BOD/PM review cycles.
   literals in the emitted panel SQL.
 - Manual field: `tests/test_manual_input.py` — `ai_tool_cost_monthly` canon name.
 - Exporter: existing tests keep passing with new metric keys present.
+
+## References
+
+- Google, *The New SDLC With Vibe Coding: From ad-hoc prompting to Agentic
+  Engineering* (Osmani, Saboo, Kartakis — May 2026). Source of the
+  verification-gate rationale ("the key differentiator is how outputs get
+  verified"), the vibe-coding → structured → agentic-engineering spectrum the
+  maturity stages map onto, the METR slower-on-some-tasks caveat for story 2,
+  and the token-economy framing behind including API spend in tool cost.
 
 ## Implementation order (for the plan that follows)
 
