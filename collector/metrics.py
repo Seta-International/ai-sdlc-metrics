@@ -135,13 +135,13 @@ def _is_fix_pr(pr: dict) -> bool:
     return t.startswith(_FIX_PREFIXES) or _branch(pr).startswith(_FIX_PREFIXES)
 
 
-def rework_pr_count(window_prs: list[dict], all_prs: list[dict],
-                    pr_files: dict[int, list[str]]) -> int:
+def rework_counts(window_prs: list[dict], all_prs: list[dict],
+                  pr_files: dict[int, list[str]]) -> dict:
     """PRs in the window that redo recent work (framework C1): reverts, plus
     fix/bugfix/hotfix PRs touching a file changed by a different non-fix PR
-    merged in the prior 14 days. Plain file overlap between feature PRs is
-    normal parallel work in a monorepo, not rework."""
-    count = 0
+    merged in the prior 14 days. rework_from_ai_prs = subset whose matched
+    culprit PR was AI-labeled (reverts have no file match — unattributed)."""
+    count = from_ai = 0
     for p in window_prs:
         if _is_integration_pr(p):
             continue
@@ -160,8 +160,10 @@ def rework_pr_count(window_prs: list[dict], all_prs: list[dict],
             if (merged - timedelta(days=14) <= q_merged < merged
                     and touched & set(pr_files.get(q["number"], []))):
                 count += 1
+                if _is_ai_pr(q):
+                    from_ai += 1
                 break
-    return count
+    return {"rework_prs": count, "rework_from_ai_prs": from_ai}
 
 
 def quality_counts(prs: list[dict], code_alerts: list[dict],

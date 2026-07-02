@@ -20,7 +20,7 @@ from collector.jira_client import JiraClient
 from collector.windows import Window, resolve_window
 from collector.metrics import (
     adoption_counts, ai_users_weekly_avg, delivery_counts, lead_time_hours,
-    rework_pr_count, quality_counts, agent_counts,
+    rework_counts, quality_counts, agent_counts,
 )
 from collector.db import upsert_counts
 
@@ -49,8 +49,8 @@ def build_counts(window: Window, prs: list[dict], all_prs: list[dict],
         **delivery_counts(deploy_times, incidents, window.weeks),
         **quality_counts(prs, code_alerts, secret_alerts),
         **agent_counts(prs, pr_commits or {}),
+        **rework_counts(prs, all_prs, pr_files),
         "lead_time_h": lead_time_hours(prs, deploy_times),
-        "rework_prs": rework_pr_count(prs, all_prs, pr_files),
         "ai_users_weekly_avg": ai_users_weekly_avg(prs, issues, field, window.since, window.until),
     }
     if sprint_issue_counts is not None:

@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import pytest
 from collector.metrics import (
     adoption_counts, ai_users_weekly_avg, delivery_counts, lead_time_hours,
-    rework_pr_count, quality_counts, agent_counts, segmented_lead_time,
+    rework_counts, quality_counts, agent_counts, segmented_lead_time,
     pr_size_medians,
 )
 
@@ -121,13 +121,23 @@ def test_pr_size_medians_none_without_details():
     assert pr_size_medians([pr()], {}) == {"pr_size_ai": None, "pr_size_nonai": None}
 
 
-# rework_pr_count
+# rework_counts
 def test_rework_fix_overlapping_recent_feature():
     p_old = pr(number=1, merged="2026-06-25T10:00:00Z")
     p_fix = pr(number=2, title="fix: app crash", branch="fix/app-crash",
                merged="2026-07-02T10:00:00Z")
     files = {1: ["src/app.py"], 2: ["src/app.py", "README.md"]}
-    assert rework_pr_count([p_fix], [p_old, p_fix], files) == 1
+    assert rework_counts([p_fix], [p_old, p_fix], files) == \
+        {"rework_prs": 1, "rework_from_ai_prs": 0}
+
+
+def test_rework_attributes_ai_culprit():
+    p_old = pr(["ai-assisted"], number=1, merged="2026-06-25T10:00:00Z")
+    p_fix = pr(number=2, title="fix: app crash", branch="fix/app-crash",
+               merged="2026-07-02T10:00:00Z")
+    files = {1: ["src/app.py"], 2: ["src/app.py"]}
+    assert rework_counts([p_fix], [p_old, p_fix], files) == \
+        {"rework_prs": 1, "rework_from_ai_prs": 1}
 
 
 def test_rework_ignores_feature_next_to_feature():
@@ -135,7 +145,8 @@ def test_rework_ignores_feature_next_to_feature():
     p_new = pr(number=2, title="feat: y", branch="feat/y",
                merged="2026-07-02T10:00:00Z")
     files = {1: ["src/app.py"], 2: ["src/app.py", "README.md"]}
-    assert rework_pr_count([p_new], [p_old, p_new], files) == 0
+    assert rework_counts([p_new], [p_old, p_new], files) == \
+        {"rework_prs": 0, "rework_from_ai_prs": 0}
 
 
 def test_rework_ignores_fix_of_old_code():
@@ -143,7 +154,8 @@ def test_rework_ignores_fix_of_old_code():
     p_fix = pr(number=2, title="fix: z", branch="bugfix/z",
                merged="2026-07-02T10:00:00Z")
     files = {1: ["src/app.py"], 2: ["src/app.py"]}
-    assert rework_pr_count([p_fix], [p_old, p_fix], files) == 0
+    assert rework_counts([p_fix], [p_old, p_fix], files) == \
+        {"rework_prs": 0, "rework_from_ai_prs": 0}
 
 
 def test_rework_ignores_integration_prs_on_both_sides():
@@ -153,13 +165,15 @@ def test_rework_ignores_integration_prs_on_both_sides():
     files = {1: ["src/app.py"], 2: ["src/app.py"]}
     # overlap only with the develop->main integration PR: not rework,
     # and the integration PR itself is never counted
-    assert rework_pr_count([p_fix, p_dev], [p_dev, p_fix], files) == 0
+    assert rework_counts([p_fix, p_dev], [p_dev, p_fix], files) == \
+        {"rework_prs": 0, "rework_from_ai_prs": 0}
 
 
-def test_rework_counts_reverts():
+def test_rework_reverts_counted_but_unattributed():
     p = pr(number=3, title="Revert \"feat: x\"", branch="revert-3-feat-x",
            merged="2026-07-02T10:00:00Z")
-    assert rework_pr_count([p], [p], {3: []}) == 1
+    assert rework_counts([p], [p], {3: []}) == \
+        {"rework_prs": 1, "rework_from_ai_prs": 0}
 
 
 # quality_counts
