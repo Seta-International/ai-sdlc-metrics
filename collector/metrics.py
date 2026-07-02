@@ -1,4 +1,5 @@
 import fnmatch
+import re
 import statistics
 from datetime import datetime, timedelta
 from typing import Optional
@@ -245,3 +246,38 @@ def agent_counts(prs: list[dict], pr_commits: dict[int, list]) -> dict:
         "agent_prs_autonomous": len(agent_prs) - human_fixed,
         "agent_cycle_h": round(statistics.median(cycle), 2) if cycle else None,
     }
+
+
+def ai_time_saved_hours(issues: list[dict], field: Optional[str]) -> Optional[float]:
+    """Sum of the per-ticket AI time-saved field (hours) — the ROI numerator."""
+    if not field:
+        return None
+    vals = []
+    for i in issues:
+        v = i["fields"].get(field)
+        if v is not None:
+            try:
+                vals.append(float(v))
+            except (TypeError, ValueError):
+                pass
+    return round(sum(vals), 2) if vals else None
+
+
+def _tool_slug(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+
+
+def ai_tasks_by_tool(issues: list[dict], field: Optional[str]) -> dict[str, int]:
+    """Done tasks per AI tool: dynamic metric keys ai_tasks_tool_<slug>."""
+    if not field:
+        return {}
+    counts: dict[str, int] = {}
+    for i in issues:
+        raw = i["fields"].get(field)
+        options = raw if isinstance(raw, list) else [raw] if raw else []
+        for opt in options:
+            name = opt.get("value") if isinstance(opt, dict) else opt
+            if name:
+                key = f"ai_tasks_tool_{_tool_slug(str(name))}"
+                counts[key] = counts.get(key, 0) + 1
+    return counts

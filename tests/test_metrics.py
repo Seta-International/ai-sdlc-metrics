@@ -3,7 +3,8 @@ import pytest
 from collector.metrics import (
     adoption_counts, ai_users_weekly_avg, delivery_counts, lead_time_hours,
     rework_counts, quality_counts, agent_counts, segmented_lead_time,
-    pr_size_medians, review_metrics, ai_prs_with_tests,
+    pr_size_medians, review_metrics, ai_prs_with_tests, ai_time_saved_hours,
+    ai_tasks_by_tool,
 )
 
 FIELD = "customfield_10200"
@@ -156,6 +157,43 @@ def test_ai_prs_with_tests_heuristic():
 
 def test_ai_prs_with_tests_none_without_ai_prs():
     assert ai_prs_with_tests([pr()], {1: ["tests/test_app.py"]}) is None
+
+
+# ai_time_saved_hours / ai_tasks_by_tool
+TOOL_FIELD, SAVED_FIELD = "customfield_10301", "customfield_10302"
+
+
+def jissue(extra_fields):
+    base = issue("Assisted")
+    base["fields"].update(extra_fields)
+    return base
+
+
+def test_ai_time_saved_sums_hours():
+    issues = [jissue({SAVED_FIELD: 2.5}), jissue({SAVED_FIELD: 4}),
+              jissue({SAVED_FIELD: None})]
+    assert ai_time_saved_hours(issues, SAVED_FIELD) == 6.5
+
+
+def test_ai_time_saved_none_when_unset_or_empty():
+    assert ai_time_saved_hours([jissue({})], SAVED_FIELD) is None
+    assert ai_time_saved_hours([jissue({SAVED_FIELD: 3})], None) is None
+
+
+def test_ai_tasks_by_tool_normalizes_slugs():
+    issues = [jissue({TOOL_FIELD: {"value": "Claude Code"}}),
+              jissue({TOOL_FIELD: {"value": "Claude Code"}}),
+              jissue({TOOL_FIELD: [{"value": "GitHub Copilot"}, {"value": "Cursor"}]}),
+              jissue({TOOL_FIELD: None})]
+    assert ai_tasks_by_tool(issues, TOOL_FIELD) == {
+        "ai_tasks_tool_claude_code": 2,
+        "ai_tasks_tool_github_copilot": 1,
+        "ai_tasks_tool_cursor": 1,
+    }
+
+
+def test_ai_tasks_by_tool_empty_when_field_unset():
+    assert ai_tasks_by_tool([jissue({TOOL_FIELD: {"value": "Cursor"}})], None) == {}
 
 
 # rework_counts
