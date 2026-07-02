@@ -27,6 +27,7 @@ The collector already pulls much of this from GitHub and Jira, but:
 2. Single source of truth: Postgres holds raw counts; every ratio is derived at read time (Grafana, exporter). Zero drift between dashboard and workbook.
 3. On-demand export from Grafana: the filled maturity workbook (+ raw sprint data), filtered by project (one or all) and sprint range.
 4. One dashboard per project plus a single company-wide BOD dashboard, with per-PM accounts restricted to their own project.
+5. **English everywhere**: the exported Excel workbook and all Grafana dashboards (and workflow form labels) are in English. The Vietnamese workbook stays as source material only.
 
 ## 3. Metric capture matrix — Sheet «3. Monthly»
 
@@ -108,6 +109,24 @@ Ratios are never stored. Grafana panels and the exporter compute them in SQL (e.
   - Per sprint: existing cadence, `period_type='sprint'`.
   - Monthly: 1st of each month for the prior calendar month, `period_type='month'`.
 
+### 6.1 Deployment counting across heterogeneous CI/CD
+
+Each project deploys differently (Actions + self-hosted compose, Jenkins, manual, …). The **GitHub Deployments API is the contract**; how records get there is per-project:
+
+- **Actions with `environment:`** (e.g. agent-platform `deploy.yml`): records are created automatically. Per-project config is just `GH_PROD_ENV` — the environment name that counts as "production" for metrics.
+- **Non-Actions CI/CD** (Jenkins, GitLab, scripts): the pipeline creates the record with one API call. This repo ships a `record-deployment` composite action plus a documented curl snippet, so projects adopt it without writing code.
+- **Pipeline can't be touched**: collector fallback strategy per project via `DEPLOY_COUNT_STRATEGY` env: `deployments` (default) | `releases` | `tags:<pattern>` | `workflow_runs:<workflow-name>`. Config only, no per-project code.
+
+**Known issue to fix at rollout:** Future's `deploy.yml` only defines `dev`/`uat` environments while the collector defaults to `GH_PROD_ENV=production`, so its deploy count is currently always 0. Set `GH_PROD_ENV: uat` in the Future caller config (switch when a real production environment exists).
+
+### 6.2 Code placement & cross-project reuse
+
+All logic lives in **this repo**; project repos hold only configuration:
+
+- **This repo**: collector, exporter, DB migrations, Grafana provisioning, and **reusable workflows** (`workflow_call`): `collect.yml` (sprint + monthly schedules), `manual-input.yml` (form → `manual_inputs`), `quarterly-check.yml` (auto-check/auto-suggest flags), plus the `record-deployment` composite action and a caller-workflow template in `templates/`.
+- **Project repo** (e.g. `agent-platform/.github/workflows/`): one thin caller workflow (~15 lines) that `uses:` the reusable workflows from this repo, passing project config (repo, Jira project key, project label, sprint anchor/length, `GH_PROD_ENV`, deploy strategy) and secrets. Existing conventions stay project-side where they belong: `ai-label-check.yml`, PR labels, Jira field usage.
+- Onboarding a project = copy the caller template, fill ~8 config values, add secrets. No collector changes.
+
 ## 7. Manual input flow
 
 - **Monthly (first business day):** PM runs the `metrics-manual-input` workflow (`workflow_dispatch` with form inputs): total engineers, cost baseline/đv, cost actual/đv, coverage AI %. Writes `manual_inputs` rows for the prior month. ~2 minutes.
@@ -119,7 +138,7 @@ Ratios are never stored. Grafana panels and the exporter compute them in SQL (e.
 - `GET /export.xlsx?project=Future&sprints=S1:S6` (project = one name or `all`).
 - Sprint labels are per-project (each project has its own anchor + cadence), so with `project=all` the range `S1:S6` resolves against each project's own calendar.
 - Project identity: the workbook keys rows by ProjectID (`P01`, …) via sheet «2. Projects»; the exporter maintains that sheet as the mapping ProjectID ↔ project name (Future, TeacherZone, …) and writes sheet 3/4 rows using it.
-- Uses the committed `docs/SETA_AI_SDLC_Maturity.xlsx` as the **template** — formulas, formatting, thresholds, and level logic in sheets 5–9 stay intact. The exporter only fills:
+- Uses a committed **English template** `docs/SETA_AI_SDLC_Maturity_EN.xlsx` — a one-time translation of the current workbook (sheet names, headers, instructions, level descriptions) with identical structure, formulas, thresholds, and level logic in sheets 5–9. Building this template is part of implementation; the Vietnamese original remains in `docs/` as reference. The exporter only fills:
   - **Sheet 3** rows: one row per project per month overlapped by the selected sprint range — auto values from `metric_counts` (month periods), manual columns (E/O/P/S) from `manual_inputs`; missing values left blank (yellow, formulas tolerate blanks via IFERROR).
   - **Sheet 4** rows: one row per project per quarter in range — flags and evidence from `manual_inputs`.
   - **Appended sheet «Sprint data»**: one row per project per sprint with all raw counts and derived ratios — the sprint-granular view the monthly sheets can't express.
@@ -129,6 +148,8 @@ Ratios are never stored. Grafana panels and the exporter compute them in SQL (e.
 ## 9. Grafana — dashboards and access control
 
 Provisioned dashboard JSON in `infra/grafana` is rewritten against `metric_counts` + `manual_inputs` in the same change — panels compute ratios in SQL. No transition period; the old table does not exist after migration.
+
+All dashboards, panel titles, legends, and variable labels are in **English**.
 
 **Dashboard layout:**
 
@@ -157,7 +178,7 @@ Provisioned dashboard JSON in `infra/grafana` is rewritten against `metric_count
 ## 12. Rollout
 
 1. Schema migration (`infra/db`): create `metric_counts` + `manual_inputs`, drop old table.
-2. Collector refactor + new metrics + monthly schedule (Future first).
+2. Collector refactor + new metrics + monthly schedule (Future first); convert to reusable workflows (`workflow_call`) with the thin-caller pattern; fix Future's `GH_PROD_ENV` (currently counts 0 deploys); build the English workbook template.
 3. Grafana rebuilt on new schema: project-dashboard template, Future + TeacherZone project dashboards in per-project folders, company BOD dashboard, PM viewer accounts + folder permissions (API script).
 4. **Onboard TeacherZone**: caller workflow + secrets (GitHub token/repo, Jira project), sprint anchor env vars, PM account. Requires from the team: TeacherZone's GitHub repo, Jira project key, sprint anchor date, and the same `ai-assisted`/`ai-agent` label + Jira AI-usage field conventions applied in that project.
 5. Manual-input workflow; PMs enter current month's values for both projects.
