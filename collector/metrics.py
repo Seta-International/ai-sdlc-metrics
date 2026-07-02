@@ -1,74 +1,133 @@
 import statistics
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from collector.config import BOT_LOGINS
 
-def calc_a2(prs: list[dict]) -> Optional[float]:
-    if not prs:
-        return None
-    ai = sum(1 for p in prs if any(l["name"] == "ai-assisted" for l in p.get("labels", [])))
-    return round(ai / len(prs), 4)
+AI_LABELS = {"ai-assisted", "ai-agent"}
 
-def calc_a3(issues: list[dict], field: str) -> Optional[float]:
-    if not issues:
-        return None
-    agent = sum(1 for i in issues if (i["fields"].get(field) or {}).get("value") == "Agent")
-    return round(agent / len(issues), 4)
 
-def calc_a4(issues: list[dict], field: str) -> Optional[float]:
-    if not issues:
-        return None
-    ai = sum(1 for i in issues if (i["fields"].get(field) or {}).get("value", "None") != "None")
-    return round(ai / len(issues), 4)
+def _dt(s: str) -> datetime:
+    return datetime.fromisoformat(s.replace("Z", "+00:00"))
 
-def calc_b2(deployments: list[dict], sprint_weeks: float) -> Optional[float]:
-    if not sprint_weeks:
-        return None
-    return round(len(deployments) / sprint_weeks, 2)
 
-def calc_b3(incidents: list[dict], deployments: list[dict]) -> Optional[float]:
-    """Change failure rate, approximated as incidents-per-deploy in the
-    period (no per-incident deploy linkage is tracked)."""
-    if not deployments:
-        return None
-    return round(len(incidents) / len(deployments), 4)
+def _has_label(pr: dict, name: str) -> bool:
+    return any(l["name"] == name for l in pr.get("labels", []))
 
-def calc_b4(incidents: list[dict]) -> Optional[float]:
+
+def _is_ai_pr(pr: dict) -> bool:
+    return any(l["name"] in AI_LABELS for l in pr.get("labels", []))
+
+
+def _usage(issue: dict, field: str) -> str:
+    return (issue["fields"].get(field) or {}).get("value", "None") or "None"
+
+
+def adoption_counts(prs: list[dict], issues: list[dict], field: str) -> dict:
+    return {
+        "ai_prs": sum(1 for p in prs if _has_label(p, "ai-assisted")),
+        "total_prs": len(prs),
+        "agent_tasks": sum(1 for i in issues if _usage(i, field) == "Agent"),
+        "ai_tasks": sum(1 for i in issues if _usage(i, field) != "None"),
+        "total_tasks": len(issues),
+    }
+
+
+def ai_users_weekly_avg(prs: list[dict], issues: list[dict], field: str,
+                        since: datetime, until: datetime) -> Optional[float]:
+    """Mean per-ISO-week distinct AI users: authors of AI-labeled merged PRs
+    plus assignees of AI-usage Jira issues. Proxy for license/survey data;
+    the quarterly review cross-checks and can override via manual_inputs."""
+    def week_of(dt: datetime):
+        d = dt.date()
+        return d - timedelta(days=d.weekday())
+
+    weeks: dict = {}
+    for p in prs:
+        if _is_ai_pr(p) and p.get("merged_at"):
+            login = (p.get("user") or {}).get("login")
+            if login and login not in BOT_LOGINS:
+                weeks.setdefault(week_of(_dt(p["merged_at"])), set()).add(f"gh:{login}")
+    for i in issues:
+        f = i["fields"]
+        account = (f.get("assignee") or {}).get("accountId")
+        if _usage(i, field) != "None" and f.get("resolutiondate") and account:
+            weeks.setdefault(week_of(_dt(f["resolutiondate"])), set()).add(f"jira:{account}")
+
+    if not weeks:
+        return None
+    n_weeks = max(1, round((until - since).days / 7))
+    return round(sum(len(users) for users in weeks.values()) / n_weeks, 2)
+
+
+def delivery_counts(deploy_times: list[datetime], incidents: list[dict],
+                    weeks: float) -> dict:
     hours = []
     for i in incidents:
-        c = i["fields"].get("created")
-        r = i["fields"].get("resolutiondate")
+        c, r = i["fields"].get("created"), i["fields"].get("resolutiondate")
         if c and r:
-            created = datetime.fromisoformat(c.replace("Z", "+00:00"))
-            resolved = datetime.fromisoformat(r.replace("Z", "+00:00"))
-            hours.append((resolved - created).total_seconds() / 3600)
-    return round(statistics.mean(hours), 2) if hours else None
+            hours.append((_dt(r) - _dt(c)).total_seconds() / 3600)
+    return {
+        "deploys": len(deploy_times),
+        "weeks": round(weeks, 2),
+        "incidents": len(incidents),
+        "mttr_h": round(statistics.mean(hours), 2) if hours else None,
+    }
 
-def calc_c1(prs: list[dict]) -> Optional[float]:
-    if not prs:
-        return None
-    return round(sum(1 for p in prs if p["title"].lower().startswith("revert")) / len(prs), 4)
 
-def calc_c2(prs: list[dict]) -> Optional[float]:
-    ai_prs = [p for p in prs if any(l["name"] == "ai-assisted" for l in p.get("labels", []))]
-    if not ai_prs:
-        return None
-    # review_count injected by collect.py from reviews endpoint; default 0 if absent
-    approved = sum(1 for p in ai_prs if p.get("review_count", 0) > 0)
-    return round(approved / len(ai_prs), 4)
+def lead_time_hours(prs: list[dict], deploy_times: list[datetime]) -> Optional[float]:
+    """DORA lead time approximation: median hours PR merge -> first production
+    deploy after it. Falls back to open->merge when the window has no deploys."""
+    merged = sorted(_dt(p["merged_at"]) for p in prs if p.get("merged_at"))
+    if deploy_times:
+        spans = []
+        for m in merged:
+            nxt = next((d for d in deploy_times if d >= m), None)
+            if nxt:
+                spans.append((nxt - m).total_seconds() / 3600)
+        if spans:
+            return round(statistics.median(spans), 2)
+    spans = [
+        (_dt(p["merged_at"]) - _dt(p["created_at"])).total_seconds() / 3600
+        for p in prs if p.get("merged_at") and p.get("created_at")
+    ]
+    return round(statistics.median(spans), 2) if spans else None
 
-def calc_c4(alerts: list[dict]) -> int:
-    return len(alerts)
 
-def calc_d_metrics(prs: list[dict], pr_commits: dict[int, list]) -> dict:
-    agent_prs = [p for p in prs if any(l["name"] == "ai-agent" for l in p.get("labels", []))]
-    if not agent_prs:
-        return {"d1": None, "d2": None, "d3": None, "d4": None}
+def rework_pr_count(window_prs: list[dict], all_prs: list[dict],
+                    pr_files: dict[int, list[str]]) -> int:
+    """PRs in the window that are rework: revert PRs, or PRs sharing a changed
+    file with a different PR merged in the 14 days before their merge."""
+    count = 0
+    for p in window_prs:
+        if p["title"].lower().startswith("revert"):
+            count += 1
+            continue
+        merged = _dt(p["merged_at"])
+        touched = set(pr_files.get(p["number"], []))
+        for q in all_prs:
+            if q["number"] == p["number"] or not q.get("merged_at"):
+                continue
+            q_merged = _dt(q["merged_at"])
+            if (merged - timedelta(days=14) <= q_merged < merged
+                    and touched & set(pr_files.get(q["number"], []))):
+                count += 1
+                break
+    return count
 
-    merged = [p for p in agent_prs if p.get("merged_at")]
-    human_count = 0
-    cycle_times: list[float] = []
 
+def quality_counts(prs: list[dict], code_alerts: list[dict],
+                   secret_alerts: list[dict]) -> dict:
+    ai_prs = [p for p in prs if _has_label(p, "ai-assisted")]
+    return {
+        "ai_prs_reviewed": sum(1 for p in ai_prs if p.get("review_count", 0) > 0),
+        "security_alerts": len(code_alerts) + len(secret_alerts),
+    }
+
+
+def agent_counts(prs: list[dict], pr_commits: dict[int, list]) -> dict:
+    agent_prs = [p for p in prs if _has_label(p, "ai-agent")]
+    human_fixed = 0
+    cycle: list[float] = []
     for p in agent_prs:
         commits = pr_commits.get(p["number"], [])
         has_human = any(
@@ -77,16 +136,13 @@ def calc_d_metrics(prs: list[dict], pr_commits: dict[int, list]) -> dict:
             for c in commits
         )
         if has_human:
-            human_count += 1
+            human_fixed += 1
         if p.get("merged_at") and p.get("created_at"):
-            c_at = datetime.fromisoformat(p["created_at"].replace("Z", "+00:00"))
-            m_at = datetime.fromisoformat(p["merged_at"].replace("Z", "+00:00"))
-            cycle_times.append((m_at - c_at).total_seconds() / 3600)
-
-    total = len(agent_prs)
+            cycle.append((_dt(p["merged_at"]) - _dt(p["created_at"])).total_seconds() / 3600)
     return {
-        "d1": round(len(merged) / total, 4),
-        "d2": round(human_count / total, 4),
-        "d3": round((total - human_count) / total, 4),
-        "d4": round(statistics.median(cycle_times), 2) if cycle_times else None,
+        "agent_prs_total": len(agent_prs),
+        "agent_prs_merged": sum(1 for p in agent_prs if p.get("merged_at")),
+        "agent_prs_human_fixed": human_fixed,
+        "agent_prs_autonomous": len(agent_prs) - human_fixed,
+        "agent_cycle_h": round(statistics.median(cycle), 2) if cycle else None,
     }
