@@ -14,13 +14,16 @@ from collector.config import (
     SPRINT_ANCHOR, SPRINT_LENGTH_DAYS, GITHUB_TOKEN, GITHUB_REPO, GH_PROD_ENV,
     DEPLOY_COUNT_STRATEGY, JIRA_BASE, JIRA_PROJECT, JIRA_EMAIL, JIRA_TOKEN,
     JIRA_AI_USAGE_FIELD, JIRA_BOARD_ID, REPORTING_DB_URL, PROJECT_LABEL,
+    JIRA_AI_TOOL_FIELD, JIRA_AI_TIME_SAVED_FIELD,
 )
 from collector.github_client import GitHubClient
 from collector.jira_client import JiraClient
 from collector.windows import Window, resolve_window
 from collector.metrics import (
     adoption_counts, ai_users_weekly_avg, delivery_counts, lead_time_hours,
-    rework_counts, quality_counts, agent_counts,
+    rework_counts, quality_counts, agent_counts, segmented_lead_time,
+    pr_size_medians, review_metrics, ai_prs_with_tests, ai_time_saved_hours,
+    ai_tasks_by_tool,
 )
 from collector.db import upsert_counts
 
@@ -42,7 +45,11 @@ def build_counts(window: Window, prs: list[dict], all_prs: list[dict],
                  code_alerts: list[dict], secret_alerts: list[dict],
                  issues: list[dict], incidents: list[dict], field: str,
                  sprint_issue_counts: tuple[int, int] | None,
-                 pr_commits: dict[int, list] | None = None) -> dict:
+                 pr_commits: dict[int, list] | None = None,
+                 pr_file_details: dict[int, list[dict]] | None = None,
+                 pr_reviews: dict[int, list] | None = None,
+                 tool_field: str | None = None,
+                 time_saved_field: str | None = None) -> dict:
     """Pure assembly of all raw counts for one window. No IO."""
     counts = {
         **adoption_counts(prs, issues, field),
@@ -50,7 +57,13 @@ def build_counts(window: Window, prs: list[dict], all_prs: list[dict],
         **quality_counts(prs, code_alerts, secret_alerts),
         **agent_counts(prs, pr_commits or {}),
         **rework_counts(prs, all_prs, pr_files),
+        **segmented_lead_time(prs, deploy_times),
+        **pr_size_medians(prs, pr_file_details or {}),
+        **review_metrics(prs, pr_reviews or {}),
+        **ai_tasks_by_tool(issues, tool_field),
         "lead_time_h": lead_time_hours(prs, deploy_times),
+        "ai_prs_with_tests": ai_prs_with_tests(prs, pr_files),
+        "ai_time_saved_h": ai_time_saved_hours(issues, time_saved_field),
         "ai_users_weekly_avg": ai_users_weekly_avg(prs, issues, field, window.since, window.until),
     }
     if sprint_issue_counts is not None:
@@ -103,7 +116,8 @@ def main() -> None:
         DEPLOY_COUNT_STRATEGY, GH_PROD_ENV, window.since, window.until)
     code_alerts = gh.get_code_scanning_alerts(window.since, window.until)
     secret_alerts = gh.get_secret_scanning_alerts(window.since, window.until)
-    issues = jira.get_closed_issues(window.since, window.until)
+    extra_fields = tuple(f for f in (JIRA_AI_TOOL_FIELD, JIRA_AI_TIME_SAVED_FIELD) if f)
+    issues = jira.get_closed_issues(window.since, window.until, extra_fields=extra_fields)
     incidents = jira.get_incidents(window.since, window.until)
 
     sprint_issue_counts = None
@@ -116,7 +130,9 @@ def main() -> None:
     counts = build_counts(window, prs, all_prs, pr_files, deploy_times,
                           code_alerts, secret_alerts, issues, incidents,
                           JIRA_AI_USAGE_FIELD, sprint_issue_counts,
-                          pr_commits=pr_commits)
+                          pr_commits=pr_commits, pr_file_details=pr_file_details,
+                          pr_reviews=pr_reviews, tool_field=JIRA_AI_TOOL_FIELD,
+                          time_saved_field=JIRA_AI_TIME_SAVED_FIELD)
 
     written = upsert_counts(REPORTING_DB_URL, args.project, window.period_type,
                             window.period_key, window.since.date(),
