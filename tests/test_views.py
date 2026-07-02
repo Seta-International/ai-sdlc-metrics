@@ -32,3 +32,34 @@ def test_metrics_wide_null_for_missing_metrics(pg_url):
         """)
         total, ai, lead = cur.fetchone()
     assert float(total) == 5 and ai is None and lead is None
+
+
+def test_new_story_ratios(pg_url):
+    upsert_counts(pg_url, "P-Story", "sprint", "S1", date(2026, 6, 29), date(2026, 7, 13), {
+        "total_prs": 10, "ai_prs": 4, "agent_prs_total": 2, "total_tasks": 24,
+        "engineers_active": 6, "lead_time_ai_h": 12.0, "lead_time_nonai_h": 24.0,
+        "rework_prs": 4, "rework_from_ai_prs": 1,
+        "ai_prs_with_tests": 3, "ai_time_saved_h": 40.0,
+        "pr_size_ai": 120.0, "first_review_ai_h": 2.0, "review_rounds_ai": 0.5,
+    })
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("""
+            SELECT agent_pr_pct, throughput_per_engineer, lead_time_ai_delta_pct,
+                   ai_pr_test_pct, rework_from_ai_pct, ai_time_saved_h, pr_size_ai
+            FROM reporting.metrics_ratios
+            WHERE project = 'P-Story' AND period_key = 'S1'
+        """)
+        row = cur.fetchone()
+    assert [round(float(v), 2) for v in row] == \
+        [20.0, 4.0, 50.0, 75.0, 25.0, 40.0, 120.0]
+
+
+def test_new_ratios_null_safe(pg_url):
+    upsert_counts(pg_url, "P-Story2", "sprint", "S1", date(2026, 6, 29), date(2026, 7, 13),
+                  {"total_prs": 5})
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("""
+            SELECT throughput_per_engineer, lead_time_ai_delta_pct, ai_pr_test_pct
+            FROM reporting.metrics_ratios WHERE project = 'P-Story2'
+        """)
+        assert cur.fetchone() == (None, None, None)
