@@ -1,7 +1,7 @@
 from datetime import date
 from decimal import Decimal
 import pytest
-from exporter.build_template import DST
+from exporter.template import DST
 from exporter.workbook import (
     parse_sprint_range, sprint_in_range, months_overlapped, quarters_of,
     fill_workbook,
