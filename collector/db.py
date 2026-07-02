@@ -43,3 +43,27 @@ def upsert_manual_input(db_url: str, project: str, period_key: str, field: str,
                     entered_by = EXCLUDED.entered_by,
                     entered_at = now()
             """, (project, period_key, field, value, entered_by))
+
+
+def get_manual_input(db_url: str, project: str, period_key: str,
+                     field: str) -> tuple[str, str | None] | None:
+    with psycopg2.connect(db_url) as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT value, entered_by FROM reporting.manual_inputs
+                WHERE project = %s AND period_key = %s AND field = %s
+            """, (project, period_key, field))
+            row = cur.fetchone()
+    return (row[0], row[1]) if row else None
+
+
+def fetch_month_values(db_url: str, project: str, metric_keys: list[str],
+                       period_keys: list[str]) -> dict[tuple[str, str], float]:
+    with psycopg2.connect(db_url) as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT period_key, metric_key, value FROM reporting.metric_counts
+                WHERE project = %s AND period_type = 'month'
+                  AND metric_key = ANY(%s) AND period_key = ANY(%s)
+            """, (project, metric_keys, period_keys))
+            return {(pk, mk): float(v) for pk, mk, v in cur.fetchall()}
