@@ -164,3 +164,32 @@ class GitHubClient:
         else:
             raise ValueError(f"unknown deploy count strategy: {strategy!r}")
         return sorted(times)
+
+    def file_exists(self, path: str) -> bool:
+        r = self._s.get(f"{self._BASE}/repos/{self._repo}/contents/{path}")
+        return r.status_code == 200
+
+    def default_branch(self) -> str:
+        r = self._s.get(f"{self._BASE}/repos/{self._repo}")
+        r.raise_for_status()
+        return r.json()["default_branch"]
+
+    def branch_requires_review(self, branch: str) -> bool:
+        r = self._s.get(f"{self._BASE}/repos/{self._repo}/branches/{branch}/protection")
+        if r.status_code != 200:
+            return False
+        return bool(r.json().get("required_pull_request_reviews"))
+
+    def security_scanning_status(self) -> tuple[bool, bool]:
+        """(code_scanning_enabled, secret_scanning_enabled)."""
+        code = self._s.get(
+            f"{self._BASE}/repos/{self._repo}/code-scanning/alerts",
+            params={"per_page": 1},
+        ).status_code == 200
+        r = self._s.get(f"{self._BASE}/repos/{self._repo}")
+        r.raise_for_status()
+        secret = (
+            (r.json().get("security_and_analysis") or {})
+            .get("secret_scanning", {}).get("status") == "enabled"
+        )
+        return code, secret

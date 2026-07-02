@@ -197,3 +197,46 @@ def test_unknown_strategy_raises():
     import pytest
     with pytest.raises(ValueError):
         _client().get_production_deploy_times("carrier-pigeon", "uat", _SINCE, _UNTIL)
+
+
+# ---------------------------------------------------------------------------
+# Plan 2: governance auto-checks
+# ---------------------------------------------------------------------------
+@responses.activate
+def test_file_exists_true_and_false():
+    responses.get("https://api.github.com/repos/org/repo/contents/AGENTS.md", json={"name": "AGENTS.md"})
+    responses.get("https://api.github.com/repos/org/repo/contents/NOPE.md", status=404)
+    c = _client()
+    assert c.file_exists("AGENTS.md") is True
+    assert c.file_exists("NOPE.md") is False
+
+
+@responses.activate
+def test_default_branch():
+    responses.get("https://api.github.com/repos/org/repo", json={"default_branch": "main"})
+    assert _client().default_branch() == "main"
+
+
+@responses.activate
+def test_branch_requires_review():
+    responses.get(
+        "https://api.github.com/repos/org/repo/branches/main/protection",
+        json={"required_pull_request_reviews": {"required_approving_review_count": 1}},
+    )
+    assert _client().branch_requires_review("main") is True
+
+
+@responses.activate
+def test_branch_requires_review_unprotected():
+    responses.get("https://api.github.com/repos/org/repo/branches/main/protection", status=404)
+    assert _client().branch_requires_review("main") is False
+
+
+@responses.activate
+def test_security_scanning_status():
+    responses.get("https://api.github.com/repos/org/repo/code-scanning/alerts", json=[])
+    responses.get(
+        "https://api.github.com/repos/org/repo",
+        json={"security_and_analysis": {"secret_scanning": {"status": "enabled"}}},
+    )
+    assert _client().security_scanning_status() == (True, True)
