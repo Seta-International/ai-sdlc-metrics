@@ -19,16 +19,19 @@ HERE = Path(__file__).resolve().parent
 
 def plan_permissions(config: dict, folder_uids: dict[str, str],
                      user_ids: dict[str, int]) -> dict[str, list[dict]]:
-    """folder uid -> permission items (replaces existing). Pure function."""
+    """folder uid -> permission items (replaces existing). Pure function.
+    PMs see only their own project folder; BOD viewers see every folder
+    (the whole company is their scope)."""
+    bod = [{"userId": user_ids[v["login"]], "permission": 1}
+           for v in config["bod_viewers"]]
     plans: dict[str, list[dict]] = {}
     for proj in config["projects"]:
         uid = folder_uids.get(proj["name"])
         if uid:
-            plans[uid] = [{"userId": user_ids[proj["pm_login"]], "permission": 1}]
+            plans[uid] = [{"userId": user_ids[proj["pm_login"]], "permission": 1}] + bod
     bod_uid = folder_uids.get("BOD")
     if bod_uid:
-        plans[bod_uid] = [{"userId": user_ids[v["login"]], "permission": 1}
-                          for v in config["bod_viewers"]]
+        plans[bod_uid] = bod
     return plans
 
 
