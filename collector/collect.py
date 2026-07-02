@@ -29,16 +29,11 @@ def _merged_dt(pr: dict) -> datetime:
     return datetime.fromisoformat(pr["merged_at"].replace("Z", "+00:00"))
 
 
-def enrich_prs_with_review_count(gh: GitHubClient, prs: list[dict]) -> list[dict]:
-    """Adds review_count to ai-assisted PRs (needed for ai_prs_reviewed)."""
+def set_review_counts(prs: list[dict], pr_reviews: dict[int, list]) -> list[dict]:
+    """Adds review_count (approved reviews) to every PR from prefetched reviews."""
     for pr in prs:
-        if any(l["name"] == "ai-assisted" for l in pr.get("labels", [])):
-            r = gh._s.get(
-                f"https://api.github.com/repos/{gh._repo}/pulls/{pr['number']}/reviews",
-                params={"per_page": 100},
-            )
-            if r.ok:
-                pr["review_count"] = sum(1 for rev in r.json() if rev["state"] == "APPROVED")
+        pr["review_count"] = sum(1 for r in pr_reviews.get(pr["number"], [])
+                                 if r["state"] == "APPROVED")
     return prs
 
 
@@ -96,8 +91,10 @@ def main() -> None:
     # Fetch a 14-day lookback superset so rework can see pre-window merges.
     all_prs = gh.get_merged_prs(window.since - timedelta(days=14), window.until)
     prs = [p for p in all_prs if _merged_dt(p) >= window.since]
-    prs = enrich_prs_with_review_count(gh, prs)
-    pr_files = {p["number"]: gh.get_pr_files(p["number"]) for p in all_prs}
+    pr_reviews = {p["number"]: gh.get_pr_reviews(p["number"]) for p in prs}
+    prs = set_review_counts(prs, pr_reviews)
+    pr_file_details = {p["number"]: gh.get_pr_files(p["number"]) for p in all_prs}
+    pr_files = {n: [f["filename"] for f in d] for n, d in pr_file_details.items()}
     agent_numbers = [p["number"] for p in prs
                      if any(l["name"] == "ai-agent" for l in p.get("labels", []))]
     pr_commits = {n: gh.get_pr_commits(n) for n in agent_numbers}

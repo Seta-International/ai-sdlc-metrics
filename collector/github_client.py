@@ -113,10 +113,16 @@ class GitHubClient:
             if since <= datetime.fromisoformat(a["created_at"].replace("Z", "+00:00")) <= until
         ]
 
-    def get_pr_files(self, pr_number: int) -> list[str]:
-        """Changed file paths on a PR."""
+    def get_pr_files(self, pr_number: int) -> list[dict]:
+        """Changed files on a PR: filename plus line counts (for PR-size metrics)."""
         files = self._paginate(f"/repos/{self._repo}/pulls/{pr_number}/files", {})
-        return [f["filename"] for f in files]
+        return [{"filename": f["filename"],
+                 "additions": f.get("additions", 0),
+                 "deletions": f.get("deletions", 0)} for f in files]
+
+    def get_pr_reviews(self, pr_number: int) -> list[dict]:
+        """Submitted reviews on a PR (state, submitted_at)."""
+        return self._paginate(f"/repos/{self._repo}/pulls/{pr_number}/reviews", {})
 
     def get_production_deploy_times(self, strategy: str, environment: str,
                                     since: datetime, until: datetime) -> list[datetime]:

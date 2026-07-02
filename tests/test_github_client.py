@@ -116,12 +116,27 @@ def test_secret_scanning_disabled_returns_empty():
 
 
 @responses.activate
-def test_get_pr_files_returns_paths():
+def test_get_pr_files_returns_details():
     responses.get(
         "https://api.github.com/repos/org/repo/pulls/7/files",
-        json=[{"filename": "a.py"}, {"filename": "b/c.ts"}],
+        json=[{"filename": "a.py", "additions": 10, "deletions": 2, "changes": 12},
+              {"filename": "b/c.ts", "additions": 1, "deletions": 0, "changes": 1}],
     )
-    assert _client().get_pr_files(7) == ["a.py", "b/c.ts"]
+    assert _client().get_pr_files(7) == [
+        {"filename": "a.py", "additions": 10, "deletions": 2},
+        {"filename": "b/c.ts", "additions": 1, "deletions": 0},
+    ]
+
+
+@responses.activate
+def test_get_pr_reviews_returns_reviews():
+    responses.get(
+        "https://api.github.com/repos/org/repo/pulls/7/reviews",
+        json=[{"state": "APPROVED", "submitted_at": "2026-07-01T10:00:00Z"},
+              {"state": "CHANGES_REQUESTED", "submitted_at": "2026-07-01T09:00:00Z"}],
+    )
+    reviews = _client().get_pr_reviews(7)
+    assert [r["state"] for r in reviews] == ["APPROVED", "CHANGES_REQUESTED"]
 
 
 @responses.activate
