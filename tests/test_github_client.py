@@ -78,3 +78,105 @@ def test_get_deployments_filters_by_env():
     client = GitHubClient("fake-token", REPO)
     deploys = client.get_deployments("production", SINCE, UNTIL)
     assert len(deploys) == 1
+
+
+# ---------------------------------------------------------------------------
+# Raw-counts refactor: deploy strategies, secret alerts, PR files
+# ---------------------------------------------------------------------------
+from datetime import datetime, timezone
+import responses
+from collector.github_client import GitHubClient
+
+_SINCE = datetime(2026, 7, 1, tzinfo=timezone.utc)
+_UNTIL = datetime(2026, 7, 31, tzinfo=timezone.utc)
+
+
+def _client():
+    return GitHubClient("tok", "org/repo")
+
+
+@responses.activate
+def test_secret_scanning_alerts_filtered_by_window():
+    responses.get(
+        "https://api.github.com/repos/org/repo/secret-scanning/alerts",
+        json=[
+            {"created_at": "2026-07-10T00:00:00Z"},
+            {"created_at": "2026-06-01T00:00:00Z"},
+        ],
+    )
+    assert len(_client().get_secret_scanning_alerts(_SINCE, _UNTIL)) == 1
+
+
+@responses.activate
+def test_secret_scanning_disabled_returns_empty():
+    responses.get(
+        "https://api.github.com/repos/org/repo/secret-scanning/alerts", status=404
+    )
+    assert _client().get_secret_scanning_alerts(_SINCE, _UNTIL) == []
+
+
+@responses.activate
+def test_get_pr_files_returns_paths():
+    responses.get(
+        "https://api.github.com/repos/org/repo/pulls/7/files",
+        json=[{"filename": "a.py"}, {"filename": "b/c.ts"}],
+    )
+    assert _client().get_pr_files(7) == ["a.py", "b/c.ts"]
+
+
+@responses.activate
+def test_deploy_times_strategy_deployments():
+    responses.get(
+        "https://api.github.com/repos/org/repo/deployments",
+        json=[
+            {"created_at": "2026-07-05T10:00:00Z"},
+            {"created_at": "2026-07-02T10:00:00Z"},
+        ],
+    )
+    times = _client().get_production_deploy_times("deployments", "uat", _SINCE, _UNTIL)
+    assert [t.day for t in times] == [2, 5]  # sorted ascending
+
+
+@responses.activate
+def test_deploy_times_strategy_releases():
+    responses.get(
+        "https://api.github.com/repos/org/repo/releases",
+        json=[{"published_at": "2026-07-09T08:00:00Z"}, {"published_at": None}],
+    )
+    times = _client().get_production_deploy_times("releases", "uat", _SINCE, _UNTIL)
+    assert len(times) == 1
+
+
+@responses.activate
+def test_deploy_times_strategy_workflow_runs():
+    responses.get(
+        "https://api.github.com/repos/org/repo/actions/workflows/deploy.yml/runs",
+        json={"workflow_runs": [{"run_started_at": "2026-07-04T09:00:00Z"}]},
+    )
+    times = _client().get_production_deploy_times(
+        "workflow_runs:deploy.yml", "uat", _SINCE, _UNTIL
+    )
+    assert len(times) == 1
+
+
+@responses.activate
+def test_deploy_times_strategy_tags():
+    responses.get(
+        "https://api.github.com/repos/org/repo/tags",
+        json=[
+            {"name": "v1.2.0", "commit": {"url": "https://api.github.com/repos/org/repo/commits/aaa"}},
+            {"name": "beta-x", "commit": {"url": "https://api.github.com/repos/org/repo/commits/bbb"}},
+        ],
+    )
+    responses.get(
+        "https://api.github.com/repos/org/repo/commits/aaa",
+        json={"commit": {"committer": {"date": "2026-07-15T00:00:00Z"}}},
+    )
+    times = _client().get_production_deploy_times("tags:v*", "uat", _SINCE, _UNTIL)
+    assert len(times) == 1  # beta-x never fetched (doesn't match pattern)
+
+
+def test_unknown_strategy_raises():
+    import pytest
+    with pytest.raises(ValueError):
+        _client().get_production_deploy_times("carrier-pigeon", "uat", _SINCE, _UNTIL)

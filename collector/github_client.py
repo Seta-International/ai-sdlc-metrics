@@ -1,3 +1,4 @@
+import fnmatch
 from datetime import datetime
 from typing import Optional
 import requests
@@ -97,3 +98,64 @@ class GitHubClient:
         )
         r.raise_for_status()
         return r.json()
+
+    def get_secret_scanning_alerts(self, since: datetime, until: datetime) -> list[dict]:
+        """Secret scanning alerts created within [since, until]. [] if not enabled."""
+        r = self._s.get(
+            f"{self._BASE}/repos/{self._repo}/secret-scanning/alerts",
+            params={"per_page": 100, "state": "open"},
+        )
+        if r.status_code in (403, 404):
+            return []
+        r.raise_for_status()
+        return [
+            a for a in r.json()
+            if since <= datetime.fromisoformat(a["created_at"].replace("Z", "+00:00")) <= until
+        ]
+
+    def get_pr_files(self, pr_number: int) -> list[str]:
+        """Changed file paths on a PR."""
+        files = self._paginate(f"/repos/{self._repo}/pulls/{pr_number}/files", {})
+        return [f["filename"] for f in files]
+
+    def get_production_deploy_times(self, strategy: str, environment: str,
+                                    since: datetime, until: datetime) -> list[datetime]:
+        """Production deploy timestamps in [since, until], sorted ascending.
+        Strategy is per-project config so every CI/CD style can be counted:
+        'deployments' | 'releases' | 'tags:<pattern>' | 'workflow_runs:<file>'."""
+        def _dt(s: str) -> datetime:
+            return datetime.fromisoformat(s.replace("Z", "+00:00"))
+
+        if strategy == "deployments":
+            times = [_dt(d["created_at"])
+                     for d in self.get_deployments(environment, since, until)]
+        elif strategy == "releases":
+            times = [
+                _dt(r["published_at"])
+                for r in self._paginate(f"/repos/{self._repo}/releases", {})
+                if r.get("published_at") and since <= _dt(r["published_at"]) <= until
+            ]
+        elif strategy.startswith("workflow_runs:"):
+            workflow_file = strategy.split(":", 1)[1]
+            r = self._s.get(
+                f"{self._BASE}/repos/{self._repo}/actions/workflows/{workflow_file}/runs",
+                params={"status": "success", "per_page": 100,
+                        "created": f"{since:%Y-%m-%d}..{until:%Y-%m-%d}"},
+            )
+            r.raise_for_status()
+            times = [_dt(run["run_started_at"]) for run in r.json()["workflow_runs"]
+                     if since <= _dt(run["run_started_at"]) <= until]
+        elif strategy.startswith("tags:"):
+            pattern = strategy.split(":", 1)[1]
+            times = []
+            for tag in self._paginate(f"/repos/{self._repo}/tags", {}):
+                if not fnmatch.fnmatch(tag["name"], pattern):
+                    continue
+                r = self._s.get(tag["commit"]["url"])
+                r.raise_for_status()
+                when = _dt(r.json()["commit"]["committer"]["date"])
+                if since <= when <= until:
+                    times.append(when)
+        else:
+            raise ValueError(f"unknown deploy count strategy: {strategy!r}")
+        return sorted(times)
