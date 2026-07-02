@@ -1,33 +1,29 @@
 CREATE SCHEMA IF NOT EXISTS reporting;
 
-CREATE TABLE IF NOT EXISTS reporting.ai_sprint_metrics (
-  sprint_label  text        NOT NULL,
-  project       text        NOT NULL DEFAULT 'FUT',
-  collected_at  timestamptz NOT NULL DEFAULT now(),
-  -- Adoption
-  a2_pr_ai_ratio           numeric,
-  a3_agent_issue_ratio     numeric,
-  a4_ai_issue_ratio        numeric,
-  -- DORA
-  b1_lead_time_median_hours    numeric,
-  b2_deploy_frequency_per_week numeric,
-  b3_change_failure_rate       numeric,
-  b4_mttr_hours                numeric,
-  -- Quality
-  c1_rework_ratio          numeric,
-  c2_ai_pr_review_ratio    numeric,
-  c4_security_alerts       integer,
-  -- Agent maturity
-  d1_agent_completion_ratio    numeric,
-  d2_human_intervention_ratio  numeric,
-  d3_autonomy_ratio            numeric,
-  d4_agent_cycle_time_hours    numeric,
-  -- Manual inputs (pushed via workflow_dispatch)
-  a1_adoption_rate         numeric,
-  b5_cost_improvement_pct  numeric,
-  c3_ai_code_coverage_pct  numeric,
-  PRIMARY KEY (sprint_label, project)
+-- Clean refactor: the ratio-per-sprint table is replaced by raw counts.
+DROP TABLE IF EXISTS reporting.ai_sprint_metrics;
+
+CREATE TABLE IF NOT EXISTS reporting.metric_counts (
+  project      text        NOT NULL,
+  period_type  text        NOT NULL CHECK (period_type IN ('sprint', 'month')),
+  period_key   text        NOT NULL,  -- 'S6' or '2026-06'
+  period_start date        NOT NULL,
+  period_end   date        NOT NULL,
+  metric_key   text        NOT NULL,  -- e.g. 'ai_prs', 'total_prs', 'lead_time_h'
+  value        numeric     NOT NULL,
+  collected_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (project, period_type, period_key, metric_key)
 );
 
-CREATE INDEX IF NOT EXISTS idx_ai_sprint_metrics_project
-  ON reporting.ai_sprint_metrics (project, sprint_label);
+CREATE INDEX IF NOT EXISTS idx_metric_counts_lookup
+  ON reporting.metric_counts (project, period_type, period_start);
+
+CREATE TABLE IF NOT EXISTS reporting.manual_inputs (
+  project     text        NOT NULL,
+  period_key  text        NOT NULL,  -- '2026-06' or '2026-Q2'
+  field       text        NOT NULL,  -- 'total_engineers', 'cost_baseline', 'g2_ai_policy', ...
+  value       text        NOT NULL,  -- numbers, Yes/No, and free text stored uniformly
+  entered_by  text,
+  entered_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (project, period_key, field)
+);

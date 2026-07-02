@@ -1,39 +1,47 @@
+from datetime import date
 import psycopg2
 import pytest
-from collector.db import upsert_metrics
+from collector.db import upsert_counts, upsert_manual_input
 
-def test_upsert_creates_row(pg_url):
-    upsert_metrics(pg_url, "S1", "TEST", {"a2": 0.75, "a4": 0.5, "c4": 3})
-    conn = psycopg2.connect(pg_url)
-    cur = conn.cursor()
-    cur.execute("SELECT a2_pr_ai_ratio, a4_ai_issue_ratio, c4_security_alerts "
-                "FROM reporting.ai_sprint_metrics WHERE sprint_label='S1' AND project='TEST'")
-    row = cur.fetchone()
-    conn.close()
-    assert row == (0.75, 0.5, 3)
 
-def test_upsert_updates_existing_row(pg_url):
-    upsert_metrics(pg_url, "S1", "TEST", {"a2": 0.8, "a4": 0.6})
-    conn = psycopg2.connect(pg_url)
-    cur = conn.cursor()
-    cur.execute("SELECT a2_pr_ai_ratio, a4_ai_issue_ratio "
-                "FROM reporting.ai_sprint_metrics WHERE sprint_label='S1' AND project='TEST'")
-    row = cur.fetchone()
-    conn.close()
-    # Postgres numeric → Decimal; cast to float for comparison
-    assert float(row[0]) == 0.8
+def _fetch_counts(pg_url, project):
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT metric_key, value FROM reporting.metric_counts WHERE project = %s",
+            (project,),
+        )
+        return dict(cur.fetchall())
 
-def test_upsert_preserves_non_null_on_null_input(pg_url):
-    # First write with a value
-    upsert_metrics(pg_url, "S2", "TEST", {"a2": 0.9})
-    # Second write without a2 (None) — should preserve 0.9
-    upsert_metrics(pg_url, "S2", "TEST", {"a2": None, "a4": 0.4})
-    conn = psycopg2.connect(pg_url)
-    cur = conn.cursor()
-    cur.execute("SELECT a2_pr_ai_ratio, a4_ai_issue_ratio "
-                "FROM reporting.ai_sprint_metrics WHERE sprint_label='S2' AND project='TEST'")
-    row = cur.fetchone()
-    conn.close()
-    # Postgres numeric → Decimal; cast to float for comparison
-    assert float(row[0]) == 0.9   # preserved
-    assert float(row[1]) == 0.4   # updated
+
+def test_upsert_counts_inserts_and_skips_none(pg_url):
+    n = upsert_counts(
+        pg_url, "Future", "sprint", "S1", date(2026, 6, 29), date(2026, 7, 13),
+        {"ai_prs": 3, "total_prs": 10, "lead_time_h": None},
+    )
+    assert n == 2
+    rows = _fetch_counts(pg_url, "Future")
+    assert rows == {"ai_prs": 3, "total_prs": 10}
+
+
+def test_upsert_counts_is_idempotent_and_updates(pg_url):
+    args = (pg_url, "P-Idem", "month", "2026-06", date(2026, 6, 1), date(2026, 6, 30))
+    upsert_counts(*args, {"deploys": 4})
+    upsert_counts(*args, {"deploys": 7})
+    assert _fetch_counts(pg_url, "P-Idem") == {"deploys": 7}
+
+
+def test_upsert_counts_empty_returns_zero(pg_url):
+    assert upsert_counts(
+        pg_url, "P-Empty", "sprint", "S1", date(2026, 1, 1), date(2026, 1, 14), {}
+    ) == 0
+
+
+def test_upsert_manual_input_roundtrip_and_overwrite(pg_url):
+    upsert_manual_input(pg_url, "Future", "2026-06", "total_engineers", "18", "pm@seta")
+    upsert_manual_input(pg_url, "Future", "2026-06", "total_engineers", "19", "pm@seta")
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT value, entered_by FROM reporting.manual_inputs "
+            "WHERE project='Future' AND period_key='2026-06' AND field='total_engineers'"
+        )
+        assert cur.fetchone() == ("19", "pm@seta")
