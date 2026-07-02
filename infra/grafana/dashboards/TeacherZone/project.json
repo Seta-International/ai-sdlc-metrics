@@ -1,0 +1,862 @@
+{
+  "uid": "ai-sdlc-teacherzone",
+  "title": "AI SDLC \u2014 TeacherZone",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "timezone": "utc",
+  "time": {
+    "from": "now-180d",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "sprint",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "reporting-postgres"
+        },
+        "refresh": 2,
+        "sort": 0,
+        "query": "SELECT period_key FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' ORDER BY period_start DESC",
+        "current": {},
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Selected Sprint \u2014 Adoption",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "AI PR %",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT ai_pr_pct FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "stat",
+      "title": "AI Task %",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT ai_task_pct FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "stat",
+      "title": "Agent Task %",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT agent_task_pct FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "stat",
+      "title": "AI Engineers / Week",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT ai_users_weekly_avg FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "row",
+      "title": "Selected Sprint \u2014 DORA",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Lead Time (h)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT lead_time_h FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "stat",
+      "title": "Deploys / Week",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 6,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT deploys_per_week FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "stat",
+      "title": "Change Failure Rate",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 6,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT cfr_pct FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "stat",
+      "title": "MTTR (h)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 6,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT mttr_h FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "row",
+      "title": "Selected Sprint \u2014 Quality & Security",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Rework %",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT rework_pct FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "stat",
+      "title": "AI PR Review Coverage",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 11,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT ai_pr_review_pct FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "stat",
+      "title": "Security Alerts",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 11,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT security_alerts FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "stat",
+      "title": "Sprint Predictability",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 11,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT predictability_pct FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "row",
+      "title": "Selected Sprint \u2014 Agent Maturity",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "gauge",
+      "title": "Agent Completion %",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT agent_completion_pct FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "gauge",
+      "title": "Human Intervention %",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 16,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT human_intervention_pct FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "gauge",
+      "title": "Autonomy %",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT autonomy_pct FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "stat",
+      "title": "Agent Cycle Time (h)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 16,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT agent_cycle_h FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "row",
+      "title": "Sprint Trends",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "AI PR % by Sprint",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, ai_pr_pct AS \"AI PR %\" FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "timeseries",
+      "title": "Autonomy % by Sprint",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 21,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, autonomy_pct AS \"Autonomy %\" FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "timeseries",
+      "title": "Lead Time by Sprint",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 21,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, lead_time_h AS \"Lead time h\" FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "timeseries",
+      "title": "Deploys/Week by Sprint",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 21,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, deploys_per_week AS \"Deploys/wk\" FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "row",
+      "title": "Manual Monthly KPIs (latest)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Team Size",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT value::numeric FROM reporting.manual_inputs WHERE project = 'TeacherZone' AND field = 'total_engineers' ORDER BY period_key DESC LIMIT 1",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "stat",
+      "title": "AI Code Coverage %",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 26,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT 100 * value::numeric FROM reporting.manual_inputs WHERE project = 'TeacherZone' AND field = 'coverage_ai' ORDER BY period_key DESC LIMIT 1",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "stat",
+      "title": "Cost Improvement %",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 26,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT 100 * (b.v - a.v) / NULLIF(b.v, 0) FROM (SELECT period_key, value::numeric v FROM reporting.manual_inputs WHERE project = 'TeacherZone' AND field = 'cost_baseline') b JOIN (SELECT period_key, value::numeric v FROM reporting.manual_inputs WHERE project = 'TeacherZone' AND field = 'cost_actual') a USING (period_key) ORDER BY period_key DESC LIMIT 1",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {}
+    }
+  ]
+}
