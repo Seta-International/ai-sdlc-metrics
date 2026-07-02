@@ -3,7 +3,7 @@ import pytest
 from collector.metrics import (
     adoption_counts, ai_users_weekly_avg, delivery_counts, lead_time_hours,
     rework_counts, quality_counts, agent_counts, segmented_lead_time,
-    pr_size_medians, review_metrics,
+    pr_size_medians, review_metrics, ai_prs_with_tests,
 )
 
 FIELD = "customfield_10200"
@@ -141,6 +141,21 @@ def test_review_metrics_none_without_reviews_or_segment():
     m = review_metrics([pr(["ai-assisted"], number=1)], {})
     assert m["first_review_ai_h"] is None and m["first_review_nonai_h"] is None
     assert m["review_rounds_ai"] == 0.0 and m["review_rounds_nonai"] is None
+
+
+# ai_prs_with_tests
+def test_ai_prs_with_tests_heuristic():
+    prs = [pr(["ai-assisted"], number=1), pr(["ai-agent"], number=2),
+           pr(["ai-assisted"], number=3), pr(number=4)]
+    files = {1: ["src/app.py", "tests/test_app.py"],       # tests/ dir
+             2: ["src/Button.tsx", "src/Button.spec.tsx"], # *.spec.*
+             3: ["src/app.py"],                             # no tests
+             4: ["tests/test_x.py"]}                        # non-AI: ignored
+    assert ai_prs_with_tests(prs, files) == 2
+
+
+def test_ai_prs_with_tests_none_without_ai_prs():
+    assert ai_prs_with_tests([pr()], {1: ["tests/test_app.py"]}) is None
 
 
 # rework_counts

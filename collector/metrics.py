@@ -1,3 +1,4 @@
+import fnmatch
 import statistics
 from datetime import datetime, timedelta
 from typing import Optional
@@ -140,6 +141,26 @@ def review_metrics(prs: list[dict], pr_reviews: dict[int, list]) -> dict:
             "first_review_nonai_h": _first_review_h(nonai),
             "review_rounds_ai": _rounds(ai),
             "review_rounds_nonai": _rounds(nonai)}
+
+
+_TEST_DIRS = {"tests", "test", "__tests__", "spec", "specs"}
+_TEST_FILE_PATTERNS = ("test_*.py", "*_test.py", "*_test.go", "*.test.*", "*.spec.*")
+
+
+def _is_test_file(path: str) -> bool:
+    parts = path.lower().split("/")
+    if any(d in _TEST_DIRS for d in parts[:-1]):
+        return True
+    return any(fnmatch.fnmatch(parts[-1], pat) for pat in _TEST_FILE_PATTERNS)
+
+
+def ai_prs_with_tests(prs: list[dict], pr_files: dict[int, list[str]]) -> Optional[int]:
+    """AI-labeled PRs whose diff touches at least one test file."""
+    ai = [p for p in prs if _is_ai_pr(p)]
+    if not ai:
+        return None
+    return sum(1 for p in ai
+               if any(_is_test_file(f) for f in pr_files.get(p["number"], [])))
 
 
 _FIX_PREFIXES = ("revert", "fix", "bugfix", "hotfix")
