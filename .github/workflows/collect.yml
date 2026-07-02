@@ -19,6 +19,8 @@ on:
       jira-token:          {required: true}
       jira-ai-usage-field: {required: true}
       reporting-db-url:    {required: true}
+      jira-ai-tool-field:       {required: false, description: 'customfield id of the AI Tool field — enables ai_tasks_tool_* metrics'}
+      jira-ai-time-saved-field: {required: false, description: 'customfield id of the AI Time Saved field — enables ai_time_saved_h'}
 
 jobs:
   collect:
@@ -48,6 +50,8 @@ jobs:
           JIRA_EMAIL: ${{ secrets.jira-email }}
           JIRA_TOKEN: ${{ secrets.jira-token }}
           JIRA_AI_USAGE_FIELD: ${{ secrets.jira-ai-usage-field }}
+          JIRA_AI_TOOL_FIELD: ${{ secrets.jira-ai-tool-field }}
+          JIRA_AI_TIME_SAVED_FIELD: ${{ secrets.jira-ai-time-saved-field }}
           REPORTING_DB_URL: ${{ secrets.reporting-db-url }}
           GH_REPO: ${{ inputs.gh-repo }}
           JIRA_BASE: ${{ inputs.jira-base }}

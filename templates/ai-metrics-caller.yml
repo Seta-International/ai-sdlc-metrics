@@ -3,6 +3,8 @@ name: AI SDLC — Metrics Collection (<PROJECT_NAME>)
 # Thin caller: all logic lives in Seta-International/ai-sdlc-metrics.
 # Onboarding: fill the <PLACEHOLDERS>, add the three repo secrets
 # (JIRA_EMAIL, JIRA_TOKEN + JIRA_AI_USAGE_FIELD, REPORTING_DB_URL), done.
+# Optional: JIRA_AI_TOOL_FIELD and JIRA_AI_TIME_SAVED_FIELD (customfield ids)
+# turn on the ROI (time saved) and tool-mix metrics; leave unset to skip them.
 
 on:
   schedule:
@@ -49,6 +51,8 @@ jobs:
       jira-token: ${{ secrets.JIRA_TOKEN }}
       jira-ai-usage-field: ${{ secrets.JIRA_AI_USAGE_FIELD }}
       reporting-db-url: ${{ secrets.REPORTING_DB_URL }}
+      jira-ai-tool-field: ${{ secrets.JIRA_AI_TOOL_FIELD }}
+      jira-ai-time-saved-field: ${{ secrets.JIRA_AI_TIME_SAVED_FIELD }}
 
   collect-month:
     if: github.event_name == 'schedule' && github.event.schedule == '30 0 1 * *'
@@ -68,6 +72,8 @@ jobs:
       jira-token: ${{ secrets.JIRA_TOKEN }}
       jira-ai-usage-field: ${{ secrets.JIRA_AI_USAGE_FIELD }}
       reporting-db-url: ${{ secrets.REPORTING_DB_URL }}
+      jira-ai-tool-field: ${{ secrets.JIRA_AI_TOOL_FIELD }}
+      jira-ai-time-saved-field: ${{ secrets.JIRA_AI_TIME_SAVED_FIELD }}
 
   quarterly-check:
     if: github.event_name == 'schedule' && github.event.schedule == '45 1 1 1,4,7,10 *'
