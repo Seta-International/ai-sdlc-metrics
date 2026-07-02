@@ -138,6 +138,23 @@ def test_deploy_times_strategy_deployments():
 
 
 @responses.activate
+def test_deploy_times_deployments_unions_multiple_environments():
+    from responses import matchers
+    responses.get(
+        "https://api.github.com/repos/org/repo/deployments",
+        json=[{"created_at": "2026-07-03T10:00:00Z"}],
+        match=[matchers.query_param_matcher({"environment": "dev"}, strict_match=False)],
+    )
+    responses.get(
+        "https://api.github.com/repos/org/repo/deployments",
+        json=[{"created_at": "2026-07-06T10:00:00Z"}],
+        match=[matchers.query_param_matcher({"environment": "uat"}, strict_match=False)],
+    )
+    times = _client().get_production_deploy_times("deployments", "dev,uat", _SINCE, _UNTIL)
+    assert [t.day for t in times] == [3, 6]  # both envs queried, unioned, sorted
+
+
+@responses.activate
 def test_deploy_times_strategy_releases():
     responses.get(
         "https://api.github.com/repos/org/repo/releases",

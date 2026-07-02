@@ -12,6 +12,8 @@ SPRINT_LENGTH_DAYS: int = int(os.getenv("SPRINT_LENGTH_DAYS", "14"))
 
 GITHUB_TOKEN: str = os.environ["METRICS_GH_TOKEN"]
 GITHUB_REPO: str = os.getenv("GH_REPO", "seta-international/agent-platform")
+# Deploy environment(s) to count. Comma-separated to union several GitHub
+# Environments (e.g. 'dev,uat') under the 'deployments' strategy.
 GH_PROD_ENV: str = os.getenv("GH_PROD_ENV", "production")
 # How production deploys are counted for this project — the GitHub Deployments
 # API is the default contract; other strategies cover CI/CD that can't create

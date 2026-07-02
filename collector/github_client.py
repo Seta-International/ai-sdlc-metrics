@@ -122,13 +122,18 @@ class GitHubClient:
                                     since: datetime, until: datetime) -> list[datetime]:
         """Production deploy timestamps in [since, until], sorted ascending.
         Strategy is per-project config so every CI/CD style can be counted:
-        'deployments' | 'releases' | 'tags:<pattern>' | 'workflow_runs:<file>'."""
+        'deployments' | 'releases' | 'tags:<pattern>' | 'workflow_runs:<file>'.
+        For 'deployments', `environment` may be a comma-separated list (e.g.
+        'dev,uat') to union deploys across several GitHub Environments."""
         def _dt(s: str) -> datetime:
             return datetime.fromisoformat(s.replace("Z", "+00:00"))
 
         if strategy == "deployments":
-            times = [_dt(d["created_at"])
-                     for d in self.get_deployments(environment, since, until)]
+            times = [
+                _dt(d["created_at"])
+                for env in (e.strip() for e in environment.split(",") if e.strip())
+                for d in self.get_deployments(env, since, until)
+            ]
         elif strategy == "releases":
             times = [
                 _dt(r["published_at"])
