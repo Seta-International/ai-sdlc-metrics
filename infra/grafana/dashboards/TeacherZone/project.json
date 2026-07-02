@@ -6,8 +6,8 @@
   "editable": true,
   "timezone": "Asia/Ho_Chi_Minh",
   "time": {
-    "from": "now-180d",
-    "to": "now+90d"
+    "from": "now-90d",
+    "to": "now+7d"
   },
   "templating": {
     "list": [
