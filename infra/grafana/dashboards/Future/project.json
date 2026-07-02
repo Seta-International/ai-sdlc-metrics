@@ -45,11 +45,361 @@
   "panels": [
     {
       "type": "row",
-      "title": "Selected Sprint \u2014 Adoption",
+      "title": "Sprint Throughput ($sprint)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
         "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Tasks Completed",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, total_tasks AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "Jira issues moved to Done this sprint."
+    },
+    {
+      "type": "stat",
+      "title": "PRs Merged",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, total_prs AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Deploys",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, deploys AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Incidents",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, incidents AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#0ca30c",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 1
+              },
+              {
+                "color": "#d03b3b",
+                "value": 3
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "AI Engineers / Week",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, ai_users_weekly_avg AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "Distinct people using AI per week (PR + Jira proxy)."
+    },
+    {
+      "type": "stat",
+      "title": "Agent Tasks",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, agent_tasks AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "Jira issues done with AI usage = Agent."
+    },
+    {
+      "type": "row",
+      "title": "AI Adoption",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 5,
         "w": 24,
         "h": 1
       },
@@ -64,7 +414,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 1,
+        "y": 6,
         "w": 6,
         "h": 4
       },
@@ -74,19 +424,52 @@
             "type": "postgres",
             "uid": "reporting-postgres"
           },
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT ai_pr_pct FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "rawSql": "SELECT period_start AS time, ai_pr_pct AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percent"
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#ec835a",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 30
+              },
+              {
+                "color": "#0ca30c",
+                "value": 50
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
         },
         "overrides": []
       },
-      "options": {}
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "Merged PRs labeled ai-assisted. Framework: \u226530% = L3, >50% = L4."
     },
     {
       "type": "stat",
@@ -97,7 +480,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 1,
+        "y": 6,
         "w": 6,
         "h": 4
       },
@@ -107,19 +490,52 @@
             "type": "postgres",
             "uid": "reporting-postgres"
           },
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT ai_task_pct FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "rawSql": "SELECT period_start AS time, ai_task_pct AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percent"
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#ec835a",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 30
+              },
+              {
+                "color": "#0ca30c",
+                "value": 50
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
         },
         "overrides": []
       },
-      "options": {}
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "Done Jira issues with any AI usage."
     },
     {
       "type": "stat",
@@ -130,84 +546,6 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 1,
-        "w": 6,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT agent_task_pct FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint'",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "options": {}
-    },
-    {
-      "type": "stat",
-      "title": "AI Engineers / Week",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 18,
-        "y": 1,
-        "w": 6,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT ai_users_weekly_avg FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint'",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "options": {}
-    },
-    {
-      "type": "row",
-      "title": "Selected Sprint \u2014 DORA",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 5,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "type": "stat",
-      "title": "Lead Time (h)",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 0,
         "y": 6,
         "w": 6,
         "h": 4
@@ -218,89 +556,45 @@
             "type": "postgres",
             "uid": "reporting-postgres"
           },
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT lead_time_h FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "rawSql": "SELECT period_start AS time, agent_task_pct AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "h"
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
-      "options": {}
-    },
-    {
-      "type": "stat",
-      "title": "Deploys / Week",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 6,
-        "y": 6,
-        "w": 6,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT deploys_per_week FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint'",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none"
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "overrides": []
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
       },
-      "options": {}
+      "description": "Done Jira issues delegated to autonomous agents."
     },
     {
       "type": "stat",
-      "title": "Change Failure Rate",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 6,
-        "w": 6,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT cfr_pct FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint'",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "options": {}
-    },
-    {
-      "type": "stat",
-      "title": "MTTR (h)",
+      "title": "Engineer Usage Rate (monthly)",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -317,23 +611,56 @@
             "type": "postgres",
             "uid": "reporting-postgres"
           },
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT mttr_h FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "rawSql": "SELECT w.period_start AS time, 100 * w.ai_users_weekly_avg / NULLIF(e.value::numeric, 0) AS value FROM reporting.metrics_wide w JOIN reporting.manual_inputs e ON e.project = w.project AND e.period_key = w.period_key AND e.field = 'total_engineers' WHERE w.project = 'Future' AND w.period_type = 'month' ORDER BY w.period_start",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "h"
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#ec835a",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 50
+              },
+              {
+                "color": "#0ca30c",
+                "value": 80
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
         },
         "overrides": []
       },
-      "options": {}
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "AI engineers \u00f7 team size (manual input). Target \u226580%."
     },
     {
       "type": "row",
-      "title": "Selected Sprint \u2014 Quality & Security",
+      "title": "Delivery \u2014 DORA",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -345,7 +672,7 @@
     },
     {
       "type": "stat",
-      "title": "Rework %",
+      "title": "Lead Time",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -362,23 +689,56 @@
             "type": "postgres",
             "uid": "reporting-postgres"
           },
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT rework_pct FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "rawSql": "SELECT period_start AS time, lead_time_h AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percent"
+          "unit": "h",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#0ca30c",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 48
+              },
+              {
+                "color": "#d03b3b",
+                "value": 120
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
         },
         "overrides": []
       },
-      "options": {}
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "Median hours from PR merge to the next production deploy."
     },
     {
       "type": "stat",
-      "title": "AI PR Review Coverage",
+      "title": "Deploys / Week",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -395,23 +755,51 @@
             "type": "postgres",
             "uid": "reporting-postgres"
           },
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT ai_pr_review_pct FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "rawSql": "SELECT period_start AS time, deploys_per_week AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percent"
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#fab219",
+                "value": null
+              },
+              {
+                "color": "#0ca30c",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
         },
         "overrides": []
       },
-      "options": {}
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      }
     },
     {
       "type": "stat",
-      "title": "Security Alerts",
+      "title": "Change Failure Rate",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -428,23 +816,56 @@
             "type": "postgres",
             "uid": "reporting-postgres"
           },
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT security_alerts FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "rawSql": "SELECT period_start AS time, cfr_pct AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "none"
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#0ca30c",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 15
+              },
+              {
+                "color": "#d03b3b",
+                "value": 30
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
         },
         "overrides": []
       },
-      "options": {}
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "Incidents per deploy. Target \u226415%."
     },
     {
       "type": "stat",
-      "title": "Sprint Predictability",
+      "title": "MTTR",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -461,23 +882,56 @@
             "type": "postgres",
             "uid": "reporting-postgres"
           },
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT predictability_pct FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "rawSql": "SELECT period_start AS time, mttr_h AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percent"
+          "unit": "h",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#0ca30c",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 8
+              },
+              {
+                "color": "#d03b3b",
+                "value": 24
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
         },
         "overrides": []
       },
-      "options": {}
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "Mean hours from incident created to resolved."
     },
     {
       "type": "row",
-      "title": "Selected Sprint \u2014 Agent Maturity",
+      "title": "Quality Gate",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -488,8 +942,8 @@
       "panels": []
     },
     {
-      "type": "gauge",
-      "title": "Agent Completion %",
+      "type": "stat",
+      "title": "AI PR Review Coverage",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -506,23 +960,56 @@
             "type": "postgres",
             "uid": "reporting-postgres"
           },
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT agent_completion_pct FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "rawSql": "SELECT period_start AS time, ai_pr_review_pct AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percent"
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#d03b3b",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 80
+              },
+              {
+                "color": "#0ca30c",
+                "value": 99.5
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
         },
         "overrides": []
       },
-      "options": {}
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "AI PRs with \u22651 human approval. Gate: 100%."
     },
     {
-      "type": "gauge",
-      "title": "Human Intervention %",
+      "type": "stat",
+      "title": "Rework %",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -539,23 +1026,56 @@
             "type": "postgres",
             "uid": "reporting-postgres"
           },
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT human_intervention_pct FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "rawSql": "SELECT period_start AS time, rework_pct AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percent"
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#0ca30c",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 10
+              },
+              {
+                "color": "#d03b3b",
+                "value": 20
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
         },
         "overrides": []
       },
-      "options": {}
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "PRs reverted or re-touching files merged in the prior 14 days."
     },
     {
-      "type": "gauge",
-      "title": "Autonomy %",
+      "type": "stat",
+      "title": "Security Alerts",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -572,23 +1092,56 @@
             "type": "postgres",
             "uid": "reporting-postgres"
           },
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT autonomy_pct FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "rawSql": "SELECT period_start AS time, security_alerts AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percent"
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#0ca30c",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 1
+              },
+              {
+                "color": "#d03b3b",
+                "value": 4
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
         },
         "overrides": []
       },
-      "options": {}
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "Code-scanning + secret-scanning alerts opened this sprint."
     },
     {
       "type": "stat",
-      "title": "Agent Cycle Time (h)",
+      "title": "Sprint Predictability",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -605,23 +1158,56 @@
             "type": "postgres",
             "uid": "reporting-postgres"
           },
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT agent_cycle_h FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint'",
+          "rawSql": "SELECT period_start AS time, predictability_pct AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "h"
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#ec835a",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 60
+              },
+              {
+                "color": "#0ca30c",
+                "value": 80
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
         },
         "overrides": []
       },
-      "options": {}
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "Completed \u00f7 committed issues in the Jira sprint. Needs JIRA_BOARD_ID."
     },
     {
       "type": "row",
-      "title": "Sprint Trends",
+      "title": "Agent Maturity",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -633,7 +1219,7 @@
     },
     {
       "type": "timeseries",
-      "title": "AI PR % by Sprint",
+      "title": "Agent PRs by Sprint",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -641,8 +1227,8 @@
       "gridPos": {
         "x": 0,
         "y": 21,
-        "w": 6,
-        "h": 4
+        "w": 8,
+        "h": 8
       },
       "targets": [
         {
@@ -650,32 +1236,90 @@
             "type": "postgres",
             "uid": "reporting-postgres"
           },
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, ai_pr_pct AS \"AI PR %\" FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, agent_prs_autonomous AS \"Autonomous\", agent_prs_human_fixed AS \"Human-fixed\" FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' ORDER BY period_start",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percent"
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "stacking": {
+              "mode": "normal"
+            },
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Autonomous"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Human-fixed"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#898781"
+                }
+              }
+            ]
+          }
+        ]
       },
-      "options": {}
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "Merged agent PRs: shipped untouched (blue) vs needing human commits (gray)."
     },
     {
-      "type": "timeseries",
-      "title": "Autonomy % by Sprint",
+      "type": "stat",
+      "title": "Autonomy %",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 6,
+        "x": 8,
         "y": 21,
-        "w": 6,
-        "h": 4
+        "w": 4,
+        "h": 8
       },
       "targets": [
         {
@@ -683,19 +1327,326 @@
             "type": "postgres",
             "uid": "reporting-postgres"
           },
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, autonomy_pct AS \"Autonomy %\" FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, autonomy_pct AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percent"
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              },
+              {
+                "color": "#86b6ef",
+                "value": 30
+              },
+              {
+                "color": "#3987e5",
+                "value": 60
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
         },
         "overrides": []
       },
-      "options": {}
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "Agent PRs with zero human commits. L4 \u226530%, L5 \u226560%."
+    },
+    {
+      "type": "stat",
+      "title": "Completion %",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 21,
+        "w": 4,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, agent_completion_pct AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "Agent PRs merged \u00f7 agent PRs opened."
+    },
+    {
+      "type": "stat",
+      "title": "Intervention %",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 21,
+        "w": 4,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, human_intervention_pct AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "Agent PRs needing human commits. Lower is better."
+    },
+    {
+      "type": "stat",
+      "title": "Agent Cycle Time",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 21,
+        "w": 4,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, agent_cycle_h AS value FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "Median hours from agent PR opened to merged."
+    },
+    {
+      "type": "row",
+      "title": "Trends",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "AI Share of Work",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, ai_pr_pct AS \"AI PR %\", ai_task_pct AS \"AI Task %\", agent_task_pct AS \"Agent Task %\" FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "AI PR %"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "AI Task %"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Agent Task %"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c98500"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
     },
     {
       "type": "timeseries",
@@ -705,10 +1656,10 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 12,
-        "y": 21,
-        "w": 6,
-        "h": 4
+        "x": 8,
+        "y": 30,
+        "w": 8,
+        "h": 8
       },
       "targets": [
         {
@@ -716,32 +1667,54 @@
             "type": "postgres",
             "uid": "reporting-postgres"
           },
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, lead_time_h AS \"Lead time h\" FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, lead_time_h AS \"Lead time\" FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' ORDER BY period_start",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "h"
+          "unit": "h",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          }
         },
         "overrides": []
       },
-      "options": {}
+      "options": {
+        "legend": {
+          "displayMode": "hidden",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
     },
     {
       "type": "timeseries",
-      "title": "Deploys/Week by Sprint",
+      "title": "Deploys per Week by Sprint",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 18,
-        "y": 21,
-        "w": 6,
-        "h": 4
+        "x": 16,
+        "y": 30,
+        "w": 8,
+        "h": 8
       },
       "targets": [
         {
@@ -749,7 +1722,7 @@
             "type": "postgres",
             "uid": "reporting-postgres"
           },
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
           "rawSql": "SELECT period_start AS time, deploys_per_week AS \"Deploys/wk\" FROM reporting.metrics_ratios WHERE project = 'Future' AND period_type = 'sprint' ORDER BY period_start",
           "refId": "A"
@@ -757,36 +1730,63 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "none"
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#199e70"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
         },
         "overrides": []
       },
-      "options": {}
+      "options": {
+        "legend": {
+          "displayMode": "hidden",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
     },
     {
       "type": "row",
-      "title": "Manual Monthly KPIs (latest)",
+      "title": "Monthly Record",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 25,
+        "y": 38,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "type": "stat",
-      "title": "Team Size",
+      "type": "table",
+      "title": "Monthly Record \u2014 auto + manual inputs",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
       },
       "gridPos": {
         "x": 0,
-        "y": 26,
-        "w": 6,
-        "h": 4
+        "y": 39,
+        "w": 24,
+        "h": 8
       },
       "targets": [
         {
@@ -796,83 +1796,65 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT value::numeric FROM reporting.manual_inputs WHERE project = 'Future' AND field = 'total_engineers' ORDER BY period_key DESC LIMIT 1",
+          "rawSql": "SELECT w.period_key AS \"Month\", round(w.ai_users_weekly_avg, 1) AS \"AI Engineers/wk\", e.value::numeric AS \"Team Size\", round(100 * w.ai_users_weekly_avg / NULLIF(e.value::numeric, 0), 0) AS \"Usage %\", round(100.0 * w.ai_prs / NULLIF(w.total_prs, 0), 1) AS \"AI PR %\", w.total_tasks AS \"Tasks\", w.deploys AS \"Deploys\", round(100 * c.value::numeric, 0) AS \"Coverage %\", cb.value::numeric AS \"Cost Baseline\", ca.value::numeric AS \"Cost Actual\", round(100 * (cb.value::numeric - ca.value::numeric) / NULLIF(cb.value::numeric, 0), 0) AS \"Cost Improvement %\" FROM reporting.metrics_wide w LEFT JOIN reporting.manual_inputs e ON e.project = w.project AND e.period_key = w.period_key AND e.field = 'total_engineers' LEFT JOIN reporting.manual_inputs c ON c.project = w.project AND c.period_key = w.period_key AND c.field = 'coverage_ai' LEFT JOIN reporting.manual_inputs cb ON cb.project = w.project AND cb.period_key = w.period_key AND cb.field = 'cost_baseline' LEFT JOIN reporting.manual_inputs ca ON ca.project = w.project AND ca.period_key = w.period_key AND ca.field = 'cost_actual' WHERE w.project = 'Future' AND w.period_type = 'month' ORDER BY w.period_key DESC",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "none"
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Usage %"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#ec835a",
+                      "value": null
+                    },
+                    {
+                      "color": "#fab219",
+                      "value": 50
+                    },
+                    {
+                      "color": "#0ca30c",
+                      "value": 80
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              }
+            ]
+          }
+        ]
       },
-      "options": {}
-    },
-    {
-      "type": "stat",
-      "title": "AI Code Coverage %",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
+      "options": {
+        "showHeader": true
       },
-      "gridPos": {
-        "x": 6,
-        "y": 26,
-        "w": 6,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT 100 * value::numeric FROM reporting.manual_inputs WHERE project = 'Future' AND field = 'coverage_ai' ORDER BY period_key DESC LIMIT 1",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "options": {}
-    },
-    {
-      "type": "stat",
-      "title": "Cost Improvement %",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 26,
-        "w": 6,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT 100 * (b.v - a.v) / NULLIF(b.v, 0) FROM (SELECT period_key, value::numeric v FROM reporting.manual_inputs WHERE project = 'Future' AND field = 'cost_baseline') b JOIN (SELECT period_key, value::numeric v FROM reporting.manual_inputs WHERE project = 'Future' AND field = 'cost_actual') a USING (period_key) ORDER BY period_key DESC LIMIT 1",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "options": {}
+      "description": "Empty cells mean a manual input is missing \u2014 run the 'AI SDLC Metrics' workflow with manual_period=<month> (total_engineers, coverage_ai, cost_baseline, cost_actual)."
     }
   ]
 }

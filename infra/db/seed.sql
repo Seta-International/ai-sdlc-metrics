@@ -55,7 +55,9 @@ vals(period_key, metric_key, value) AS (VALUES
   ('2026-06','incidents',3),   ('2026-07','incidents',2),
   ('2026-06','agent_cycle_h',10),('2026-07','agent_cycle_h',6),
   ('2026-06','total_prs',85),  ('2026-07','total_prs',92),
-  ('2026-06','ai_prs',34),     ('2026-07','ai_prs',50)
+  ('2026-06','ai_prs',34),     ('2026-07','ai_prs',50),
+  ('2026-06','ai_users_weekly_avg',7.5),('2026-07','ai_users_weekly_avg',10.0),
+  ('2026-06','total_tasks',105),('2026-07','total_tasks',112)
 )
 INSERT INTO reporting.metric_counts
   (project, period_type, period_key, period_start, period_end, metric_key, value)
@@ -111,7 +113,9 @@ vals(period_key, metric_key, value) AS (VALUES
   ('2026-06','incidents',5),   ('2026-07','incidents',3),
   ('2026-06','agent_cycle_h',13),('2026-07','agent_cycle_h',9),
   ('2026-06','total_prs',95),  ('2026-07','total_prs',100),
-  ('2026-06','ai_prs',24),     ('2026-07','ai_prs',38)
+  ('2026-06','ai_prs',24),     ('2026-07','ai_prs',38),
+  ('2026-06','ai_users_weekly_avg',4.5),('2026-07','ai_users_weekly_avg',6.0),
+  ('2026-06','total_tasks',82),('2026-07','total_tasks',90)
 )
 INSERT INTO reporting.metric_counts
   (project, period_type, period_key, period_start, period_end, metric_key, value)
