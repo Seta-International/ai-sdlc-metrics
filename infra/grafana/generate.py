@@ -194,10 +194,10 @@ def _dashboard(uid: str, title: str, panels: list[dict],
     return {
         "uid": uid, "title": title, "schemaVersion": 39, "version": 1,
         "editable": True, "timezone": "Asia/Ho_Chi_Minh",  # UTC+7 (Vietnam)
-        # Default to a focused recent window (~6 sprints) with a little forward
+        # Default to a focused recent window (~2 sprints) with a little forward
         # headroom so the current sprint's start point sits inside the range;
         # users can zoom out for older history.
-        "time": {"from": "now-90d", "to": "now+7d"},
+        "time": {"from": "now-30d", "to": "now+7d"},
         "templating": {"list": templating},
         "links": links,
         "panels": panels,
