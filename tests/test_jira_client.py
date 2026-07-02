@@ -91,6 +91,39 @@ def test_closed_issues_request_assignee_and_resolutiondate():
 
 
 @responses.activate
+def test_closed_issues_window_includes_boundary_days():
+    # JQL AFTER/BEFORE are exclusive of the named day, so the window must be
+    # widened by one day on each side to include work done on the first day
+    # (sprint start) and the last day ('now' for the current sprint).
+    rsp = responses.get(
+        "https://x.atlassian.net/rest/api/3/search/jql",
+        json={"issues": [], "isLast": True},
+    )
+    since = datetime(2026, 6, 29, tzinfo=timezone.utc)
+    until = datetime(2026, 7, 2, 14, 0, tzinfo=timezone.utc)  # mid-day 'now'
+    _jc().get_closed_issues(since, until)
+    jql = rsp.calls[0].request.params["jql"]
+    assert 'AFTER "2026-06-28"' in jql   # include the 06-29 start day
+    assert 'BEFORE "2026-07-03"' in jql  # include today (07-02)
+
+
+@responses.activate
+def test_closed_issues_window_excludes_exclusive_upper_bound():
+    # A completed period's `until` is the next period's midnight start
+    # (exclusive) — that day must NOT be pulled in (no double counting).
+    rsp = responses.get(
+        "https://x.atlassian.net/rest/api/3/search/jql",
+        json={"issues": [], "isLast": True},
+    )
+    since = datetime(2026, 6, 29, tzinfo=timezone.utc)
+    until = datetime(2026, 7, 13, tzinfo=timezone.utc)  # next sprint start (midnight)
+    _jc().get_closed_issues(since, until)
+    jql = rsp.calls[0].request.params["jql"]
+    assert 'AFTER "2026-06-28"' in jql    # include 06-29
+    assert 'BEFORE "2026-07-13"' in jql   # through 07-12, exclude 07-13
+
+
+@responses.activate
 def test_closed_issues_requests_extra_fields():
     rsp = responses.get(
         "https://x.atlassian.net/rest/api/3/search/jql",

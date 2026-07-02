@@ -1,5 +1,5 @@
 from base64 import b64encode
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests
 
 class JiraClient:
@@ -34,11 +34,19 @@ class JiraClient:
 
     def get_closed_issues(self, since: datetime, until: datetime,
                           extra_fields: tuple[str, ...] = ()) -> list[dict]:
-        """All issues transitioned to Done in [since, until]."""
+        """All issues transitioned to Done in [since, until].
+
+        JQL AFTER/BEFORE are exclusive of the named calendar day, so widen the
+        bounds by a day: `after` = day before `since` (include the first day),
+        `before` = day after the last day with any part in the window. `since`
+        is always a midnight start; `until` may be a midnight exclusive upper
+        bound (completed period → its own day stays excluded, no double count)
+        or a mid-day 'now' (current period → today is included)."""
+        after = since.date() - timedelta(days=1)
+        before = (until - timedelta(microseconds=1)).date() + timedelta(days=1)
         jql = (
             f'project = {self._project} AND status changed to Done '
-            f'AFTER "{since.strftime("%Y-%m-%d")}" '
-            f'BEFORE "{until.strftime("%Y-%m-%d")}"'
+            f'AFTER "{after:%Y-%m-%d}" BEFORE "{before:%Y-%m-%d}"'
         )
         fields = [self._ai_usage_field, "assignee", "resolutiondate", *extra_fields]
         return self._jql_all(jql, fields)
