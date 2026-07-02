@@ -62,3 +62,60 @@ def test_update_issue_fields_puts_payload():
     client.update_issue_fields("FUT-123", {FIELD: {"value": "Agent"}})
     assert len(rsps_lib.calls) == 1
     assert rsps_lib.calls[0].request.url == f"{BASE}/rest/api/3/issue/FUT-123"
+
+
+# ---------------------------------------------------------------------------
+# Raw-counts refactor: assignee/resolution fields + sprint predictability
+# ---------------------------------------------------------------------------
+from datetime import datetime, timezone
+import responses
+from collector.jira_client import JiraClient
+
+_SINCE = datetime(2026, 7, 13, tzinfo=timezone.utc)
+_UNTIL = datetime(2026, 7, 27, tzinfo=timezone.utc)
+
+
+def _jc():
+    return JiraClient("https://x.atlassian.net", "e@x.com", "tok", "FUT", "customfield_10200")
+
+
+@responses.activate
+def test_closed_issues_request_assignee_and_resolutiondate():
+    rsp = responses.get(
+        "https://x.atlassian.net/rest/api/3/search/jql",
+        json={"issues": [], "isLast": True},
+    )
+    _jc().get_closed_issues(_SINCE, _UNTIL)
+    assert "assignee" in rsp.calls[0].request.params["fields"]
+    assert "resolutiondate" in rsp.calls[0].request.params["fields"]
+
+
+@responses.activate
+def test_sprint_issue_counts_picks_overlapping_sprint():
+    responses.get(
+        "https://x.atlassian.net/rest/agile/1.0/board/7/sprint",
+        json={"isLast": True, "values": [
+            {"id": 1, "startDate": "2026-06-29T00:00:00.000Z", "endDate": "2026-07-13T00:00:00.000Z"},
+            {"id": 2, "startDate": "2026-07-13T00:00:00.000Z", "endDate": "2026-07-27T00:00:00.000Z"},
+        ]},
+    )
+    responses.get(
+        "https://x.atlassian.net/rest/agile/1.0/sprint/2/issue",
+        json={"total": 3, "issues": [
+            {"fields": {"resolution": {"name": "Done"}}},
+            {"fields": {"resolution": None}},
+            {"fields": {"resolution": {"name": "Done"}}},
+        ]},
+    )
+    assert _jc().get_sprint_issue_counts("7", _SINCE, _UNTIL) == (3, 2)
+
+
+@responses.activate
+def test_sprint_issue_counts_none_when_no_overlap():
+    responses.get(
+        "https://x.atlassian.net/rest/agile/1.0/board/7/sprint",
+        json={"isLast": True, "values": [
+            {"id": 1, "startDate": "2025-01-01T00:00:00.000Z", "endDate": "2025-01-14T00:00:00.000Z"},
+        ]},
+    )
+    assert _jc().get_sprint_issue_counts("7", _SINCE, _UNTIL) is None
