@@ -44,3 +44,17 @@ services:
     volumes:
       - ./local-provisioning:/etc/grafana/provisioning:ro
       - ../../infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+  exporter:
+    build:
+      context: ../..
+      dockerfile: infra/docker/exporter.Dockerfile
+    container_name: ai-sdlc-metrics-local-exporter
+    restart: unless-stopped
+    environment:
+      REPORTING_DB_URL: postgresql://reporting:reporting@postgres:5432/reporting
+    ports:
+      - "3031:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy

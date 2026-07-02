@@ -51,12 +51,13 @@ def _layout(sections: list[tuple[str, list[tuple]]]) -> list[dict]:
 
 
 def _dashboard(uid: str, title: str, panels: list[dict],
-               templating: list[dict]) -> dict:
+               templating: list[dict], links: list[dict]) -> dict:
     return {
         "uid": uid, "title": title, "schemaVersion": 39, "version": 1,
-        "editable": True, "timezone": "utc",
+        "editable": True, "timezone": "Asia/Ho_Chi_Minh",  # UTC+7 (Vietnam)
         "time": {"from": "now-180d", "to": "now"},
         "templating": {"list": templating},
+        "links": links,
         "panels": panels,
     }
 
@@ -71,7 +72,7 @@ def _sprint_var(project: str) -> dict:
     }
 
 
-def build_project_dashboard(project: str) -> dict:
+def build_project_dashboard(project: str, exporter_url: str) -> dict:
     p, s = f"project = '{project}'", "period_type = 'sprint' AND period_key = '$sprint'"
     cur = f"FROM {RATIOS} WHERE {p} AND {s}"
     trend = (f"FROM {RATIOS} WHERE {p} AND period_type = 'sprint' "
@@ -125,11 +126,18 @@ def build_project_dashboard(project: str) -> dict:
              "USING (period_key) ORDER BY period_key DESC LIMIT 1", "percent"),
         ]),
     ]
+    links = [
+        {"type": "link", "title": "Download Excel (all sprints)", "icon": "doc",
+         "targetBlank": True, "url": f"{exporter_url}/export.xlsx?project={project}"},
+        {"type": "link", "title": "Download Excel (selected sprint)", "icon": "doc",
+         "targetBlank": True,
+         "url": f"{exporter_url}/export.xlsx?project={project}&sprints=${{sprint}}"},
+    ]
     return _dashboard(f"ai-sdlc-{project.lower()}", f"AI SDLC — {project}",
-                      _layout(sections), [_sprint_var(project)])
+                      _layout(sections), [_sprint_var(project)], links)
 
 
-def build_bod_dashboard(projects: list[str]) -> dict:
+def build_bod_dashboard(projects: list[str], exporter_url: str) -> dict:
     latest = (f"FROM {RATIOS} r WHERE period_type = 'sprint' AND period_start = "
               f"(SELECT max(period_start) FROM {RATIOS} r2 WHERE r2.project = r.project "
               "AND r2.period_type = 'sprint')")
@@ -166,7 +174,10 @@ def build_bod_dashboard(projects: list[str]) -> dict:
              f"SELECT period_start AS time, project, autonomy_pct {trend}", "percent"),
         ]),
     ]
-    return _dashboard("ai-sdlc-bod", "AI SDLC — Portfolio (BOD)", _layout(sections), [])
+    links = [{"type": "link", "title": "Download Excel (all projects)", "icon": "doc",
+              "targetBlank": True, "url": f"{exporter_url}/export.xlsx?project=all"}]
+    return _dashboard("ai-sdlc-bod", "AI SDLC — Portfolio (BOD)",
+                      _layout(sections), [], links)
 
 
 def main() -> None:
@@ -177,15 +188,16 @@ def main() -> None:
 
     config = json.loads((HERE / "projects.json").read_text())
     names = [p["name"] for p in config["projects"]]
+    exporter = config.get("exporter_url", "http://localhost:3031")
 
     for name in names:
-        d = build_project_dashboard(name)
+        d = build_project_dashboard(name, exporter)
         path = out / name / "project.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(d, indent=2))
         print(f"wrote {path}")
 
-    bod = build_bod_dashboard(names)
+    bod = build_bod_dashboard(names, exporter)
     path = out / "BOD" / "portfolio.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(bod, indent=2))

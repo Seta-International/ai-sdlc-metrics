@@ -42,3 +42,11 @@ def test_all_panel_sql_targets_reporting_schema(tmp_path):
         for p in d["panels"]:
             for t in p.get("targets", []):
                 assert "reporting." in t["rawSql"], f"{f.name}: {p['title']}"
+
+
+def test_dashboards_have_download_links(tmp_path):
+    out = _generate(tmp_path)
+    proj = json.loads((out / "Future" / "project.json").read_text())
+    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
+    assert any("export.xlsx?project=Future" in l["url"] for l in proj["links"])
+    assert any("project=all" in l["url"] for l in bod["links"])

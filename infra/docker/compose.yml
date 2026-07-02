@@ -35,5 +35,16 @@ services:
       - ../../infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - ai-sdlc-metrics-grafana-data:/var/lib/grafana
 
+  exporter:
+    build:
+      context: ../..
+      dockerfile: infra/docker/exporter.Dockerfile
+    container_name: ai-sdlc-metrics-exporter
+    restart: unless-stopped
+    environment:
+      REPORTING_DB_URL: postgresql://reporting:${REPORTING_DB_PASSWORD}@${REPORTING_DB_HOST}:5432/reporting?sslmode=require
+    ports:
+      - "3031:8000"
+
 volumes:
   ai-sdlc-metrics-grafana-data:

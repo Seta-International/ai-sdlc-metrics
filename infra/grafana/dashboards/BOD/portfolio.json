@@ -4,7 +4,7 @@
   "schemaVersion": 39,
   "version": 1,
   "editable": true,
-  "timezone": "utc",
+  "timezone": "Asia/Ho_Chi_Minh",
   "time": {
     "from": "now-180d",
     "to": "now"
@@ -12,6 +12,15 @@
   "templating": {
     "list": []
   },
+  "links": [
+    {
+      "type": "link",
+      "title": "Download Excel (all projects)",
+      "icon": "doc",
+      "targetBlank": true,
+      "url": "http://localhost:3031/export.xlsx?project=all"
+    }
+  ],
   "panels": [
     {
       "type": "row",

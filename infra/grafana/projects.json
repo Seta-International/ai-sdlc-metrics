@@ -1,4 +1,5 @@
 {
+  "exporter_url": "http://localhost:3031",
   "projects": [
     {"name": "Future", "pm_login": "pm-future", "pm_email": "pm-future@seta-international.vn"},
     {"name": "TeacherZone", "pm_login": "pm-teacherzone", "pm_email": "pm-teacherzone@seta-international.vn"}

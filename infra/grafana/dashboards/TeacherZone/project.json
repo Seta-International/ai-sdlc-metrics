@@ -4,7 +4,7 @@
   "schemaVersion": 39,
   "version": 1,
   "editable": true,
-  "timezone": "utc",
+  "timezone": "Asia/Ho_Chi_Minh",
   "time": {
     "from": "now-180d",
     "to": "now"
@@ -26,6 +26,22 @@
       }
     ]
   },
+  "links": [
+    {
+      "type": "link",
+      "title": "Download Excel (all sprints)",
+      "icon": "doc",
+      "targetBlank": true,
+      "url": "http://localhost:3031/export.xlsx?project=TeacherZone"
+    },
+    {
+      "type": "link",
+      "title": "Download Excel (selected sprint)",
+      "icon": "doc",
+      "targetBlank": true,
+      "url": "http://localhost:3031/export.xlsx?project=TeacherZone&sprints=${sprint}"
+    }
+  ],
   "panels": [
     {
       "type": "row",
