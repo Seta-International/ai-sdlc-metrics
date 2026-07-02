@@ -97,6 +97,24 @@ def lead_time_hours(prs: list[dict], deploy_times: list[datetime]) -> Optional[f
     return round(statistics.median(spans), 2) if spans else None
 
 
+def segmented_lead_time(prs: list[dict], deploy_times: list[datetime]) -> dict:
+    """Lead time split by AI usage — the within-team AI-vs-non-AI comparison."""
+    return {
+        "lead_time_ai_h": lead_time_hours([p for p in prs if _is_ai_pr(p)], deploy_times),
+        "lead_time_nonai_h": lead_time_hours([p for p in prs if not _is_ai_pr(p)], deploy_times),
+    }
+
+
+def pr_size_medians(prs: list[dict], pr_file_details: dict[int, list[dict]]) -> dict:
+    """Median lines changed (additions + deletions) per merged PR, per AI segment."""
+    def _median(subset: list[dict]):
+        sizes = [sum(f["additions"] + f["deletions"] for f in pr_file_details[p["number"]])
+                 for p in subset if pr_file_details.get(p["number"])]
+        return round(statistics.median(sizes), 1) if sizes else None
+    return {"pr_size_ai": _median([p for p in prs if _is_ai_pr(p)]),
+            "pr_size_nonai": _median([p for p in prs if not _is_ai_pr(p)])}
+
+
 _FIX_PREFIXES = ("revert", "fix", "bugfix", "hotfix")
 _INTEGRATION_BRANCHES = ("main", "master", "develop")
 

@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 import pytest
 from collector.metrics import (
     adoption_counts, ai_users_weekly_avg, delivery_counts, lead_time_hours,
-    rework_pr_count, quality_counts, agent_counts,
+    rework_pr_count, quality_counts, agent_counts, segmented_lead_time,
+    pr_size_medians,
 )
 
 FIELD = "customfield_10200"
@@ -90,6 +91,34 @@ def test_lead_time_fallback_open_to_merge_when_no_deploys():
 
 def test_lead_time_none_without_prs():
     assert lead_time_hours([], []) is None
+
+
+# segmented_lead_time
+def test_segmented_lead_time_splits_by_ai_label():
+    prs = [pr(["ai-assisted"], created="2026-07-01T08:00:00Z", merged="2026-07-01T10:00:00Z"),
+           pr(number=2, created="2026-07-01T08:00:00Z", merged="2026-07-01T18:00:00Z")]
+    s = segmented_lead_time(prs, [])   # no deploys -> open->merge fallback
+    assert s == {"lead_time_ai_h": 2.0, "lead_time_nonai_h": 10.0}
+
+
+def test_segmented_lead_time_none_for_empty_segment():
+    s = segmented_lead_time([pr(["ai-assisted"], created="2026-07-01T08:00:00Z",
+                                merged="2026-07-01T10:00:00Z")], [])
+    assert s["lead_time_ai_h"] == 2.0 and s["lead_time_nonai_h"] is None
+
+
+# pr_size_medians
+def test_pr_size_medians_by_segment():
+    prs = [pr(["ai-assisted"], number=1), pr(["ai-agent"], number=2), pr(number=3)]
+    details = {1: [{"filename": "a.py", "additions": 100, "deletions": 20}],
+               2: [{"filename": "b.py", "additions": 10, "deletions": 0}],
+               3: [{"filename": "c.py", "additions": 40, "deletions": 10}]}
+    s = pr_size_medians(prs, details)
+    assert s == {"pr_size_ai": 65.0, "pr_size_nonai": 50.0}  # median(120,10)=65
+
+
+def test_pr_size_medians_none_without_details():
+    assert pr_size_medians([pr()], {}) == {"pr_size_ai": None, "pr_size_nonai": None}
 
 
 # rework_pr_count
