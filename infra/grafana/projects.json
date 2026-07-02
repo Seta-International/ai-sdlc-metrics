@@ -1,5 +1,5 @@
 {
-  "exporter_url": "http://192.168.90.127:3031",
+  "exporter_url": "https://ai-metrics.seta-international.com",
   "projects": [
     {"name": "Future", "pm_login": "pm-future", "pm_email": "pm-future@seta-international.vn"},
     {"name": "TeacherZone", "pm_login": "pm-teacherzone", "pm_email": "pm-teacherzone@seta-international.vn"}

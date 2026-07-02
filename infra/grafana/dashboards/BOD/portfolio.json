@@ -18,7 +18,7 @@
       "title": "Download Excel (all projects)",
       "icon": "doc",
       "targetBlank": true,
-      "url": "http://192.168.90.127:3031/export.xlsx?project=all"
+      "url": "https://ai-metrics.seta-international.com/export.xlsx?project=all"
     }
   ],
   "panels": [

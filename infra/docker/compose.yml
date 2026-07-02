@@ -17,6 +17,21 @@
 name: ai-sdlc-metrics
 
 services:
+  # Single entry point on :3030 — routes /export.xlsx to the exporter and
+  # everything else to Grafana, so the Excel download shares the dashboards'
+  # HTTPS origin (browsers block mixed-content downloads).
+  proxy:
+    image: nginx:1.27-alpine
+    container_name: ai-sdlc-metrics-proxy
+    restart: unless-stopped
+    ports:
+      - "3030:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - grafana
+      - exporter
+
   grafana:
     image: grafana/grafana:12.0.1
     container_name: ai-sdlc-metrics-grafana
@@ -28,8 +43,6 @@ services:
       GF_SERVER_ROOT_URL: "https://ai-metrics.seta-international.com"
       REPORTING_DB_HOST: ${REPORTING_DB_HOST}
       REPORTING_DB_PASSWORD: ${REPORTING_DB_PASSWORD}
-    ports:
-      - "3030:3000"
     volumes:
       - ../../infra/grafana/provisioning:/etc/grafana/provisioning:ro
       - ../../infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
