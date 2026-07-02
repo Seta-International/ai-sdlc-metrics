@@ -1,6 +1,9 @@
 """Render the English maturity template from exporter.sheets specs.
 
-  python -m exporter.template   # writes docs/AI SDLC Maturity.xlsx
+The exporter app builds the template in memory per request; nothing is
+committed. To eyeball a blank copy in Excel:
+
+  python -m exporter.template   # writes docs/AI SDLC Maturity.xlsx (gitignored)
 """
 from datetime import datetime
 from pathlib import Path

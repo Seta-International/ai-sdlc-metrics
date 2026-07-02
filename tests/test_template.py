@@ -1,8 +1,13 @@
-"""The committed EN template must match what the specs generate."""
-import openpyxl
+"""The rendered maturity template must match the sheet specs."""
+from datetime import date
+
 import pytest
 
-from exporter.template import DST, build_workbook
+from exporter.sheets import SHEETS
+from exporter.template import build_workbook
+from exporter.workbook import (
+    SHEET3_MANUAL_COLS, SHEET3_METRIC_COLS, fill_workbook,
+)
 
 
 @pytest.fixture(scope="module")
@@ -10,40 +15,25 @@ def generated():
     return build_workbook()
 
 
-@pytest.fixture(scope="module")
-def committed():
-    return openpyxl.load_workbook(DST)
+def test_sheet_names_and_order(generated):
+    assert generated.sheetnames == [s["name"] for s in SHEETS]
 
 
-def test_sheet_names_and_order(generated, committed):
-    assert generated.sheetnames == committed.sheetnames
+def test_formula_columns_fill_down(generated):
+    ws = generated["5. Metrics"]
+    assert ws["E4"].value == "=IFERROR('3. Monthly'!F4/'3. Monthly'!G4,\"\")"
+    assert ws["E203"].value == "=IFERROR('3. Monthly'!F203/'3. Monthly'!G203,\"\")"
+    levels = generated["6. Levels"]
+    assert levels["S53"].value == \
+        '=IF($A53="","",MIN(R53,P53,ROUND(AVERAGE(N53,O53,P53,Q53,R53),0)))'
 
 
-def test_every_cell_matches(generated, committed):
-    mismatches = []
-    for name in committed.sheetnames:
-        ws_c, ws_g = committed[name], generated[name]
-        rows = max(ws_c.max_row, ws_g.max_row)
-        cols = max(ws_c.max_column, ws_g.max_column)
-        for row in range(1, rows + 1):
-            for col in range(1, cols + 1):
-                vc = ws_c.cell(row=row, column=col).value
-                vg = ws_g.cell(row=row, column=col).value
-                if vc != vg:
-                    mismatches.append(f"{name}!{ws_c.cell(row=row, column=col).coordinate}:"
-                                      f" committed={vc!r} generated={vg!r}")
-    assert not mismatches, "\n".join(mismatches[:40]) + f"\n({len(mismatches)} total)"
-
-
-def test_layout_extras_match(generated, committed):
-    for name in committed.sheetnames:
-        ws_c, ws_g = committed[name], generated[name]
-        assert ws_g.freeze_panes == ws_c.freeze_panes, name
-        assert {str(r) for r in ws_g.merged_cells.ranges} == \
-               {str(r) for r in ws_c.merged_cells.ranges}, name
-        dv = lambda ws: {(d.type, d.formula1, str(d.sqref))
-                         for d in ws.data_validations.dataValidation}
-        assert dv(ws_g) == dv(ws_c), name
+def test_validations_and_freeze(generated):
+    ws = generated["4. Quarterly"]
+    dvs = {(dv.type, dv.formula1, str(dv.sqref))
+           for dv in ws.data_validations.dataValidation}
+    assert ("list", '"Yes,No"', "C4:AA53") in dvs
+    assert generated["3. Monthly"].freeze_panes == "D4"
 
 
 def test_charts_present(generated):
@@ -52,18 +42,13 @@ def test_charts_present(generated):
 
 
 def test_fill_columns_have_headers(generated):
-    from exporter.workbook import SHEET3_MANUAL_COLS, SHEET3_METRIC_COLS
     ws = generated["3. Monthly"]
     for col in {**SHEET3_METRIC_COLS, **SHEET3_MANUAL_COLS}:
         assert isinstance(ws[f"{col}3"].value, str) and ws[f"{col}3"].value, col
 
 
-def test_fill_workbook_runs_on_generated_template(generated, tmp_path):
-    from datetime import date
-    from exporter.workbook import fill_workbook
-    path = tmp_path / "template.xlsx"
-    generated.save(path)
-    wb = fill_workbook(path, ["Future"], [], [
+def test_fill_workbook_runs_on_generated_template():
+    wb = fill_workbook(build_workbook(), ["Future"], [], [
         {"project": "Future", "period_key": "2026-06",
          "period_start": date(2026, 6, 1), "ai_prs": 20, "total_prs": 50},
     ], {})

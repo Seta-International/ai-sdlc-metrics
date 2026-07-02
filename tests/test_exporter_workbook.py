@@ -1,13 +1,11 @@
 from datetime import date
 from decimal import Decimal
 import pytest
-from exporter.template import DST
+from exporter.template import build_workbook
 from exporter.workbook import (
     parse_sprint_range, sprint_in_range, months_overlapped, quarters_of,
     fill_workbook,
 )
-
-pytestmark = pytest.mark.skipif(not DST.exists(), reason="EN template not built yet")
 
 
 def test_parse_sprint_range():
@@ -46,7 +44,7 @@ def test_fill_workbook_writes_sheets():
     manual = {("Future", "2026-06"): {"total_engineers": "18"},
               ("Future", "2026-Q2"): {"g1_agents_md": "Yes",
                                       "evidence_a": "Live dashboard"}}
-    wb = fill_workbook(DST, ["Future"], [_sprint_row()], [month_row], manual)
+    wb = fill_workbook(build_workbook(), ["Future"], [_sprint_row()], [month_row], manual)
 
     proj = wb["2. Projects"]
     assert (proj["A3"].value, proj["B3"].value) == ("P01", "Future")

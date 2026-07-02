@@ -12,3 +12,6 @@ dist/
 
 # Ignore documentation build artifacts
 docs/superpowers/
+
+# Blank maturity template written by `python -m exporter.template` for inspection
+docs/AI SDLC Maturity.xlsx

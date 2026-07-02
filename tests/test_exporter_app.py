@@ -4,9 +4,6 @@ from decimal import Decimal
 import openpyxl
 import pytest
 from fastapi.testclient import TestClient
-from exporter.template import DST
-
-pytestmark = pytest.mark.skipif(not DST.exists(), reason="EN template not built yet")
 
 
 @pytest.fixture()

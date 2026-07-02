@@ -1,7 +1,6 @@
-"""Pure workbook filling: template + fetched rows -> openpyxl Workbook."""
+"""Pure workbook filling: template workbook + fetched rows -> filled workbook."""
 import re
 from datetime import datetime
-from pathlib import Path
 import openpyxl
 from exporter.charts import add_charts
 
@@ -80,10 +79,9 @@ def _num(value):
     return float(value) if value is not None else None
 
 
-def fill_workbook(template_path: Path, projects: list[str],
+def fill_workbook(wb: openpyxl.Workbook, projects: list[str],
                   sprint_rows: list[dict], month_rows: list[dict],
                   manual: dict) -> openpyxl.Workbook:
-    wb = openpyxl.load_workbook(template_path)
     ids = {name: f"P{i + 1:02d}" for i, name in enumerate(sorted(projects))}
 
     ws = wb["2. Projects"]

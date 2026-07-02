@@ -1,7 +1,7 @@
 """Declarative sheet specs for the English maturity workbook.
 
-Source of truth for docs/AI SDLC Maturity.xlsx — regenerate with
-`python -m exporter.template` and commit the result.
+Source of truth for the maturity workbook: exporter.template renders these
+specs in memory for every export (no xlsx is committed).
 
 Cell fill conventions: FFFFF2CC yellow = manual entry, FFF2F2F2 gray =
 auto/formula, FFFCE4D6 orange = judgment flag.
