@@ -1,7 +1,7 @@
 {
   "exporter_url": "https://ai-metrics.seta-international.com",
   "defaults": {
-    "blended_hourly_rate": 25,
+    "blended_hourly_rate": 12,
     "has_production": true,
     "sections": ["steering", "roi", "cause_effect", "dora", "maturity", "adoption"],
     "thresholds": {"lead_time_h": [72, 168], "predictability_pct": [80, 60]},

@@ -403,8 +403,8 @@
       "gridPos": {
         "x": 0,
         "y": 6,
-        "w": 6,
-        "h": 4
+        "w": 8,
+        "h": 6
       },
       "targets": [
         {
@@ -414,7 +414,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT (w.ai_time_saved_h * 25) - COALESCE(t.value::numeric, 0) FROM reporting.metrics_wide w LEFT JOIN reporting.manual_inputs t ON t.project = w.project AND t.period_key = w.period_key AND t.field = 'ai_tool_cost_monthly' WHERE w.project = 'TeacherZone' AND w.period_type = 'month' AND w.ai_time_saved_h IS NOT NULL ORDER BY w.period_key DESC LIMIT 1",
+          "rawSql": "SELECT (w.ai_time_saved_h * 12) - COALESCE(t.value::numeric, 0) FROM reporting.metrics_wide w LEFT JOIN reporting.manual_inputs t ON t.project = w.project AND t.period_key = w.period_key AND t.field = 'ai_tool_cost_monthly' WHERE w.project = 'TeacherZone' AND w.period_type = 'month' AND w.ai_time_saved_h IS NOT NULL ORDER BY w.period_key DESC LIMIT 1",
           "refId": "A"
         }
       ],
@@ -453,7 +453,7 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
-      "description": "Hours saved \u00d7 $25/h blended rate \u2212 monthly AI tool cost (seats + API). Green when net-positive."
+      "description": "Hours saved \u00d7 $12/h blended rate \u2212 monthly AI tool cost (seats + API). Green when net-positive."
     },
     {
       "type": "stat",
@@ -463,10 +463,10 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 6,
+        "x": 8,
         "y": 6,
-        "w": 6,
-        "h": 4
+        "w": 8,
+        "h": 6
       },
       "targets": [
         {
@@ -518,10 +518,10 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 12,
+        "x": 16,
         "y": 6,
-        "w": 4,
-        "h": 4
+        "w": 8,
+        "h": 6
       },
       "targets": [
         {
@@ -573,10 +573,10 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 16,
-        "y": 6,
-        "w": 8,
-        "h": 4
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 7
       },
       "targets": [
         {
@@ -586,7 +586,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT w.period_start AS time, w.ai_time_saved_h * 25 AS \"Savings $\", t.value::numeric AS \"Tool cost $\" FROM reporting.metrics_wide w LEFT JOIN reporting.manual_inputs t ON t.project = w.project AND t.period_key = w.period_key AND t.field = 'ai_tool_cost_monthly' WHERE w.project = 'TeacherZone' AND w.period_type = 'month' ORDER BY w.period_start",
+          "rawSql": "SELECT w.period_start AS time, w.ai_time_saved_h * 12 AS \"Savings $\", t.value::numeric AS \"Tool cost $\" FROM reporting.metrics_wide w LEFT JOIN reporting.manual_inputs t ON t.project = w.project AND t.period_key = w.period_key AND t.field = 'ai_tool_cost_monthly' WHERE w.project = 'TeacherZone' AND w.period_type = 'month' ORDER BY w.period_start",
           "refId": "A"
         }
       ],
@@ -628,10 +628,10 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 0,
-        "y": 10,
-        "w": 8,
-        "h": 6
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 7
       },
       "targets": [
         {
@@ -680,7 +680,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 16,
+        "y": 19,
         "w": 24,
         "h": 1
       },
@@ -695,8 +695,8 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 17,
-        "w": 8,
+        "y": 20,
+        "w": 12,
         "h": 8
       },
       "targets": [
@@ -781,9 +781,9 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 8,
-        "y": 17,
-        "w": 8,
+        "x": 12,
+        "y": 20,
+        "w": 12,
         "h": 8
       },
       "targets": [
@@ -867,8 +867,8 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 16,
-        "y": 17,
+        "x": 0,
+        "y": 28,
         "w": 4,
         "h": 4
       },
@@ -922,8 +922,8 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 20,
-        "y": 17,
+        "x": 4,
+        "y": 28,
         "w": 4,
         "h": 4
       },
@@ -976,8 +976,8 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 0,
-        "y": 25,
+        "x": 8,
+        "y": 28,
         "w": 4,
         "h": 4
       },
@@ -1031,8 +1031,8 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 4,
-        "y": 25,
+        "x": 12,
+        "y": 28,
         "w": 4,
         "h": 4
       },
@@ -1086,8 +1086,8 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 8,
-        "y": 25,
+        "x": 16,
+        "y": 28,
         "w": 4,
         "h": 4
       },
@@ -1141,8 +1141,8 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 12,
-        "y": 25,
+        "x": 20,
+        "y": 28,
         "w": 4,
         "h": 4
       },
@@ -1204,7 +1204,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 29,
+        "y": 32,
         "w": 24,
         "h": 1
       },
@@ -1219,7 +1219,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 30,
+        "y": 33,
         "w": 6,
         "h": 4
       },
@@ -1285,7 +1285,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 30,
+        "y": 33,
         "w": 6,
         "h": 4
       },
@@ -1346,7 +1346,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 30,
+        "y": 33,
         "w": 6,
         "h": 4
       },
@@ -1412,7 +1412,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 30,
+        "y": 33,
         "w": 6,
         "h": 4
       },
@@ -1477,7 +1477,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 34,
+        "y": 37,
         "w": 6,
         "h": 4
       },
@@ -1539,7 +1539,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 38,
+        "y": 41,
         "w": 24,
         "h": 1
       },
@@ -1554,8 +1554,8 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 39,
-        "w": 4,
+        "y": 42,
+        "w": 6,
         "h": 8
       },
       "targets": [
@@ -1623,9 +1623,9 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 4,
-        "y": 39,
-        "w": 8,
+        "x": 6,
+        "y": 42,
+        "w": 12,
         "h": 8
       },
       "targets": [
@@ -1716,9 +1716,9 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 12,
-        "y": 39,
-        "w": 4,
+        "x": 18,
+        "y": 42,
+        "w": 6,
         "h": 8
       },
       "targets": [
@@ -1782,10 +1782,10 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 16,
-        "y": 39,
-        "w": 4,
-        "h": 8
+        "x": 0,
+        "y": 50,
+        "w": 8,
+        "h": 6
       },
       "targets": [
         {
@@ -1837,10 +1837,10 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 20,
-        "y": 39,
-        "w": 4,
-        "h": 8
+        "x": 8,
+        "y": 50,
+        "w": 8,
+        "h": 6
       },
       "targets": [
         {
@@ -1892,10 +1892,10 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 0,
-        "y": 47,
-        "w": 4,
-        "h": 8
+        "x": 16,
+        "y": 50,
+        "w": 8,
+        "h": 6
       },
       "targets": [
         {
@@ -1945,7 +1945,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 55,
+        "y": 56,
         "w": 24,
         "h": 1
       },
@@ -1960,7 +1960,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 56,
+        "y": 57,
         "w": 4,
         "h": 4
       },
@@ -2015,7 +2015,7 @@
       },
       "gridPos": {
         "x": 4,
-        "y": 56,
+        "y": 57,
         "w": 4,
         "h": 4
       },
@@ -2070,7 +2070,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 56,
+        "y": 57,
         "w": 4,
         "h": 4
       },
@@ -2136,7 +2136,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 56,
+        "y": 57,
         "w": 4,
         "h": 4
       },
@@ -2202,7 +2202,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 56,
+        "y": 57,
         "w": 4,
         "h": 4
       },
@@ -2268,7 +2268,7 @@
       },
       "gridPos": {
         "x": 20,
-        "y": 56,
+        "y": 57,
         "w": 4,
         "h": 4
       },
@@ -2323,8 +2323,8 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 60,
-        "w": 8,
+        "y": 61,
+        "w": 24,
         "h": 8
       },
       "targets": [
@@ -2421,7 +2421,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 68,
+        "y": 69,
         "w": 24,
         "h": 1
       },
@@ -2436,7 +2436,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 69,
+        "y": 70,
         "w": 24,
         "h": 8
       },
@@ -2448,7 +2448,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT w.period_key AS \"Month\", round(w.ai_users_weekly_avg, 1) AS \"AI Engineers/wk\", w.engineers_active AS \"Contributors\", e.value::numeric AS \"Team Size\", round(100 * w.ai_users_weekly_avg / NULLIF(COALESCE(e.value::numeric, w.engineers_active), 0), 0) AS \"Usage %\", round(100.0 * w.ai_prs / NULLIF(w.total_prs, 0), 1) AS \"AI PR %\", w.total_tasks AS \"Tasks\", w.deploys AS \"Deploys\", round(w.ai_time_saved_h * 25, 0) AS \"AI $ Saved\", tc.value::numeric AS \"Tool Cost $\", round(100 * c.value::numeric, 0) AS \"Coverage %\", cb.value::numeric AS \"Cost Baseline\", ca.value::numeric AS \"Cost Actual\", round(100 * (cb.value::numeric - ca.value::numeric) / NULLIF(cb.value::numeric, 0), 0) AS \"Cost Improvement %\" FROM reporting.metrics_wide w LEFT JOIN reporting.manual_inputs e ON e.project = w.project AND e.period_key = w.period_key AND e.field = 'total_engineers' LEFT JOIN reporting.manual_inputs tc ON tc.project = w.project AND tc.period_key = w.period_key AND tc.field = 'ai_tool_cost_monthly' LEFT JOIN reporting.manual_inputs c ON c.project = w.project AND c.period_key = w.period_key AND c.field = 'coverage_ai' LEFT JOIN reporting.manual_inputs cb ON cb.project = w.project AND cb.period_key = w.period_key AND cb.field = 'cost_baseline' LEFT JOIN reporting.manual_inputs ca ON ca.project = w.project AND ca.period_key = w.period_key AND ca.field = 'cost_actual' WHERE w.project = 'TeacherZone' AND w.period_type = 'month' ORDER BY w.period_key DESC",
+          "rawSql": "SELECT w.period_key AS \"Month\", round(w.ai_users_weekly_avg, 1) AS \"AI Engineers/wk\", w.engineers_active AS \"Contributors\", e.value::numeric AS \"Team Size\", round(100 * w.ai_users_weekly_avg / NULLIF(COALESCE(e.value::numeric, w.engineers_active), 0), 0) AS \"Usage %\", round(100.0 * w.ai_prs / NULLIF(w.total_prs, 0), 1) AS \"AI PR %\", w.total_tasks AS \"Tasks\", w.deploys AS \"Deploys\", round(w.ai_time_saved_h * 12, 0) AS \"AI $ Saved\", tc.value::numeric AS \"Tool Cost $\", round(100 * c.value::numeric, 0) AS \"Coverage %\", cb.value::numeric AS \"Cost Baseline\", ca.value::numeric AS \"Cost Actual\", round(100 * (cb.value::numeric - ca.value::numeric) / NULLIF(cb.value::numeric, 0), 0) AS \"Cost Improvement %\" FROM reporting.metrics_wide w LEFT JOIN reporting.manual_inputs e ON e.project = w.project AND e.period_key = w.period_key AND e.field = 'total_engineers' LEFT JOIN reporting.manual_inputs tc ON tc.project = w.project AND tc.period_key = w.period_key AND tc.field = 'ai_tool_cost_monthly' LEFT JOIN reporting.manual_inputs c ON c.project = w.project AND c.period_key = w.period_key AND c.field = 'coverage_ai' LEFT JOIN reporting.manual_inputs cb ON cb.project = w.project AND cb.period_key = w.period_key AND cb.field = 'cost_baseline' LEFT JOIN reporting.manual_inputs ca ON ca.project = w.project AND ca.period_key = w.period_key AND ca.field = 'cost_actual' WHERE w.project = 'TeacherZone' AND w.period_type = 'month' ORDER BY w.period_key DESC",
           "refId": "A"
         }
       ],

@@ -63,7 +63,7 @@ TH = {
 
 
 DEFAULTS = {
-    "blended_hourly_rate": 25,
+    "blended_hourly_rate": 12,
     "has_production": True,
     "sections": ["steering", "roi", "cause_effect", "dora", "maturity", "adoption"],
     "thresholds": {"lead_time_h": [72, 168], "predictability_pct": [80, 60]},
@@ -275,19 +275,19 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
         "AND metric_key LIKE 'ai_tasks_tool_%' ORDER BY value DESC")
     roi = [
         {"kind": "stat", "title": "AI Net $ (latest month)", "sql": net_sql,
-         "unit": "currencyUSD", "w": 6, "graph": "none",
+         "unit": "currencyUSD", "w": 8, "h": 6, "graph": "none",
          "th": _th(CRIT, (0, GOOD)),
          "desc": f"Hours saved × ${rate}/h blended rate − monthly AI tool cost "
                  "(seats + API). Green when net-positive."},
-        _stat(project, "AI Hours Saved", "ai_time_saved_h", "h", w=6,
+        _stat(project, "AI Hours Saved", "ai_time_saved_h", "h", w=8, h=6,
               desc="Sum of per-ticket 'AI Time Saved' on issues done this sprint."),
-        _stat(project, "Throughput / Engineer", "throughput_per_engineer", w=4,
+        _stat(project, "Throughput / Engineer", "throughput_per_engineer", w=8, h=6,
               desc="Tasks done ÷ active engineers — ROI supporting evidence."),
         {"kind": "timeseries", "title": "Savings vs Tool Cost by Month",
          "sql": monthly_roi_sql, "format": "time_series", "unit": "currencyUSD",
-         "w": 8, "h": 4},
+         "w": 12, "h": 7},
         {"kind": "barchart", "title": "AI Tasks by Tool ($sprint)", "sql": tools_sql,
-         "unit": "none", "w": 8, "h": 6, "color": ACCENT,
+         "unit": "none", "w": 12, "h": 7, "color": ACCENT,
          "desc": "Which tool's licenses produce. From the Jira AI Tool field."},
     ]
 
@@ -295,7 +295,7 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
         {"kind": "timeseries", "title": "Lead Time — AI vs non-AI",
          "sql": ("SELECT period_start AS time, lead_time_ai_h AS \"AI PRs\", "
                  f"lead_time_nonai_h AS \"Non-AI PRs\" {trend}"),
-         "format": "time_series", "unit": "h", "w": 8, "h": 8,
+         "format": "time_series", "unit": "h", "w": 12, "h": 8,
          "overrides": [
              {"matcher": {"id": "byName", "options": "AI PRs"},
               "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": ACCENT}}]},
@@ -306,7 +306,7 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
         {"kind": "timeseries", "title": "Hours to First Review — AI vs non-AI",
          "sql": ("SELECT period_start AS time, first_review_ai_h AS \"AI PRs\", "
                  f"first_review_nonai_h AS \"Non-AI PRs\" {trend}"),
-         "format": "time_series", "unit": "h", "w": 8, "h": 8,
+         "format": "time_series", "unit": "h", "w": 12, "h": 8,
          "overrides": [
              {"matcher": {"id": "byName", "options": "AI PRs"},
               "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": ACCENT}}]},
@@ -340,6 +340,9 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
         ]
     dora.append(_stat(project, "Sprint Predictability", "predictability_pct",
                       "percent", th["predictability"]))
+    if len(dora) == 3:            # no-prod env: 3 tiles fill the 24-wide row
+        for pnl in dora:
+            pnl["w"] = 8
 
     adoption = [
         _stat(project, "AI Engineers / Week", "ai_users_weekly_avg", w=4,
@@ -359,7 +362,7 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
          "sql": ("SELECT period_start AS time, ai_pr_pct AS \"AI PR %\", "
                  "ai_task_pct AS \"AI Task %\", agent_task_pct AS \"Agent Task %\" "
                  f"{trend}"),
-         "format": "time_series", "unit": "percent", "w": 8, "h": 8,
+         "format": "time_series", "unit": "percent", "w": 24, "h": 8,
          "overrides": [
              {"matcher": {"id": "byName", "options": name},
               "properties": [{"id": "color",
@@ -373,7 +376,7 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
         f"agent_prs_human_fixed AS \"Human-fixed\" {trend}")
     agent = [
         {"kind": "timeseries", "title": "Agent PRs by Sprint", "sql": agent_bars_sql,
-         "format": "time_series", "unit": "none", "w": 8, "h": 8,
+         "format": "time_series", "unit": "none", "w": 12, "h": 8,
          "custom": {"drawStyle": "bars", "stacking": {"mode": "normal"},
                     "fillOpacity": 80, "lineWidth": 0},
          "overrides": [
@@ -386,19 +389,19 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
          ],
          "desc": "Merged agent PRs: shipped untouched (blue) vs needing human commits (gray)."},
         _stat(project, "Autonomy %", "autonomy_pct", "percent", TH["autonomy"],
-              w=4, h=8, desc="Agent PRs with zero human commits. L4 ≥30%, L5 ≥60%."),
+              w=6, h=8, desc="Agent PRs with zero human commits. L4 ≥30%, L5 ≥60%."),
         _stat(project, "Completion %", "agent_completion_pct", "percent",
-              w=4, h=8, desc="Agent PRs merged ÷ agent PRs opened."),
+              w=8, h=6, desc="Agent PRs merged ÷ agent PRs opened."),
         _stat(project, "Intervention %", "human_intervention_pct", "percent",
-              w=4, h=8, desc="Agent PRs needing human commits. Lower is better."),
+              w=8, h=6, desc="Agent PRs needing human commits. Lower is better."),
         _stat(project, "Agent Cycle Time", "agent_cycle_h", "h",
-              w=4, h=8, desc="Median hours from agent PR opened to merged."),
+              w=8, h=6, desc="Median hours from agent PR opened to merged."),
     ]
 
     maturity = [
         {"kind": "stat", "title": "Maturity Stage (1-4)",
          "sql": _spark(project, _maturity_case(cfg)),
-         "format": "time_series", "unit": "none", "w": 4, "h": 8,
+         "format": "time_series", "unit": "none", "w": 6, "h": 8,
          "th": _th("text", (2, BLUE_SOFT), (3, BLUE_MID), (4, ACCENT)),
          "desc": ("1 Assisted · 2 Adopted · 3 Agentic · 4 Autonomous. "
                   "Stages 3-4 gated on AI-PR review % and test % — "

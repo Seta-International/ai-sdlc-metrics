@@ -109,7 +109,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT sum(w.ai_time_saved_h * CASE w.project WHEN 'Future' THEN 25 WHEN 'TeacherZone' THEN 25 ELSE 0 END) - sum(COALESCE(t.value::numeric, 0)) FROM (SELECT DISTINCT ON (project) * FROM reporting.metrics_wide WHERE period_type = 'month' AND ai_time_saved_h IS NOT NULL ORDER BY project, period_key DESC) w LEFT JOIN reporting.manual_inputs t ON t.project = w.project AND t.period_key = w.period_key AND t.field = 'ai_tool_cost_monthly'",
+          "rawSql": "SELECT sum(w.ai_time_saved_h * CASE w.project WHEN 'Future' THEN 12 WHEN 'TeacherZone' THEN 12 ELSE 0 END) - sum(COALESCE(t.value::numeric, 0)) FROM (SELECT DISTINCT ON (project) * FROM reporting.metrics_wide WHERE period_type = 'month' AND ai_time_saved_h IS NOT NULL ORDER BY project, period_key DESC) w LEFT JOIN reporting.manual_inputs t ON t.project = w.project AND t.period_key = w.period_key AND t.field = 'ai_tool_cost_monthly'",
           "refId": "A"
         }
       ],

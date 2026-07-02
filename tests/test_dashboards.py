@@ -72,7 +72,7 @@ def test_config_literals_embedded_in_sql(tmp_path):
     out = _generate(tmp_path)
     future = json.loads((out / "Future" / "project.json").read_text())
     sql = json.dumps(future)
-    assert "ai_time_saved_h * 25" in sql          # blended rate literal
+    assert "ai_time_saved_h * 12" in sql          # blended rate literal
     assert ">= 80" in sql and ">= 50" in sql      # maturity gate thresholds
 
 
