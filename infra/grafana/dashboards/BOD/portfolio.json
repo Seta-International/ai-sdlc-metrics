@@ -24,7 +24,7 @@
   "panels": [
     {
       "type": "row",
-      "title": "Portfolio Pulse \u2014 Latest Sprint",
+      "title": "Is AI paying off? \u2014 Portfolio",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -90,13 +90,75 @@
     },
     {
       "type": "stat",
-      "title": "AI PR % (portfolio)",
+      "title": "AI Net $ (portfolio, latest month)",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
       },
       "gridPos": {
         "x": 4,
+        "y": 1,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT sum(w.ai_time_saved_h * CASE w.project WHEN 'Future' THEN 25 WHEN 'TeacherZone' THEN 25 ELSE 0 END) - sum(COALESCE(t.value::numeric, 0)) FROM (SELECT DISTINCT ON (project) * FROM reporting.metrics_wide WHERE period_type = 'month' AND ai_time_saved_h IS NOT NULL ORDER BY project, period_key DESC) w LEFT JOIN reporting.manual_inputs t ON t.project = w.project AND t.period_key = w.period_key AND t.field = 'ai_tool_cost_monthly'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#d03b3b",
+                "value": null
+              },
+              {
+                "color": "#0ca30c",
+                "value": 0
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "description": "Hours saved \u00d7 per-project blended rate \u2212 tool costs."
+    },
+    {
+      "type": "stat",
+      "title": "AI PR % (portfolio)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 9,
         "y": 1,
         "w": 5,
         "h": 4
@@ -162,7 +224,7 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 9,
+        "x": 14,
         "y": 1,
         "w": 5,
         "h": 4
@@ -227,7 +289,7 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 14,
+        "x": 19,
         "y": 1,
         "w": 5,
         "h": 4
@@ -292,8 +354,8 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 19,
-        "y": 1,
+        "x": 0,
+        "y": 5,
         "w": 5,
         "h": 4
       },
@@ -341,11 +403,11 @@
     },
     {
       "type": "row",
-      "title": "Project Scorecard",
+      "title": "Project Scorecard \u2014 Latest Sprint",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 9,
         "w": 24,
         "h": 1
       },
@@ -360,7 +422,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 6,
+        "y": 10,
         "w": 24,
         "h": 9
       },
@@ -372,7 +434,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT project AS \"Project\", period_key AS \"Sprint\", total_tasks AS \"Tasks\", total_prs AS \"PRs\", round(ai_pr_pct, 1) AS \"AI PR %\", round(agent_task_pct, 1) AS \"Agent Task %\", round(lead_time_h, 1) AS \"Lead Time h\", round(deploys_per_week, 2) AS \"Deploys/wk\", round(cfr_pct, 1) AS \"CFR %\", round(mttr_h, 1) AS \"MTTR h\", round(ai_pr_review_pct, 1) AS \"Review %\", round(rework_pct, 1) AS \"Rework %\", security_alerts AS \"Alerts\", round(autonomy_pct, 1) AS \"Autonomy %\", round(predictability_pct, 1) AS \"Predictability %\" FROM reporting.metrics_ratios r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.metrics_ratios r2 WHERE r2.project = r.project AND r2.period_type = 'sprint') ORDER BY project",
+          "rawSql": "SELECT project AS \"Project\", period_key AS \"Sprint\", total_tasks AS \"Tasks\", total_prs AS \"PRs\", round(ai_pr_pct, 1) AS \"AI PR %\", round(agent_task_pct, 1) AS \"Agent Task %\", round(lead_time_h, 1) AS \"Lead Time h\", round(deploys_per_week, 2) AS \"Deploys/wk\", round(cfr_pct, 1) AS \"CFR %\", round(mttr_h, 1) AS \"MTTR h\", round(ai_pr_review_pct, 1) AS \"Review %\", round(rework_pct, 1) AS \"Rework %\", security_alerts AS \"Alerts\", round(autonomy_pct, 1) AS \"Autonomy %\", round(predictability_pct, 1) AS \"Predictability %\", CASE project WHEN 'Future' THEN (CASE WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) AND (COALESCE(agent_pr_pct, 0) >= 10 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) AND (COALESCE(autonomy_pct, 0) >= 50 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) THEN 4 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) AND (COALESCE(agent_pr_pct, 0) >= 10 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) THEN 3 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) THEN 2 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) THEN 1 ELSE 0 END) WHEN 'TeacherZone' THEN (CASE WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) AND (COALESCE(agent_pr_pct, 0) >= 10 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) AND (COALESCE(autonomy_pct, 0) >= 50 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) THEN 4 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) AND (COALESCE(agent_pr_pct, 0) >= 10 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) THEN 3 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) THEN 2 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) THEN 1 ELSE 0 END) END AS \"Stage\" FROM reporting.metrics_ratios r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.metrics_ratios r2 WHERE r2.project = r.project AND r2.period_type = 'sprint') ORDER BY project",
           "refId": "A"
         }
       ],
@@ -735,6 +797,45 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Stage"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "text",
+                      "value": null
+                    },
+                    {
+                      "color": "#86b6ef",
+                      "value": 2
+                    },
+                    {
+                      "color": "#3987e5",
+                      "value": 3
+                    },
+                    {
+                      "color": "#3987e5",
+                      "value": 4
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              }
+            ]
           }
         ]
       },
@@ -745,11 +846,11 @@
     },
     {
       "type": "row",
-      "title": "Direction of Travel",
+      "title": "Delivery Health & Direction",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 15,
+        "y": 19,
         "w": 24,
         "h": 1
       },
@@ -764,7 +865,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 16,
+        "y": 20,
         "w": 8,
         "h": 8
       },
@@ -850,7 +951,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 16,
+        "y": 20,
         "w": 8,
         "h": 8
       },
@@ -936,7 +1037,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 16,
+        "y": 20,
         "w": 8,
         "h": 8
       },
@@ -1015,11 +1116,11 @@
     },
     {
       "type": "row",
-      "title": "Value",
+      "title": "Where to Invest / Train",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 24,
+        "y": 28,
         "w": 24,
         "h": 1
       },
@@ -1034,7 +1135,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 25,
+        "y": 29,
         "w": 12,
         "h": 8
       },
@@ -1088,7 +1189,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 25,
+        "y": 29,
         "w": 12,
         "h": 8
       },
@@ -1132,6 +1233,60 @@
         }
       },
       "description": "AI engineers \u00f7 team size (manual input, falls back to active PR contributors). Framework target \u226580%."
+    },
+    {
+      "type": "barchart",
+      "title": "AI Tasks by Tool (portfolio, all sprints)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 37,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT replace(metric_key, 'ai_tasks_tool_', '') AS \"Tool\", sum(value) AS \"Tasks\" FROM reporting.metric_counts WHERE period_type = 'sprint' AND metric_key LIKE 'ai_tasks_tool_%' GROUP BY 1 ORDER BY 2 DESC",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#c98500"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "always",
+        "legend": {
+          "displayMode": "hidden",
+          "placement": "bottom"
+        }
+      },
+      "description": "Portfolio tool mix \u2014 informs license decisions."
     }
   ]
 }

@@ -485,7 +485,16 @@ def _score_col(name: str, th: dict) -> dict:
                             "value": {"type": "color-background", "mode": "basic"}}]}
 
 
-def build_bod_dashboard(projects: list[str], exporter_url: str) -> dict:
+def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
+    projects = [c["name"] for c in cfgs]
+    rate_case = ("CASE w.project " +
+                 " ".join(f"WHEN '{c['name']}' THEN {c['blended_hourly_rate']}"
+                          for c in cfgs) + " ELSE 0 END")
+    latest_month = (f"FROM (SELECT DISTINCT ON (project) * FROM {WIDE} "
+                    "WHERE period_type = 'month' AND ai_time_saved_h IS NOT NULL "
+                    "ORDER BY project, period_key DESC) w "
+                    f"LEFT JOIN {MANUAL} t ON t.project = w.project "
+                    "AND t.period_key = w.period_key AND t.field = 'ai_tool_cost_monthly'")
     latest = (f"FROM {RATIOS} r WHERE period_type = 'sprint' AND period_start = "
               f"(SELECT max(period_start) FROM {RATIOS} r2 WHERE r2.project = r.project "
               "AND r2.period_type = 'sprint')")
@@ -503,6 +512,11 @@ def build_bod_dashboard(projects: list[str], exporter_url: str) -> dict:
         {"kind": "stat", "title": "Projects Tracked",
          "sql": f"SELECT count(DISTINCT project) FROM {RATIOS} WHERE period_type = 'sprint'",
          "unit": "none", "w": 4, "graph": "none"},
+        {"kind": "stat", "title": "AI Net $ (portfolio, latest month)",
+         "sql": (f"SELECT sum(w.ai_time_saved_h * {rate_case}) "
+                 f"- sum(COALESCE(t.value::numeric, 0)) {latest_month}"),
+         "unit": "currencyUSD", "th": _th(CRIT, (0, GOOD)), "w": 5, "graph": "none",
+         "desc": "Hours saved × per-project blended rate − tool costs."},
         {"kind": "stat", "title": "AI PR % (portfolio)",
          "sql": f"SELECT round(avg(ai_pr_pct), 1) {latest}",
          "unit": "percent", "th": TH["ai_share"], "w": 5, "graph": "none",
@@ -519,6 +533,9 @@ def build_bod_dashboard(projects: list[str], exporter_url: str) -> dict:
          "desc": "Baseline vs actual cost per unit, latest manual input per project."},
     ]
 
+    stage_case = ("CASE project " +
+                  " ".join(f"WHEN '{c['name']}' THEN ({_maturity_case(c)})"
+                           for c in cfgs) + " END")
     scorecard_sql = (
         "SELECT project AS \"Project\", period_key AS \"Sprint\", "
         "total_tasks AS \"Tasks\", total_prs AS \"PRs\", "
@@ -527,7 +544,8 @@ def build_bod_dashboard(projects: list[str], exporter_url: str) -> dict:
         "round(cfr_pct, 1) AS \"CFR %\", round(mttr_h, 1) AS \"MTTR h\", "
         "round(ai_pr_review_pct, 1) AS \"Review %\", round(rework_pct, 1) AS \"Rework %\", "
         "security_alerts AS \"Alerts\", round(autonomy_pct, 1) AS \"Autonomy %\", "
-        "round(predictability_pct, 1) AS \"Predictability %\" "
+        "round(predictability_pct, 1) AS \"Predictability %\", "
+        f"{stage_case} AS \"Stage\" "
         f"{latest} ORDER BY project")
     scorecard = [
         {"kind": "table", "title": "Project Scorecard — Latest Sprint",
@@ -543,6 +561,7 @@ def build_bod_dashboard(projects: list[str], exporter_url: str) -> dict:
              _score_col("Alerts", TH["alerts"]),
              _score_col("Autonomy %", TH["autonomy"]),
              _score_col("Predictability %", TH["predictability"]),
+             _score_col("Stage", _th("text", (2, BLUE_SOFT), (3, BLUE_MID), (4, ACCENT))),
          ],
          "desc": ("Green = on target, yellow = watch, red = act "
                   "(thresholds from the maturity framework). "
@@ -583,13 +602,20 @@ def build_bod_dashboard(projects: list[str], exporter_url: str) -> dict:
          "color": PALETTE[1],
          "desc": ("AI engineers ÷ team size (manual input, falls back to "
                   "active PR contributors). Framework target ≥80%.")},
+        {"kind": "barchart", "title": "AI Tasks by Tool (portfolio, all sprints)",
+         "sql": ("SELECT replace(metric_key, 'ai_tasks_tool_', '') AS \"Tool\", "
+                 "sum(value) AS \"Tasks\" FROM reporting.metric_counts "
+                 "WHERE period_type = 'sprint' AND metric_key LIKE 'ai_tasks_tool_%' "
+                 "GROUP BY 1 ORDER BY 2 DESC"),
+         "unit": "none", "w": 12, "h": 8, "color": PALETTE[2],
+         "desc": "Portfolio tool mix — informs license decisions."},
     ]
 
     sections = [
-        ("Portfolio Pulse — Latest Sprint", pulse),
-        ("Project Scorecard", scorecard),
-        ("Direction of Travel", direction),
-        ("Value", value),
+        ("Is AI paying off? — Portfolio", pulse),
+        ("Project Scorecard — Latest Sprint", scorecard),
+        ("Delivery Health & Direction", direction),
+        ("Where to Invest / Train", value),
     ]
     links = [{"type": "link", "title": "Download Excel (all projects)", "icon": "doc",
               "targetBlank": True, "url": f"{exporter_url}/export.xlsx?project=all"}]
@@ -604,7 +630,6 @@ def main() -> None:
     out = Path(args.out)
 
     exporter, cfgs = load_config()
-    names = [c["name"] for c in cfgs]
 
     for cfg in cfgs:
         d = build_project_dashboard(cfg, exporter)
@@ -613,7 +638,7 @@ def main() -> None:
         path.write_text(json.dumps(d, indent=2))
         print(f"wrote {path}")
 
-    bod = build_bod_dashboard(names, exporter)
+    bod = build_bod_dashboard(cfgs, exporter)
     path = out / "BOD" / "portfolio.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(bod, indent=2))

@@ -90,3 +90,13 @@ def test_tool_breakdown_reads_metric_counts(tmp_path):
     future = json.loads((out / "Future" / "project.json").read_text())
     sql = json.dumps(future)
     assert "ai_tasks_tool_" in sql and "metric_counts" in sql
+
+
+def test_bod_has_roi_and_stage(tmp_path):
+    out = _generate(tmp_path)
+    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
+    titles = [p.get("title", "") for p in bod["panels"]]
+    assert any("AI Net $" in t for t in titles)
+    body = json.dumps(bod)
+    assert "\"Stage\"" in body                 # scorecard stage column
+    assert "ai_tasks_tool_" in body            # portfolio tool mix
