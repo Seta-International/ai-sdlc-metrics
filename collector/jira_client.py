@@ -32,14 +32,16 @@ class JiraClient:
             page_token = data["nextPageToken"]
         return issues
 
-    def get_closed_issues(self, since: datetime, until: datetime) -> list[dict]:
+    def get_closed_issues(self, since: datetime, until: datetime,
+                          extra_fields: tuple[str, ...] = ()) -> list[dict]:
         """All issues transitioned to Done in [since, until]."""
         jql = (
             f'project = {self._project} AND status changed to Done '
             f'AFTER "{since.strftime("%Y-%m-%d")}" '
             f'BEFORE "{until.strftime("%Y-%m-%d")}"'
         )
-        return self._jql_all(jql, [self._ai_usage_field, "assignee", "resolutiondate"])
+        fields = [self._ai_usage_field, "assignee", "resolutiondate", *extra_fields]
+        return self._jql_all(jql, fields)
 
     def get_incidents(self, since: datetime, until: datetime) -> list[dict]:
         """Incident issues created in [since, until]."""

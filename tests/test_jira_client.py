@@ -91,6 +91,18 @@ def test_closed_issues_request_assignee_and_resolutiondate():
 
 
 @responses.activate
+def test_closed_issues_requests_extra_fields():
+    rsp = responses.get(
+        "https://x.atlassian.net/rest/api/3/search/jql",
+        json={"issues": [], "isLast": True},
+    )
+    _jc().get_closed_issues(_SINCE, _UNTIL,
+                            extra_fields=("customfield_10301", "customfield_10302"))
+    fields = rsp.calls[0].request.params["fields"]
+    assert "customfield_10301" in fields and "customfield_10302" in fields
+
+
+@responses.activate
 def test_sprint_issue_counts_picks_overlapping_sprint():
     responses.get(
         "https://x.atlassian.net/rest/agile/1.0/board/7/sprint",
