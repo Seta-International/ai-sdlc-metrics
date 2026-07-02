@@ -92,6 +92,21 @@ def test_tool_breakdown_reads_metric_counts(tmp_path):
     assert "ai_tasks_tool_" in sql and "metric_counts" in sql
 
 
+def test_every_panel_has_a_description(tmp_path):
+    # Every non-row panel must carry a description so Grafana renders an
+    # info-tooltip explaining the metric.
+    out = _generate(tmp_path)
+    missing = []
+    for f in out.rglob("*.json"):
+        d = json.loads(f.read_text())
+        for p in d["panels"]:
+            if p["type"] == "row":
+                continue
+            if not p.get("description"):
+                missing.append(f"{f.parent.name}/{f.name}: {p.get('title')!r}")
+    assert not missing, "panels without description:\n" + "\n".join(missing)
+
+
 def test_bod_has_roi_and_stage(tmp_path):
     out = _generate(tmp_path)
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())

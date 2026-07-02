@@ -184,7 +184,8 @@
         "colorMode": "value",
         "justifyMode": "auto",
         "textMode": "auto"
-      }
+      },
+      "description": "Median hours from PR open to merge (no production env yet). Lower is faster delivery."
     },
     {
       "type": "stat",
@@ -249,7 +250,8 @@
         "colorMode": "value",
         "justifyMode": "auto",
         "textMode": "auto"
-      }
+      },
+      "description": "Jira issues of type Incident created this sprint. Green 0, amber 1-2, red 3+."
     },
     {
       "type": "stat",
@@ -314,7 +316,8 @@
         "colorMode": "value",
         "justifyMode": "auto",
         "textMode": "auto"
-      }
+      },
+      "description": "Mean time to resolve \u2014 hours from an incident being created to resolved. Lower is better."
     },
     {
       "type": "stat",
@@ -379,7 +382,8 @@
         "colorMode": "value",
         "justifyMode": "auto",
         "textMode": "auto"
-      }
+      },
+      "description": "Share of merged PRs that revert or re-touch files changed in the prior 14 days. Lower is healthier."
     },
     {
       "type": "row",
@@ -618,7 +622,8 @@
           "mode": "multi",
           "sort": "desc"
         }
-      }
+      },
+      "description": "Monthly AI hours saved \u00d7 $12/h (Savings) vs the entered AI tool cost. Savings above cost = positive ROI."
     },
     {
       "type": "barchart",
@@ -857,7 +862,8 @@
           "mode": "multi",
           "sort": "desc"
         }
-      }
+      },
+      "description": "Median hours from PR open to its first submitted review, by segment. A rising AI line can signal review-queue pressure from higher AI PR volume."
     },
     {
       "type": "stat",
@@ -912,7 +918,7 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
-      "description": "Median lines changed per AI PR."
+      "description": "Median lines changed (additions + deletions) per AI PR."
     },
     {
       "type": "stat",
@@ -966,7 +972,8 @@
         "colorMode": "value",
         "justifyMode": "auto",
         "textMode": "auto"
-      }
+      },
+      "description": "Median lines changed per non-AI PR \u2014 the comparison baseline for PR Size (AI)."
     },
     {
       "type": "stat",
@@ -1196,7 +1203,8 @@
         "colorMode": "value",
         "justifyMode": "auto",
         "textMode": "auto"
-      }
+      },
+      "description": "Share of AI PRs with at least one human approval. Maturity gate for stages 3-4; target ~100%."
     },
     {
       "type": "row",
@@ -1339,7 +1347,8 @@
         "colorMode": "value",
         "justifyMode": "auto",
         "textMode": "auto"
-      }
+      },
+      "description": "Mean hours from incident created to resolved. Lower is better."
     },
     {
       "type": "stat",
@@ -1404,7 +1413,8 @@
         "colorMode": "value",
         "justifyMode": "auto",
         "textMode": "auto"
-      }
+      },
+      "description": "Completed \u00f7 committed issues in the Jira sprint. Higher = more reliable delivery."
     },
     {
       "type": "row",
@@ -2286,7 +2296,8 @@
           "mode": "multi",
           "sort": "desc"
         }
-      }
+      },
+      "description": "Trend of AI-labeled PRs, AI-usage Jira tasks, and agent tasks as a share of all work \u2014 adoption breadth over time."
     },
     {
       "type": "row",

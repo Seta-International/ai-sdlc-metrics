@@ -250,10 +250,19 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
               th["predictability"],
               desc="Completed ÷ committed issues in the Jira sprint."),
         _stat(project, "Lead Time" if has_prod else "Merge Lead Time (no prod env)",
-              "lead_time_h", "h", th["lead"]),
-        _stat(project, "Incidents", "incidents", th=TH["incidents"], w=4),
-        _stat(project, "MTTR", "mttr_h", "h", TH["mttr"], w=4),
-        _stat(project, "Rework %", "rework_pct", "percent", TH["rework"], w=4),
+              "lead_time_h", "h", th["lead"],
+              desc="Median hours from PR merge to next production deploy."
+                   if has_prod else "Median hours from PR open to merge (no "
+                   "production env yet). Lower is faster delivery."),
+        _stat(project, "Incidents", "incidents", th=TH["incidents"], w=4,
+              desc="Jira issues of type Incident created this sprint. "
+                   "Green 0, amber 1-2, red 3+."),
+        _stat(project, "MTTR", "mttr_h", "h", TH["mttr"], w=4,
+              desc="Mean time to resolve — hours from an incident being "
+                   "created to resolved. Lower is better."),
+        _stat(project, "Rework %", "rework_pct", "percent", TH["rework"], w=4,
+              desc="Share of merged PRs that revert or re-touch files changed "
+                   "in the prior 14 days. Lower is healthier."),
     ]
 
     monthly_roi_sql = (
@@ -285,7 +294,9 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
               desc="Tasks done ÷ active engineers — ROI supporting evidence."),
         {"kind": "timeseries", "title": "Savings vs Tool Cost by Month",
          "sql": monthly_roi_sql, "format": "time_series", "unit": "currencyUSD",
-         "w": 12, "h": 7},
+         "w": 12, "h": 7,
+         "desc": f"Monthly AI hours saved × ${rate}/h (Savings) vs the entered "
+                 "AI tool cost. Savings above cost = positive ROI."},
         {"kind": "barchart", "title": "AI Tasks by Tool ($sprint)", "sql": tools_sql,
          "unit": "none", "w": 12, "h": 7, "color": ACCENT,
          "desc": "Which tool's licenses produce. From the Jira AI Tool field."},
@@ -311,10 +322,15 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
              {"matcher": {"id": "byName", "options": "AI PRs"},
               "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": ACCENT}}]},
              {"matcher": {"id": "byName", "options": "Non-AI PRs"},
-              "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": DEEMPH}}]}]},
+              "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": DEEMPH}}]}],
+         "desc": ("Median hours from PR open to its first submitted review, by "
+                  "segment. A rising AI line can signal review-queue pressure "
+                  "from higher AI PR volume.")},
         _stat(project, "PR Size (AI)", "pr_size_ai", w=4, h=4,
-              desc="Median lines changed per AI PR."),
-        _stat(project, "PR Size (non-AI)", "pr_size_nonai", w=4, h=4),
+              desc="Median lines changed (additions + deletions) per AI PR."),
+        _stat(project, "PR Size (non-AI)", "pr_size_nonai", w=4, h=4,
+              desc="Median lines changed per non-AI PR — the comparison "
+                   "baseline for PR Size (AI)."),
         _stat(project, "Review Rounds (AI)", "review_rounds_ai", w=4, h=4,
               desc="Mean CHANGES_REQUESTED per AI PR — verification burden."),
         _stat(project, "Rework from AI %", "rework_from_ai_pct", "percent", w=4, h=4,
@@ -322,7 +338,9 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
         _stat(project, "AI PR Test %", "ai_pr_test_pct", "percent", w=4, h=4,
               desc="AI PRs touching test files. Maturity gate input."),
         _stat(project, "AI PR Review %", "ai_pr_review_pct", "percent",
-              TH["review"], w=4, h=4),
+              TH["review"], w=4, h=4,
+              desc="Share of AI PRs with at least one human approval. "
+                   "Maturity gate for stages 3-4; target ~100%."),
     ]
 
     dora = [
@@ -330,16 +348,21 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
               "lead_time_h", "h", th["lead"],
               desc="Median hours from PR merge to next production deploy."
                    if has_prod else "Median PR open→merge; no production env yet."),
-        _stat(project, "MTTR", "mttr_h", "h", TH["mttr"]),
+        _stat(project, "MTTR", "mttr_h", "h", TH["mttr"],
+              desc="Mean hours from incident created to resolved. Lower is better."),
     ]
     if has_prod:
         dora[1:1] = [
-            _stat(project, "Deploys / Week", "deploys_per_week", "none", TH["deploy_freq"]),
+            _stat(project, "Deploys / Week", "deploys_per_week", "none", TH["deploy_freq"],
+                  desc="Production deploys ÷ weeks in the window. "
+                       "DORA throughput signal; higher is better."),
             _stat(project, "Change Failure Rate", "cfr_pct", "percent", TH["cfr"],
                   desc="Incidents per deploy (proxy). Target ≤15%."),
         ]
     dora.append(_stat(project, "Sprint Predictability", "predictability_pct",
-                      "percent", th["predictability"]))
+                      "percent", th["predictability"],
+                      desc="Completed ÷ committed issues in the Jira sprint. "
+                           "Higher = more reliable delivery."))
     if len(dora) == 3:            # no-prod env: 3 tiles fill the 24-wide row
         for pnl in dora:
             pnl["w"] = 8
@@ -363,6 +386,8 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
                  "ai_task_pct AS \"AI Task %\", agent_task_pct AS \"Agent Task %\" "
                  f"{trend}"),
          "format": "time_series", "unit": "percent", "w": 24, "h": 8,
+         "desc": ("Trend of AI-labeled PRs, AI-usage Jira tasks, and agent tasks "
+                  "as a share of all work — adoption breadth over time."),
          "overrides": [
              {"matcher": {"id": "byName", "options": name},
               "properties": [{"id": "color",
@@ -515,26 +540,33 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
     pulse = [
         {"kind": "stat", "title": "Projects Tracked",
          "sql": f"SELECT count(DISTINCT project) FROM {RATIOS} WHERE period_type = 'sprint'",
-         "unit": "none", "w": 4, "graph": "none"},
+         "unit": "none", "w": 8, "graph": "none",
+         "desc": "Distinct projects with at least one collected sprint."},
         {"kind": "stat", "title": "AI Net $ (portfolio, latest month)",
          "sql": (f"SELECT sum(w.ai_time_saved_h * {rate_case}) "
                  f"- sum(COALESCE(t.value::numeric, 0)) {latest_month}"),
-         "unit": "currencyUSD", "th": _th(CRIT, (0, GOOD)), "w": 5, "graph": "none",
-         "desc": "Hours saved × per-project blended rate − tool costs."},
+         "unit": "currencyUSD", "th": _th(CRIT, (0, GOOD)), "w": 8, "graph": "none",
+         "desc": "Sum across projects of (AI hours saved × that project's blended "
+                 "rate) − monthly AI tool cost. Green when net-positive."},
         {"kind": "stat", "title": "AI PR % (portfolio)",
          "sql": f"SELECT round(avg(ai_pr_pct), 1) {latest}",
-         "unit": "percent", "th": TH["ai_share"], "w": 5, "graph": "none",
-         "desc": "Average across projects, latest sprint each."},
+         "unit": "percent", "th": TH["ai_share"], "w": 8, "graph": "none",
+         "desc": "Average AI-labeled PR share across projects, latest sprint each."},
         {"kind": "stat", "title": "Lead Time (portfolio)",
          "sql": f"SELECT round(avg(lead_time_h), 1) {latest}",
-         "unit": "h", "th": TH["lead"], "w": 5, "graph": "none"},
+         "unit": "h", "th": TH["lead"], "w": 8, "graph": "none",
+         "desc": "Average lead time across projects (latest sprint each). "
+                 "Lower is faster delivery."},
         {"kind": "stat", "title": "Agent Autonomy (portfolio)",
          "sql": f"SELECT round(avg(autonomy_pct), 1) {latest}",
-         "unit": "percent", "th": TH["autonomy"], "w": 5, "graph": "none"},
+         "unit": "percent", "th": TH["autonomy"], "w": 8, "graph": "none",
+         "desc": "Average share of agent PRs merged with zero human commits, "
+                 "across projects. Blue marks maturity level, not health."},
         {"kind": "stat", "title": "Cost Improvement (portfolio)",
          "sql": f"SELECT round(avg(100 * (b.v - a.v) / NULLIF(b.v, 0)), 0) {cost_latest}",
-         "unit": "percent", "w": 5, "graph": "none",
-         "desc": "Baseline vs actual cost per unit, latest manual input per project."},
+         "unit": "percent", "w": 8, "graph": "none",
+         "desc": "Baseline vs actual cost per unit (latest manual input per "
+                 "project). Empty until cost_baseline/cost_actual are entered."},
     ]
 
     stage_case = ("CASE project " +
@@ -553,7 +585,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
         f"{latest} ORDER BY project")
     scorecard = [
         {"kind": "table", "title": "Project Scorecard — Latest Sprint",
-         "sql": scorecard_sql, "unit": "none", "w": 24, "h": 9,
+         "sql": scorecard_sql, "unit": "none", "w": 24, "h": 6,
          "overrides": [
              _score_col("AI PR %", TH["ai_share"]),
              _score_col("Lead Time h", TH["lead"]),
@@ -576,15 +608,21 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
         {"kind": "timeseries", "title": "AI PR % by Sprint",
          "sql": f"SELECT period_start AS time, project, ai_pr_pct {trend}",
          "format": "time_series", "unit": "percent", "w": 8, "h": 8,
-         "overrides": _project_colors(projects)},
+         "overrides": _project_colors(projects),
+         "desc": "AI-labeled PR share per sprint, one line per project. "
+                 "Adoption trajectory across the portfolio."},
         {"kind": "timeseries", "title": "Lead Time by Sprint",
          "sql": f"SELECT period_start AS time, project, lead_time_h {trend}",
          "format": "time_series", "unit": "h", "w": 8, "h": 8,
-         "overrides": _project_colors(projects)},
+         "overrides": _project_colors(projects),
+         "desc": "Lead time (hours) per sprint, one line per project. "
+                 "Lower/flatter is better."},
         {"kind": "timeseries", "title": "Agent Autonomy % by Sprint",
          "sql": f"SELECT period_start AS time, project, autonomy_pct {trend}",
          "format": "time_series", "unit": "percent", "w": 8, "h": 8,
-         "overrides": _project_colors(projects)},
+         "overrides": _project_colors(projects),
+         "desc": "Share of agent PRs merged with no human commits, per sprint "
+                 "and project. Rising = growing agent autonomy."},
     ]
 
     usage_by_project = (
@@ -599,10 +637,10 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
          "sql": (f"SELECT b.project AS \"Project\", "
                  f"round(100 * (b.v - a.v) / NULLIF(b.v, 0), 0) AS \"Cost Improvement %\" "
                  f"{cost_latest} ORDER BY 2 DESC"),
-         "unit": "percent", "w": 12, "h": 8, "color": ACCENT,
+         "unit": "percent", "w": 8, "h": 8, "color": ACCENT,
          "desc": "From monthly manual inputs (cost baseline vs actual per unit)."},
         {"kind": "barchart", "title": "Engineer Usage Rate by Project (latest month)",
-         "sql": usage_by_project, "unit": "percent", "w": 12, "h": 8,
+         "sql": usage_by_project, "unit": "percent", "w": 8, "h": 8,
          "color": PALETTE[1],
          "desc": ("AI engineers ÷ team size (manual input, falls back to "
                   "active PR contributors). Framework target ≥80%.")},
@@ -611,7 +649,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
                  "sum(value) AS \"Tasks\" FROM reporting.metric_counts "
                  "WHERE period_type = 'sprint' AND metric_key LIKE 'ai_tasks_tool_%' "
                  "GROUP BY 1 ORDER BY 2 DESC"),
-         "unit": "none", "w": 12, "h": 8, "color": PALETTE[2],
+         "unit": "none", "w": 8, "h": 8, "color": PALETTE[2],
          "desc": "Portfolio tool mix — informs license decisions."},
     ]
 
