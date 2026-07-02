@@ -1,0 +1,20 @@
+apiVersion: 1
+
+# Local-only datasource: points at the sidecar Postgres in compose.local.yml.
+# Same uid as production ('reporting-postgres') so the generated dashboards bind
+# to it unchanged; sslmode is 'disable' because the local Postgres has no TLS.
+datasources:
+  - name: ReportingPostgres
+    type: postgres
+    uid: reporting-postgres
+    url: postgres:5432
+    database: reporting
+    user: reporting
+    secureJsonData:
+      password: reporting
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1700
+      timescaledb: false
+    isDefault: false
+    editable: false

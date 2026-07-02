@@ -1,0 +1,46 @@
+# Local dev stack: Postgres (schema + views + seed) and Grafana with the
+# generated dashboards, so you can eyeball the AI SDLC dashboards without any
+# real credentials or the production RDS.
+#
+#   python3 infra/grafana/generate.py            # (re)generate dashboards first
+#   docker compose -f infra/docker/compose.local.yml up -d
+#   open http://localhost:3030   (admin / admin)
+#
+# Postgres is ephemeral (no volume): `down` then `up` reseeds from scratch.
+name: ai-sdlc-metrics-local
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: ai-sdlc-metrics-local-db
+    environment:
+      POSTGRES_DB: reporting
+      POSTGRES_USER: reporting
+      POSTGRES_PASSWORD: reporting
+    ports:
+      - "5433:5432"   # host 5433 avoids clashing with a local Postgres
+    volumes:
+      - ../../infra/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ../../infra/db/views.sql:/docker-entrypoint-initdb.d/02-views.sql:ro
+      - ../../infra/db/seed.sql:/docker-entrypoint-initdb.d/03-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reporting -d reporting"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+
+  grafana:
+    image: grafana/grafana:12.0.1
+    container_name: ai-sdlc-metrics-local-grafana
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    ports:
+      - "3030:3000"
+    volumes:
+      - ./local-provisioning:/etc/grafana/provisioning:ro
+      - ../../infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
