@@ -615,15 +615,24 @@
           },
           "custom": {
             "showPoints": "always",
-            "pointSize": 6
+            "pointSize": 6,
+            "lineWidth": 2,
+            "fillOpacity": 14,
+            "gradientMode": "opacity",
+            "spanNulls": true
           }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
         },
         "tooltip": {
           "mode": "multi",
@@ -737,7 +746,11 @@
           },
           "custom": {
             "showPoints": "always",
-            "pointSize": 6
+            "pointSize": 6,
+            "lineWidth": 2,
+            "fillOpacity": 14,
+            "gradientMode": "opacity",
+            "spanNulls": true
           }
         },
         "overrides": [
@@ -775,8 +788,13 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
         },
         "tooltip": {
           "mode": "multi",
@@ -824,7 +842,11 @@
           },
           "custom": {
             "showPoints": "always",
-            "pointSize": 6
+            "pointSize": 6,
+            "lineWidth": 2,
+            "fillOpacity": 14,
+            "gradientMode": "opacity",
+            "spanNulls": true
           }
         },
         "overrides": [
@@ -862,8 +884,13 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
         },
         "tooltip": {
           "mode": "multi",
@@ -1673,12 +1700,14 @@
           "custom": {
             "showPoints": "always",
             "pointSize": 6,
+            "lineWidth": 0,
+            "fillOpacity": 80,
+            "gradientMode": "opacity",
+            "spanNulls": true,
             "drawStyle": "bars",
             "stacking": {
               "mode": "normal"
-            },
-            "fillOpacity": 80,
-            "lineWidth": 0
+            }
           }
         },
         "overrides": [
@@ -1716,8 +1745,13 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
         },
         "tooltip": {
           "mode": "multi",
@@ -2371,7 +2405,11 @@
           },
           "custom": {
             "showPoints": "always",
-            "pointSize": 6
+            "pointSize": 6,
+            "lineWidth": 2,
+            "fillOpacity": 14,
+            "gradientMode": "opacity",
+            "spanNulls": true
           }
         },
         "overrides": [
@@ -2424,8 +2462,13 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
         },
         "tooltip": {
           "mode": "multi",
@@ -2482,6 +2525,9 @@
                 "value": null
               }
             ]
+          },
+          "custom": {
+            "filterable": true
           }
         },
         "overrides": [
@@ -2523,7 +2569,8 @@
         ]
       },
       "options": {
-        "showHeader": true
+        "showHeader": true,
+        "cellHeight": "sm"
       },
       "description": "Empty cells mean a manual input is missing \u2014 run the 'AI SDLC \u2014 Metrics Collection' workflow with manual_period=<month> (total_engineers, ai_tool_cost_monthly, coverage_ai, cost_baseline, cost_actual)."
     }

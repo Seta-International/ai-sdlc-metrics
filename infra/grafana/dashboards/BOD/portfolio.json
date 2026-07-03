@@ -406,7 +406,7 @@
     },
     {
       "type": "row",
-      "title": "Project Scorecard \u2014 Latest Sprint",
+      "title": "Project Scorecard \u2014 Latest Sprint (A\u00b7B\u00b7C\u00b7D, mirrors Excel)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -418,7 +418,7 @@
     },
     {
       "type": "table",
-      "title": "Project Scorecard \u2014 Latest Sprint",
+      "title": "A. Adoption \u2014 Latest Sprint",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -437,7 +437,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT project AS \"Project\", period_key AS \"Sprint\", total_tasks AS \"Tasks\", total_prs AS \"PRs\", round(ai_pr_pct, 1) AS \"AI PR %\", round(agent_task_pct, 1) AS \"Agent Task %\", round(lead_time_h, 1) AS \"Lead Time h\", round(deploys_per_week, 2) AS \"Deploys/wk\", round(cfr_pct, 1) AS \"CFR %\", round(mttr_h, 1) AS \"MTTR h\", round(ai_pr_review_pct, 1) AS \"Review %\", round(rework_pct, 1) AS \"Rework %\", security_alerts AS \"Alerts\", round(autonomy_pct, 1) AS \"Autonomy %\", round(predictability_pct, 1) AS \"Predictability %\", CASE project WHEN 'Future' THEN (CASE WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) AND (COALESCE(agent_pr_pct, 0) >= 10 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) AND (COALESCE(autonomy_pct, 0) >= 50 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) THEN 4 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) AND (COALESCE(agent_pr_pct, 0) >= 10 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) THEN 3 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) THEN 2 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) THEN 1 ELSE 0 END) WHEN 'TeacherZone' THEN (CASE WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) AND (COALESCE(agent_pr_pct, 0) >= 10 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) AND (COALESCE(autonomy_pct, 0) >= 50 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) THEN 4 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) AND (COALESCE(agent_pr_pct, 0) >= 10 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) THEN 3 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) THEN 2 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) THEN 1 ELSE 0 END) END AS \"Stage\" FROM reporting.metrics_ratios r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.metrics_ratios r2 WHERE r2.project = r.project AND r2.period_type = 'sprint') ORDER BY project",
+          "rawSql": "SELECT project AS \"Project\", period_key AS \"Sprint\", total_tasks AS \"Tasks\", total_prs AS \"PRs\", round(ai_pr_pct, 1) AS \"AI PR %\", round(agent_task_pct, 1) AS \"Agent Task %\", round(usage_rate_pct, 0) AS \"Usage %\", round(ai_task_pct, 1) AS \"AI Task %\", round(throughput_per_engineer, 1) AS \"Throughput/Eng\" FROM reporting.metrics_ratios r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.metrics_ratios r2 WHERE r2.project = r.project AND r2.period_type = 'sprint') ORDER BY project",
           "refId": "A"
         }
       ],
@@ -452,6 +452,9 @@
                 "value": null
               }
             ]
+          },
+          "custom": {
+            "filterable": true
           }
         },
         "overrides": [
@@ -490,6 +493,126 @@
               }
             ]
           },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "AI Task %"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#ec835a",
+                      "value": null
+                    },
+                    {
+                      "color": "#fab219",
+                      "value": 30
+                    },
+                    {
+                      "color": "#0ca30c",
+                      "value": 50
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Usage %"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#ec835a",
+                      "value": null
+                    },
+                    {
+                      "color": "#fab219",
+                      "value": 50
+                    },
+                    {
+                      "color": "#0ca30c",
+                      "value": 80
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "description": "How broadly AI is used \u2014 PR share, agent task share, engineer usage rate (target \u226580%), and throughput per engineer."
+    },
+    {
+      "type": "table",
+      "title": "B. Delivery (DORA) \u2014 Latest Sprint",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT project AS \"Project\", period_key AS \"Sprint\", round(lead_time_h, 1) AS \"Lead Time h\", round(deploys_per_week, 2) AS \"Deploys/wk\", round(cfr_pct, 1) AS \"CFR %\", round(mttr_h, 1) AS \"MTTR h\", round(predictability_pct, 0) AS \"Predictability %\" FROM reporting.metrics_ratios r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.metrics_ratios r2 WHERE r2.project = r.project AND r2.period_type = 'sprint') ORDER BY project",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": [
           {
             "matcher": {
               "id": "byName",
@@ -629,6 +752,91 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "Predictability %"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#ec835a",
+                      "value": null
+                    },
+                    {
+                      "color": "#fab219",
+                      "value": 60
+                    },
+                    {
+                      "color": "#0ca30c",
+                      "value": 80
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "description": "DORA throughput + stability plus sprint predictability. Green = on target, yellow = watch, red = act."
+    },
+    {
+      "type": "table",
+      "title": "C. Quality \u2014 Latest Sprint",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT project AS \"Project\", period_key AS \"Sprint\", round(ai_pr_review_pct, 1) AS \"Review %\", round(rework_pct, 1) AS \"Rework %\", round(ai_pr_test_pct, 1) AS \"AI PR Test %\", round(rework_from_ai_pct, 1) AS \"Rework from AI %\", security_alerts AS \"Alerts\" FROM reporting.metrics_ratios r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.metrics_ratios r2 WHERE r2.project = r.project AND r2.period_type = 'sprint') ORDER BY project",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
               "options": "Review %"
             },
             "properties": [
@@ -730,7 +938,57 @@
                 }
               }
             ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "description": "Verification quality \u2014 human review coverage, rework rate, AI PRs touching tests, share of rework traced to AI PRs, and open security alerts."
+    },
+    {
+      "type": "table",
+      "title": "D. Agent \u2014 Latest Sprint",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
           },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT project AS \"Project\", period_key AS \"Sprint\", round(agent_pr_pct, 1) AS \"Agent PR %\", round(autonomy_pct, 1) AS \"Autonomy %\", round(agent_completion_pct, 1) AS \"Completion %\", round(human_intervention_pct, 1) AS \"Human-fix %\", round(agent_cycle_h, 1) AS \"Agent Cycle h\", CASE project WHEN 'Future' THEN (CASE WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) AND (COALESCE(agent_pr_pct, 0) >= 10 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) AND (COALESCE(autonomy_pct, 0) >= 50 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) THEN 4 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) AND (COALESCE(agent_pr_pct, 0) >= 10 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) THEN 3 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) THEN 2 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) THEN 1 ELSE 0 END) WHEN 'TeacherZone' THEN (CASE WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) AND (COALESCE(agent_pr_pct, 0) >= 10 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) AND (COALESCE(autonomy_pct, 0) >= 50 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) THEN 4 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) AND (COALESCE(agent_pr_pct, 0) >= 10 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) THEN 3 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) THEN 2 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) THEN 1 ELSE 0 END) END AS \"Stage\" FROM reporting.metrics_ratios r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.metrics_ratios r2 WHERE r2.project = r.project AND r2.period_type = 'sprint') ORDER BY project",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": [
           {
             "matcher": {
               "id": "byName",
@@ -753,41 +1011,6 @@
                     {
                       "color": "#3987e5",
                       "value": 60
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Predictability %"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "#ec835a",
-                      "value": null
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 60
-                    },
-                    {
-                      "color": "#0ca30c",
-                      "value": 80
                     }
                   ]
                 }
@@ -843,9 +1066,10 @@
         ]
       },
       "options": {
-        "showHeader": true
+        "showHeader": true,
+        "cellHeight": "sm"
       },
-      "description": "Green = on target, yellow = watch, red = act (thresholds from the maturity framework). Blue on Autonomy marks agent maturity level, not health."
+      "description": "Agent maturity \u2014 agent PR share, autonomy (merged with zero human commits), completion vs human-fix rate, cycle time, and framework stage. Blue marks maturity level, not health."
     },
     {
       "type": "row",
@@ -853,7 +1077,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 16,
+        "y": 34,
         "w": 24,
         "h": 1
       },
@@ -868,7 +1092,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 17,
+        "y": 35,
         "w": 8,
         "h": 8
       },
@@ -898,7 +1122,11 @@
           },
           "custom": {
             "showPoints": "always",
-            "pointSize": 6
+            "pointSize": 6,
+            "lineWidth": 2,
+            "fillOpacity": 14,
+            "gradientMode": "opacity",
+            "spanNulls": true
           }
         },
         "overrides": [
@@ -936,8 +1164,13 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
         },
         "tooltip": {
           "mode": "multi",
@@ -955,7 +1188,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 17,
+        "y": 35,
         "w": 8,
         "h": 8
       },
@@ -985,7 +1218,11 @@
           },
           "custom": {
             "showPoints": "always",
-            "pointSize": 6
+            "pointSize": 6,
+            "lineWidth": 2,
+            "fillOpacity": 14,
+            "gradientMode": "opacity",
+            "spanNulls": true
           }
         },
         "overrides": [
@@ -1023,8 +1260,13 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
         },
         "tooltip": {
           "mode": "multi",
@@ -1042,7 +1284,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 17,
+        "y": 35,
         "w": 8,
         "h": 8
       },
@@ -1072,7 +1314,11 @@
           },
           "custom": {
             "showPoints": "always",
-            "pointSize": 6
+            "pointSize": 6,
+            "lineWidth": 2,
+            "fillOpacity": 14,
+            "gradientMode": "opacity",
+            "spanNulls": true
           }
         },
         "overrides": [
@@ -1110,8 +1356,13 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
         },
         "tooltip": {
           "mode": "multi",
@@ -1126,7 +1377,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 25,
+        "y": 43,
         "w": 24,
         "h": 1
       },
@@ -1141,7 +1392,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 26,
+        "y": 44,
         "w": 8,
         "h": 8
       },
@@ -1195,7 +1446,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 26,
+        "y": 44,
         "w": 8,
         "h": 8
       },
@@ -1249,7 +1500,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 26,
+        "y": 44,
         "w": 8,
         "h": 8
       },

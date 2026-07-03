@@ -77,12 +77,16 @@
                 "value": null
               }
             ]
+          },
+          "custom": {
+            "filterable": true
           }
         },
         "overrides": []
       },
       "options": {
-        "showHeader": true
+        "showHeader": true,
+        "cellHeight": "sm"
       },
       "description": "Every raw metric value the collector wrote (reporting.metric_counts), newest period first \u2014 the unaggregated source behind every dashboard panel."
     },
@@ -134,12 +138,16 @@
                 "value": null
               }
             ]
+          },
+          "custom": {
+            "filterable": true
           }
         },
         "overrides": []
       },
       "options": {
-        "showHeader": true
+        "showHeader": true,
+        "cellHeight": "sm"
       },
       "description": "The metrics_wide + metrics_ratios view: one row per period, every metric pivoted into columns plus the computed ratios."
     },
@@ -191,12 +199,16 @@
                 "value": null
               }
             ]
+          },
+          "custom": {
+            "filterable": true
           }
         },
         "overrides": []
       },
       "options": {
-        "showHeader": true
+        "showHeader": true,
+        "cellHeight": "sm"
       },
       "description": "PM/BOD-entered monthly and quarterly values (reporting.manual_inputs) for this project."
     }

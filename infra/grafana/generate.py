@@ -129,14 +129,18 @@ def _options(kind: str, spec: dict) -> dict:
                 "graphMode": spec.get("graph", "area"),
                 "colorMode": "value", "justifyMode": "auto", "textMode": "auto"}
     if kind == "timeseries":
-        legend = "hidden" if spec.get("single") else "list"
-        return {"legend": {"displayMode": legend, "placement": "bottom"},
+        # Table legend with Mean/Max/Last per series — doubles as the
+        # non-color table view and gives each trend a numeric summary.
+        return {"legend": {"displayMode": "table", "placement": "bottom",
+                           "calcs": ["mean", "max", "lastNotNull"]},
                 "tooltip": {"mode": "multi", "sort": "desc"}}
     if kind == "barchart":
         return {"orientation": "horizontal", "showValue": "always",
                 "legend": {"displayMode": "hidden", "placement": "bottom"}}
     if kind == "table":
-        return {"showHeader": True}
+        # Compact rows so a long list of projects stays dense; per-column
+        # header filter/sort for quick triage across many projects.
+        return {"showHeader": True, "cellHeight": "sm"}
     return {}
 
 
@@ -150,8 +154,15 @@ def _panel(spec: dict, x: int, y: int) -> dict:
     if spec["kind"] == "timeseries":
         # A one-sprint history (every project's first weeks) draws no line;
         # always render the points so a single sprint is still visible.
+        # Area fill + gradient gives the filled-line look; low opacity keeps
+        # overlapping multi-project series readable, linear stays honest.
         defaults["custom"] = {"showPoints": "always", "pointSize": 6,
+                              "lineWidth": 2, "fillOpacity": 14,
+                              "gradientMode": "opacity", "spanNulls": True,
                               **spec.get("custom", {})}
+    elif spec["kind"] == "table":
+        # Per-column header filter + sort so a long project list is triageable.
+        defaults["custom"] = {"filterable": True, **spec.get("custom", {})}
     elif "custom" in spec:
         defaults["custom"] = spec["custom"]
     panel = {
@@ -626,36 +637,74 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
     stage_case = ("CASE project " +
                   " ".join(f"WHEN '{c['name']}' THEN ({_maturity_case(c)})"
                            for c in cfgs) + " END")
-    scorecard_sql = (
-        "SELECT project AS \"Project\", period_key AS \"Sprint\", "
-        "total_tasks AS \"Tasks\", total_prs AS \"PRs\", "
-        "round(ai_pr_pct, 1) AS \"AI PR %\", round(agent_task_pct, 1) AS \"Agent Task %\", "
-        "round(lead_time_h, 1) AS \"Lead Time h\", round(deploys_per_week, 2) AS \"Deploys/wk\", "
-        "round(cfr_pct, 1) AS \"CFR %\", round(mttr_h, 1) AS \"MTTR h\", "
-        "round(ai_pr_review_pct, 1) AS \"Review %\", round(rework_pct, 1) AS \"Rework %\", "
-        "security_alerts AS \"Alerts\", round(autonomy_pct, 1) AS \"Autonomy %\", "
-        "round(predictability_pct, 1) AS \"Predictability %\", "
-        f"{stage_case} AS \"Stage\" "
-        f"{latest} ORDER BY project")
+
+    def _score_table(title: str, cols: list[str], overrides: list[dict],
+                     desc: str) -> dict:
+        # Project + Sprint are pinned first; each themed table stays narrow
+        # enough (~5-7 cols) to fit w:24 with no horizontal scroll, so a long
+        # list of project rows reads top-to-bottom instead of sideways.
+        sql = ("SELECT project AS \"Project\", period_key AS \"Sprint\", "
+               + ", ".join(cols) + f" {latest} ORDER BY project")
+        return {"kind": "table", "title": title, "sql": sql, "unit": "none",
+                "w": 24, "h": 6, "overrides": overrides, "desc": desc}
+
+    # Themes mirror workbook «3. Monthly» raw-input groups (A/B/C/D) so the
+    # dashboard and the Excel line up column-for-column.
     scorecard = [
-        {"kind": "table", "title": "Project Scorecard — Latest Sprint",
-         "sql": scorecard_sql, "unit": "none", "w": 24, "h": 6,
-         "overrides": [
-             _score_col("AI PR %", TH["ai_share"]),
-             _score_col("Lead Time h", TH["lead"]),
+        _score_table(
+            "A. Adoption — Latest Sprint",
+            ["total_tasks AS \"Tasks\"", "total_prs AS \"PRs\"",
+             "round(ai_pr_pct, 1) AS \"AI PR %\"",
+             "round(agent_task_pct, 1) AS \"Agent Task %\"",
+             "round(usage_rate_pct, 0) AS \"Usage %\"",
+             "round(ai_task_pct, 1) AS \"AI Task %\"",
+             "round(throughput_per_engineer, 1) AS \"Throughput/Eng\""],
+            [_score_col("AI PR %", TH["ai_share"]),
+             _score_col("AI Task %", TH["ai_share"]),
+             _score_col("Usage %", TH["usage"])],
+            "How broadly AI is used — PR share, agent task share, engineer "
+            "usage rate (target ≥80%), and throughput per engineer."),
+        _score_table(
+            "B. Delivery (DORA) — Latest Sprint",
+            ["round(lead_time_h, 1) AS \"Lead Time h\"",
+             "round(deploys_per_week, 2) AS \"Deploys/wk\"",
+             "round(cfr_pct, 1) AS \"CFR %\"",
+             "round(mttr_h, 1) AS \"MTTR h\"",
+             "round(predictability_pct, 0) AS \"Predictability %\""],
+            [_score_col("Lead Time h", TH["lead"]),
              _score_col("Deploys/wk", TH["deploy_freq"]),
              _score_col("CFR %", TH["cfr"]),
              _score_col("MTTR h", TH["mttr"]),
-             _score_col("Review %", TH["review"]),
+             _score_col("Predictability %", TH["predictability"])],
+            "DORA throughput + stability plus sprint predictability. "
+            "Green = on target, yellow = watch, red = act."),
+        _score_table(
+            "C. Quality — Latest Sprint",
+            ["round(ai_pr_review_pct, 1) AS \"Review %\"",
+             "round(rework_pct, 1) AS \"Rework %\"",
+             "round(ai_pr_test_pct, 1) AS \"AI PR Test %\"",
+             "round(rework_from_ai_pct, 1) AS \"Rework from AI %\"",
+             "security_alerts AS \"Alerts\""],
+            [_score_col("Review %", TH["review"]),
              _score_col("Rework %", TH["rework"]),
-             _score_col("Alerts", TH["alerts"]),
-             _score_col("Autonomy %", TH["autonomy"]),
-             _score_col("Predictability %", TH["predictability"]),
-             _score_col("Stage", _th("text", (2, BLUE_SOFT), (3, BLUE_MID), (4, ACCENT))),
-         ],
-         "desc": ("Green = on target, yellow = watch, red = act "
-                  "(thresholds from the maturity framework). "
-                  "Blue on Autonomy marks agent maturity level, not health.")},
+             _score_col("Alerts", TH["alerts"])],
+            "Verification quality — human review coverage, rework rate, AI PRs "
+            "touching tests, share of rework traced to AI PRs, and open "
+            "security alerts."),
+        _score_table(
+            "D. Agent — Latest Sprint",
+            ["round(agent_pr_pct, 1) AS \"Agent PR %\"",
+             "round(autonomy_pct, 1) AS \"Autonomy %\"",
+             "round(agent_completion_pct, 1) AS \"Completion %\"",
+             "round(human_intervention_pct, 1) AS \"Human-fix %\"",
+             "round(agent_cycle_h, 1) AS \"Agent Cycle h\"",
+             f"{stage_case} AS \"Stage\""],
+            [_score_col("Autonomy %", TH["autonomy"]),
+             _score_col("Stage", _th("text", (2, BLUE_SOFT), (3, BLUE_MID),
+                                     (4, ACCENT)))],
+            "Agent maturity — agent PR share, autonomy (merged with zero human "
+            "commits), completion vs human-fix rate, cycle time, and framework "
+            "stage. Blue marks maturity level, not health."),
     ]
 
     direction = [
@@ -709,7 +758,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
 
     sections = [
         ("Is AI paying off? — Portfolio", pulse),
-        ("Project Scorecard — Latest Sprint", scorecard),
+        ("Project Scorecard — Latest Sprint (A·B·C·D, mirrors Excel)", scorecard),
         ("Delivery Health & Direction", direction),
         ("Where to Invest / Train", value),
     ]
