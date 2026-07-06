@@ -75,3 +75,23 @@ def diff_changes(parsed: list[dict], current: dict) -> list[dict]:
                     "field": c["field"], "old": old, "new": c["value"],
                     "status": status})
     return sorted(out, key=lambda x: (x["project"], x["period_key"], x["field"]))
+
+
+def usage_warnings(parsed: list[dict], auto_ai_users: dict) -> list[str]:
+    """Flag imported total_engineers values that would push AI usage over 100%
+    for that project/month, or aren't numeric (the P5 guard at capture time)."""
+    warns = []
+    for c in parsed:
+        if c["field"] != "total_engineers":
+            continue
+        ai_users = auto_ai_users.get((c["project"], c["period_key"]))
+        try:
+            team = float(c["value"])
+        except ValueError:
+            warns.append(f"{c['project']} {c['period_key']}: total_engineers "
+                         f"{c['value']!r} is not a number")
+            continue
+        if ai_users is not None and team > 0 and ai_users > team:
+            warns.append(f"{c['project']} {c['period_key']}: team_size {team:g} < "
+                         f"AI users {ai_users:g} — usage would exceed 100%")
+    return warns

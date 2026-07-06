@@ -1,5 +1,5 @@
 import openpyxl
-from exporter.importer import parse_manual_inputs, format_value, diff_changes
+from exporter.importer import parse_manual_inputs, format_value, diff_changes, usage_warnings
 
 
 def _wb_with(projects_rows, monthly_rows=(), quarterly_rows=()):
@@ -77,3 +77,14 @@ def test_diff_classifies_new_changed_unchanged():
     assert by_field[("2026-06", "cost_actual")]["status"] == "unchanged"
     assert by_field[("2026-Q3", "g1_agents_md")]["status"] == "new"
     assert by_field[("2026-Q3", "g1_agents_md")]["old"] is None
+
+
+def test_usage_warning_when_team_size_below_ai_users():
+    parsed = [
+        {"project": "Future", "period_key": "2026-06", "field": "total_engineers", "value": "5"},
+        {"project": "Future", "period_key": "2026-07", "field": "total_engineers", "value": "20"},
+    ]
+    auto = {("Future", "2026-06"): 8.0, ("Future", "2026-07"): 10.0}
+    warns = usage_warnings(parsed, auto)
+    assert len(warns) == 1
+    assert "2026-06" in warns[0] and "Future" in warns[0]
