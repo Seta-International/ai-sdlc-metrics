@@ -2,11 +2,13 @@
 
   uvicorn exporter.app:app --host 0.0.0.0 --port 8000
 """
-import io
+import io, json, html
 import os
+import openpyxl
 from fastapi import FastAPI, Form, HTTPException, Response, UploadFile
 from fastapi.responses import HTMLResponse
-from exporter.data import fetch_manual, fetch_period_rows, fetch_projects
+from exporter.data import fetch_manual, fetch_period_rows, fetch_projects, fetch_auto_ai_users
+from exporter.importer import parse_manual_inputs, diff_changes, usage_warnings
 from exporter.template import build_workbook
 from exporter.workbook import (
     fill_workbook, months_overlapped, parse_sprint_range, sprint_in_range,
@@ -74,3 +76,44 @@ ignored.</p>
 @app.get("/import", response_class=HTMLResponse)
 def import_form() -> str:
     return _IMPORT_FORM
+
+
+def _load_workbook(raw: bytes):
+    try:
+        return openpyxl.load_workbook(io.BytesIO(raw), data_only=True)
+    except Exception:
+        raise HTTPException(400, "uploaded file is not a valid .xlsx workbook")
+
+
+@app.post("/import/preview", response_class=HTMLResponse)
+def import_preview(file: UploadFile, token: str | None = Form(default=None)) -> str:
+    _check_token(token)
+    wb = _load_workbook(file.file.read())
+    parsed = parse_manual_inputs(wb)
+    if not parsed:
+        return "<p>No manual values found in the workbook. Nothing to import.</p>"
+    db_url = os.environ["REPORTING_DB_URL"]
+    projects = sorted({c["project"] for c in parsed})
+    current = fetch_manual(db_url, projects)
+    diff = diff_changes(parsed, current)
+    warns = usage_warnings(parsed, fetch_auto_ai_users(db_url, projects))
+
+    rows = "".join(
+        f"<tr class={d['status']}><td>{html.escape(d['project'])}</td>"
+        f"<td>{html.escape(d['period_key'])}</td><td>{html.escape(d['field'])}</td>"
+        f"<td>{html.escape(str(d['old']))}</td><td>{html.escape(str(d['new']))}</td>"
+        f"<td>{d['status']}</td></tr>"
+        for d in diff)
+    warn_html = ("<ul style='color:#b00'>" +
+                 "".join(f"<li>{html.escape(w)}</li>" for w in warns) + "</ul>"
+                 if warns else "")
+    payload = html.escape(json.dumps(parsed))
+    return f"""<!doctype html><meta charset="utf-8"><title>Preview import</title>
+<h2>Preview — {len(diff)} manual value(s)</h2>{warn_html}
+<table border=1 cellpadding=4><tr><th>Project</th><th>Period</th><th>Field</th>
+<th>Old</th><th>New</th><th>Status</th></tr>{rows}</table>
+<form action="/import/commit" method="post">
+  <input type="hidden" name="changes" value="{payload}">
+  <input type="hidden" name="token" value="{html.escape(token or '')}">
+  <button type="submit">Confirm &amp; import</button>
+</form>"""
