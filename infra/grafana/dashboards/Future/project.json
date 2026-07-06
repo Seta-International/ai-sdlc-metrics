@@ -119,7 +119,7 @@
     },
     {
       "type": "stat",
-      "title": "Agent tasks (n)",
+      "title": "Agent PRs (n)",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -1514,7 +1514,7 @@
       "options": {
         "reduceOptions": {
           "calcs": [
-            "lastNotNull"
+            "last"
           ],
           "fields": "",
           "values": false
@@ -1972,7 +1972,7 @@
       "options": {
         "reduceOptions": {
           "calcs": [
-            "lastNotNull"
+            "last"
           ],
           "fields": "",
           "values": false
@@ -2391,7 +2391,7 @@
       "options": {
         "reduceOptions": {
           "calcs": [
-            "lastNotNull"
+            "last"
           ],
           "fields": "",
           "values": false

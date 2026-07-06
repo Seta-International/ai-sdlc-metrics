@@ -104,8 +104,21 @@ def test_project_has_data_quality_strip_first(tmp_path):
     rows = [p["title"] for p in future["panels"] if p["type"] == "row"]
     assert rows[0].startswith("Data Quality")
     titles = [p.get("title", "") for p in future["panels"]]
-    assert "PRs (n)" in titles and "Agent tasks (n)" in titles
+    assert "PRs (n)" in titles and "Agent PRs (n)" in titles
     assert any("Freshness" in t for t in titles)
+
+
+def test_guarded_pct_panels_use_last_reduce(tmp_path):
+    out = _generate(tmp_path)
+    future = json.loads((out / "Future" / "project.json").read_text())
+    guarded = [p for p in future["panels"]
+               if p.get("type") == "stat"
+               and "< 20 THEN NULL" in json.dumps(p.get("targets", []))]
+    assert guarded, "expected at least one n-guarded stat panel"
+    for p in guarded:
+        # must be 'last' so a NULL current sprint greys, not lastNotNull (which
+        # would surface a stale earlier-sprint value as if current)
+        assert p["options"]["reduceOptions"]["calcs"] == ["last"], p["title"]
 
 
 def test_project_has_level_summary(tmp_path):

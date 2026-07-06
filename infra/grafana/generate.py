@@ -125,7 +125,7 @@ def _options(kind: str, spec: dict) -> dict:
     if kind == "text":
         return {"mode": "markdown", "content": spec.get("content", "")}
     if kind == "stat":
-        return {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
+        return {"reduceOptions": {"calcs": [spec.get("reduce", "lastNotNull")], "fields": "", "values": False},
                 "graphMode": spec.get("graph", "area"),
                 "colorMode": "value", "justifyMode": "auto", "textMode": "auto"}
     if kind == "timeseries":
@@ -260,7 +260,7 @@ def _guarded_pct(project: str, title: str, pct_col: str, n_col: str,
            f"WHERE project = '{project}' AND period_type = 'sprint' "
            f"AND period_start <= {anchor} ORDER BY period_start")
     spec = {"kind": "stat", "title": title, "sql": sql, "format": "time_series",
-            "unit": "percent", "w": w, "h": h,
+            "unit": "percent", "w": w, "h": h, "reduce": "last",
             "desc": desc + " Greyed when n<20 (too small to trust)."}
     if th:
         spec["th"] = th
@@ -509,7 +509,7 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
         _stat(project, "PRs (n)", "n_pr", w=4,
               desc="Merged PRs in the selected sprint — the sample size behind "
                    "every PR-based %. Below 20, percentages are greyed."),
-        _stat(project, "Agent tasks (n)", "n_agent_pr", w=4,
+        _stat(project, "Agent PRs (n)", "n_agent_pr", w=4,
               desc="Agent PRs in the sprint — sample size for the Agent section."),
         {"kind": "stat", "title": "Months of data",
          "sql": (f"SELECT count(*) FROM {RATIOS} WHERE {p} "
