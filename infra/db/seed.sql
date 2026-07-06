@@ -29,10 +29,11 @@ vals(period_key, metric_key, value) AS (VALUES
   ('S1','ai_prs_reviewed',12),('S2','ai_prs_reviewed',18),('S3','ai_prs_reviewed',27),
   ('S1','security_alerts',3),('S2','security_alerts',2),('S3','security_alerts',1),
   -- agent maturity
-  ('S1','agent_prs_total',6), ('S2','agent_prs_total',9), ('S3','agent_prs_total',14),
-  ('S1','agent_prs_merged',5),('S2','agent_prs_merged',8),('S3','agent_prs_merged',13),
-  ('S1','agent_prs_human_fixed',3),('S2','agent_prs_human_fixed',3),('S3','agent_prs_human_fixed',4),
-  ('S1','agent_prs_autonomous',3),('S2','agent_prs_autonomous',6),('S3','agent_prs_autonomous',10),
+  -- S1 stays under the 20 sample-size floor (shows the guard greying it); S2/S3 cross it.
+  ('S1','agent_prs_total',12), ('S2','agent_prs_total',20), ('S3','agent_prs_total',26),
+  ('S1','agent_prs_merged',10),('S2','agent_prs_merged',18),('S3','agent_prs_merged',24),
+  ('S1','agent_prs_human_fixed',5),('S2','agent_prs_human_fixed',7),('S3','agent_prs_human_fixed',8),
+  ('S1','agent_prs_autonomous',7),('S2','agent_prs_autonomous',13),('S3','agent_prs_autonomous',18),
   ('S1','agent_cycle_h',10),('S2','agent_cycle_h',8),('S3','agent_cycle_h',6),
   -- predictability
   ('S1','sprint_committed',20),('S2','sprint_committed',22),('S3','sprint_committed',24),
@@ -90,10 +91,11 @@ vals(period_key, metric_key, value) AS (VALUES
   ('S1','rework_prs',6),('S2','rework_prs',5),('S3','rework_prs',3),
   ('S1','ai_prs_reviewed',6),('S2','ai_prs_reviewed',12),('S3','ai_prs_reviewed',20),
   ('S1','security_alerts',5),('S2','security_alerts',4),('S3','security_alerts',2),
-  ('S1','agent_prs_total',4), ('S2','agent_prs_total',6), ('S3','agent_prs_total',9),
-  ('S1','agent_prs_merged',3),('S2','agent_prs_merged',5),('S3','agent_prs_merged',8),
-  ('S1','agent_prs_human_fixed',3),('S2','agent_prs_human_fixed',4),('S3','agent_prs_human_fixed',4),
-  ('S1','agent_prs_autonomous',1),('S2','agent_prs_autonomous',2),('S3','agent_prs_autonomous',5),
+  -- Only S3 crosses the 20 sample-size floor here; S1/S2 stay greyed by the guard.
+  ('S1','agent_prs_total',8), ('S2','agent_prs_total',14), ('S3','agent_prs_total',22),
+  ('S1','agent_prs_merged',6),('S2','agent_prs_merged',12),('S3','agent_prs_merged',20),
+  ('S1','agent_prs_human_fixed',3),('S2','agent_prs_human_fixed',5),('S3','agent_prs_human_fixed',8),
+  ('S1','agent_prs_autonomous',5),('S2','agent_prs_autonomous',9),('S3','agent_prs_autonomous',14),
   ('S1','agent_cycle_h',14),('S2','agent_cycle_h',12),('S3','agent_cycle_h',9),
   ('S1','sprint_committed',18),('S2','sprint_committed',20),('S3','sprint_committed',22),
   ('S1','sprint_completed',12),('S2','sprint_completed',15),('S3','sprint_completed',19)
@@ -219,6 +221,27 @@ vals(period_key, metric_key, value) AS (VALUES
 INSERT INTO reporting.metric_counts
   (project, period_type, period_key, period_start, period_end, metric_key, value)
 SELECT 'TeacherZone', 'month', v.period_key, p.period_start, p.period_end, v.metric_key, v.value
+FROM vals v JOIN periods p USING (period_key);
+
+-- AI tasks split by tool (drives the "AI Tasks by Tool" bar chart). Keys look
+-- like ai_tasks_tool_<Tool>; the dashboard strips the prefix for the label.
+-- Per sprint the tool counts sum to that sprint's ai_tasks.
+WITH periods(period_key, period_start, period_end) AS (VALUES
+  ('S1', DATE '2026-06-29', DATE '2026-07-13'),
+  ('S2', DATE '2026-07-13', DATE '2026-07-27'),
+  ('S3', DATE '2026-07-27', DATE '2026-08-10')
+),
+vals(project, period_key, metric_key, value) AS (VALUES
+  ('Future','S1','ai_tasks_tool_Claude Code',20),('Future','S1','ai_tasks_tool_GitHub Copilot',8),('Future','S1','ai_tasks_tool_Cursor',2),
+  ('Future','S2','ai_tasks_tool_Claude Code',24),('Future','S2','ai_tasks_tool_GitHub Copilot',8),('Future','S2','ai_tasks_tool_Cursor',2),
+  ('Future','S3','ai_tasks_tool_Claude Code',30),('Future','S3','ai_tasks_tool_GitHub Copilot',8),('Future','S3','ai_tasks_tool_Cursor',2),
+  ('TeacherZone','S1','ai_tasks_tool_Claude Code',10),('TeacherZone','S1','ai_tasks_tool_GitHub Copilot',6),
+  ('TeacherZone','S2','ai_tasks_tool_Claude Code',15),('TeacherZone','S2','ai_tasks_tool_GitHub Copilot',7),
+  ('TeacherZone','S3','ai_tasks_tool_Claude Code',22),('TeacherZone','S3','ai_tasks_tool_GitHub Copilot',8)
+)
+INSERT INTO reporting.metric_counts
+  (project, period_type, period_key, period_start, period_end, metric_key, value)
+SELECT v.project, 'sprint', v.period_key, p.period_start, p.period_end, v.metric_key, v.value
 FROM vals v JOIN periods p USING (period_key);
 
 -- Manual inputs: monthly numbers (drive the Manual KPI panels) + a few

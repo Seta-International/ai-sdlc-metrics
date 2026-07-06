@@ -1,6 +1,6 @@
 {
   "uid": "ai-sdlc-future",
-  "title": "AI SDLC \u2014 Future",
+  "title": "AI SDLC: Future",
   "schemaVersion": 39,
   "version": 1,
   "editable": true,
@@ -52,7 +52,7 @@
   "panels": [
     {
       "type": "row",
-      "title": "Data Quality \u2014 read this first",
+      "title": "Data Quality (read this first)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -115,7 +115,7 @@
           "refId": "A"
         }
       ],
-      "description": "Merged PRs in the selected sprint \u2014 the sample size behind every PR-based %. Below 20, percentages are greyed."
+      "description": "Merged PRs in the selected sprint: the sample size behind every PR-based %. Below 20, percentages are greyed."
     },
     {
       "type": "stat",
@@ -170,7 +170,7 @@
           "refId": "A"
         }
       ],
-      "description": "Agent PRs in the sprint \u2014 sample size for the Agent section."
+      "description": "Count of agent PRs this sprint. Agent-section percentages stay hidden until this reaches the sample-size floor."
     },
     {
       "type": "stat",
@@ -225,7 +225,7 @@
           "refId": "A"
         }
       ],
-      "description": "How many monthly rows exist \u2014 trend/ROI need \u22653."
+      "description": "How many monthly rows exist: trend/ROI need \u22653."
     },
     {
       "type": "stat",
@@ -295,7 +295,7 @@
     },
     {
       "type": "stat",
-      "title": "ETL Freshness",
+      "title": "Data Freshness",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -342,7 +342,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT max(collected_at) FROM reporting.metric_counts WHERE project = 'Future'",
+          "rawSql": "SELECT extract(epoch FROM max(collected_at)) * 1000 FROM reporting.metric_counts WHERE project = 'Future'",
           "refId": "A"
         }
       ],
@@ -622,7 +622,7 @@
           "refId": "A"
         }
       ],
-      "description": "Mean time to resolve \u2014 hours from an incident being created to resolved. Lower is better."
+      "description": "Mean time to resolve: hours from an incident being created to resolved. Lower is better."
     },
     {
       "type": "stat",
@@ -692,7 +692,7 @@
     },
     {
       "type": "row",
-      "title": "Is AI paying off?",
+      "title": "Return on Investment",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -872,7 +872,7 @@
           "refId": "A"
         }
       ],
-      "description": "Tasks done \u00f7 active engineers \u2014 ROI supporting evidence."
+      "description": "Tasks done \u00f7 active engineers: ROI supporting evidence."
     },
     {
       "type": "timeseries",
@@ -967,16 +967,47 @@
           "color": {
             "mode": "fixed",
             "fixedColor": "#3987e5"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "axisPlacement": "auto",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "axisCenteredZero": false,
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
           }
         },
         "overrides": []
       },
       "options": {
         "orientation": "horizontal",
+        "xField": "Tool",
         "showValue": "always",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.9,
+        "fullHighlight": false,
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
         "legend": {
+          "showLegend": false,
           "displayMode": "hidden",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         }
       },
       "targets": [
@@ -987,7 +1018,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT replace(metric_key, 'ai_tasks_tool_', '') AS \"Tool\", value AS \"Tasks\" FROM reporting.metric_counts WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint' AND metric_key LIKE 'ai_tasks_tool_%' ORDER BY value DESC",
+          "rawSql": "SELECT replace(metric_key, 'ai_tasks_tool_', '') AS \"Tool\", value::float8 AS \"Tasks\" FROM reporting.metric_counts WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint' AND metric_key LIKE 'ai_tasks_tool_%' ORDER BY value DESC",
           "refId": "A"
         }
       ],
@@ -995,7 +1026,7 @@
     },
     {
       "type": "row",
-      "title": "Is AI work faster \u2014 and as good?",
+      "title": "Speed and Quality (AI vs Non-AI)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -1007,7 +1038,7 @@
     },
     {
       "type": "timeseries",
-      "title": "Lead Time \u2014 AI vs non-AI",
+      "title": "Lead Time (AI vs Non-AI)",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -1099,11 +1130,11 @@
           "refId": "A"
         }
       ],
-      "description": "Neutral comparison \u2014 AI being slower on some work is a legitimate finding (verification overhead), not an error."
+      "description": "Neutral comparison: AI being slower on some work is a legitimate finding (verification overhead), not an error."
     },
     {
       "type": "timeseries",
-      "title": "Hours to First Review \u2014 AI vs non-AI",
+      "title": "Hours to First Review (AI vs Non-AI)",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -1305,7 +1336,7 @@
           "refId": "A"
         }
       ],
-      "description": "Median lines changed per non-AI PR \u2014 the comparison baseline for PR Size (AI)."
+      "description": "Median lines changed per non-AI PR: the comparison baseline for PR Size (AI)."
     },
     {
       "type": "stat",
@@ -1360,7 +1391,7 @@
           "refId": "A"
         }
       ],
-      "description": "Mean CHANGES_REQUESTED per AI PR \u2014 verification burden."
+      "description": "Mean CHANGES_REQUESTED per AI PR: verification burden."
     },
     {
       "type": "stat",
@@ -1540,7 +1571,7 @@
     },
     {
       "type": "row",
-      "title": "Delivery Health \u2014 DORA",
+      "title": "Delivery Health (DORA)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -2645,7 +2676,7 @@
           "refId": "A"
         }
       ],
-      "description": "Trend of AI-labeled PRs, AI-usage Jira tasks, and agent tasks as a share of all work \u2014 adoption breadth over time."
+      "description": "Trend of AI-labeled PRs, AI-usage Jira tasks, and agent tasks as a share of all work: adoption breadth over time."
     },
     {
       "type": "row",
@@ -2661,7 +2692,7 @@
     },
     {
       "type": "table",
-      "title": "Monthly Record \u2014 auto + manual inputs",
+      "title": "Monthly Record (auto + manual inputs)",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -2742,11 +2773,11 @@
           "refId": "A"
         }
       ],
-      "description": "Empty cells mean a manual input is missing \u2014 run the 'AI SDLC \u2014 Metrics Collection' workflow with manual_period=<month> (total_engineers, ai_tool_cost_monthly, coverage_ai, cost_baseline, cost_actual)."
+      "description": "Empty cells mean a manual input is missing: run the 'AI SDLC \u2014 Metrics Collection' workflow with manual_period=<month> (total_engineers, ai_tool_cost_monthly, coverage_ai, cost_baseline, cost_actual)."
     },
     {
       "type": "row",
-      "title": "Maturity \u2014 A\u2013E Level Summary",
+      "title": "A\u2013E Level Summary",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -2758,7 +2789,7 @@
     },
     {
       "type": "table",
-      "title": "Maturity \u2014 A\u2013E Levels (latest quarter)",
+      "title": "A\u2013E Levels (latest quarter)",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -2867,7 +2898,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "C Quality \u2605"
+              "options": "C Quality*"
             },
             "properties": [
               {
@@ -2945,7 +2976,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "E Governance \u2605"
+              "options": "E Governance*"
             },
             "properties": [
               {
@@ -3034,11 +3065,11 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT quarter AS \"Quarter\", lvl_a AS \"A Adoption\", lvl_b AS \"B Delivery\", lvl_c AS \"C Quality \u2605\", lvl_d AS \"D Agent\", lvl_e AS \"E Governance \u2605\", overall AS \"OVERALL\" FROM reporting.v_levels WHERE project = 'Future' ORDER BY quarter DESC LIMIT 1",
+          "rawSql": "SELECT quarter AS \"Quarter\", lvl_a AS \"A Adoption\", lvl_b AS \"B Delivery\", lvl_c AS \"C Quality*\", lvl_d AS \"D Agent\", lvl_e AS \"E Governance*\", overall AS \"OVERALL\" FROM reporting.v_levels WHERE project = 'Future' ORDER BY quarter DESC LIMIT 1",
           "refId": "A"
         }
       ],
-      "description": "OVERALL = MIN(E-Governance, C-Quality, round(avg(A..E))). C and E are gates: a low governance or quality level caps the whole score. Source: reporting.v_levels (\u2261 Excel workbook)."
+      "description": "OVERALL = MIN(E-Governance, C-Quality, round(avg(A..E))). C and E are gates (marked *): a low governance or quality level caps the whole score. Source: reporting.v_levels (Excel workbook)."
     }
   ]
 }

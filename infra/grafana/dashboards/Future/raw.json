@@ -1,6 +1,6 @@
 {
   "uid": "ai-sdlc-future-raw",
-  "title": "AI SDLC \u2014 Future (Raw Data)",
+  "title": "AI SDLC: Future (Raw Data)",
   "schemaVersion": 39,
   "version": 1,
   "editable": true,
@@ -31,7 +31,7 @@
   "panels": [
     {
       "type": "row",
-      "title": "Raw Metrics \u2014 all collected values",
+      "title": "Raw Metrics: all collected values",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -88,7 +88,7 @@
           "refId": "A"
         }
       ],
-      "description": "Every raw metric value the collector wrote (reporting.metric_counts), newest period first \u2014 the unaggregated source behind every dashboard panel."
+      "description": "Every raw metric value the collector wrote (reporting.metric_counts), newest period first: the unaggregated source behind every dashboard panel."
     },
     {
       "type": "row",
@@ -104,7 +104,7 @@
     },
     {
       "type": "table",
-      "title": "Derived Values \u2014 wide + ratios",
+      "title": "Derived Values (wide + ratios)",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"

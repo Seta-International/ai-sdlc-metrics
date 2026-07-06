@@ -1,6 +1,6 @@
 {
   "uid": "ai-sdlc-bod",
-  "title": "AI SDLC \u2014 Portfolio (BOD)",
+  "title": "AI SDLC: Portfolio (BOD)",
   "schemaVersion": 39,
   "version": 1,
   "editable": true,
@@ -24,7 +24,7 @@
   "panels": [
     {
       "type": "row",
-      "title": "Verdict",
+      "title": "Summary",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -72,13 +72,13 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "",
+          "fields": "/.*/",
           "values": false
         },
-        "graphMode": "area",
+        "graphMode": "none",
         "colorMode": "value",
         "justifyMode": "auto",
-        "textMode": "auto"
+        "textMode": "value"
       },
       "targets": [
         {
@@ -88,15 +88,15 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH lv AS (SELECT DISTINCT ON (project) project, quarter, lvl_a, lvl_b, lvl_c, lvl_d, lvl_e, overall FROM reporting.v_levels ORDER BY project, quarter DESC), agg AS (SELECT min(lvl_c) mc, min(lvl_e) me, min(overall) mo, count(*) n FROM lv) SELECT CASE WHEN me <= 1 OR mc <= 1 THEN '\ud83d\udd34 A gate is red (governance/quality at L1) \u2014 stabilise before scaling AI.' WHEN mo >= 3 THEN '\ud83d\udfe2 Portfolio maturing \u2014 median discipline holds; keep investing.' ELSE '\ud83d\udfe1 Building the baseline \u2014 measurement in place, levels still forming.' END AS verdict FROM agg",
+          "rawSql": "WITH lv AS (SELECT DISTINCT ON (project) project, quarter, lvl_a, lvl_b, lvl_c, lvl_d, lvl_e, overall FROM reporting.v_levels ORDER BY project, quarter DESC), agg AS (SELECT min(lvl_c) mc, min(lvl_e) me, min(overall) mo, count(*) n FROM lv) SELECT CASE WHEN me <= 1 OR mc <= 1 THEN 'Action required: a quality or governance gate is at Level 1. Remediate before expanding AI use.' WHEN mo >= 3 THEN 'On track: every project is at Level 3 or higher. Maintain current investment.' ELSE 'Baseline established. Maturity levels are still forming across the portfolio.' END AS verdict FROM agg",
           "refId": "A"
         }
       ],
-      "description": "One-line conclusion generated from reporting.v_levels: red if any project's C-Quality or E-Governance gate is at L1, green if every project is L3+, amber while the baseline forms."
+      "description": "Portfolio status from reporting.v_levels: flags a Level-1 C-Quality or E-Governance gate, confirms when every project reaches Level 3, otherwise reports the baseline is forming."
     },
     {
       "type": "row",
-      "title": "Is AI paying off? \u2014 Portfolio",
+      "title": "Return on Investment",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -478,7 +478,7 @@
     },
     {
       "type": "row",
-      "title": "Project Scorecard \u2014 Latest Sprint (A\u00b7B\u00b7C\u00b7D, mirrors Excel)",
+      "title": "Project Scorecard (latest sprint)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -490,7 +490,7 @@
     },
     {
       "type": "table",
-      "title": "A. Adoption \u2014 Latest Sprint",
+      "title": "A. Adoption: Latest Sprint",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -641,11 +641,11 @@
           "refId": "A"
         }
       ],
-      "description": "How broadly AI is used \u2014 PR share, agent task share, engineer usage rate (target \u226580%), and throughput per engineer."
+      "description": "How broadly AI is used: PR share, agent task share, engineer usage rate (target \u226580%), and throughput per engineer."
     },
     {
       "type": "table",
-      "title": "B. Delivery (DORA) \u2014 Latest Sprint",
+      "title": "B. Delivery (DORA): Latest Sprint",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -866,7 +866,7 @@
     },
     {
       "type": "table",
-      "title": "C. Quality \u2014 Latest Sprint",
+      "title": "C. Quality: Latest Sprint",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -1017,11 +1017,11 @@
           "refId": "A"
         }
       ],
-      "description": "Verification quality \u2014 human review coverage, rework rate, AI PRs touching tests, share of rework traced to AI PRs, and open security alerts."
+      "description": "Verification quality: human review coverage, rework rate, AI PRs touching tests, share of rework traced to AI PRs, and open security alerts."
     },
     {
       "type": "table",
-      "title": "D. Agent \u2014 Latest Sprint",
+      "title": "D. Agent: Latest Sprint",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -1102,11 +1102,11 @@
           "refId": "A"
         }
       ],
-      "description": "Agent maturity \u2014 agent PR share, autonomy (merged with zero human commits), completion vs human-fix rate, and cycle time."
+      "description": "Agent maturity: agent PR share, autonomy (merged with zero human commits), completion vs human-fix rate, and cycle time."
     },
     {
       "type": "row",
-      "title": "Evidence \u2014 AI vs non-AI",
+      "title": "AI vs Non-AI Comparison",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -1118,7 +1118,7 @@
     },
     {
       "type": "table",
-      "title": "Evidence \u2014 AI vs non-AI (latest sprint)",
+      "title": "Evidence: AI vs Non-AI (latest sprint)",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -1163,7 +1163,7 @@
           "refId": "A"
         }
       ],
-      "description": "AI vs non-AI, as pre-computed deltas with sample size. A slower AI lead time is a legitimate finding (verification overhead), not an error \u2014 read it with the quality columns. n(AI PR) is the sample behind the AI figures."
+      "description": "AI vs non-AI, as pre-computed deltas with sample size. A slower AI lead time is a legitimate finding (verification overhead), not an error: read it with the quality columns. n(AI PR) is the sample behind the AI figures."
     },
     {
       "type": "row",
@@ -1179,7 +1179,7 @@
     },
     {
       "type": "table",
-      "title": "Portfolio Maturity \u2014 A\u2013E Heatmap",
+      "title": "Portfolio Maturity (A\u2013E)",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -1288,7 +1288,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "C \u2605"
+              "options": "C*"
             },
             "properties": [
               {
@@ -1366,7 +1366,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "E \u2605"
+              "options": "E*"
             },
             "properties": [
               {
@@ -1455,15 +1455,15 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT project AS \"Project\", lvl_a AS \"A\", lvl_b AS \"B\", lvl_c AS \"C \u2605\", lvl_d AS \"D\", lvl_e AS \"E \u2605\", overall AS \"OVERALL\" FROM (SELECT DISTINCT ON (project) project, quarter, lvl_a, lvl_b, lvl_c, lvl_d, lvl_e, overall FROM reporting.v_levels ORDER BY project, quarter DESC) x ORDER BY overall, project",
+          "rawSql": "SELECT project AS \"Project\", lvl_a AS \"A\", lvl_b AS \"B\", lvl_c AS \"C*\", lvl_d AS \"D\", lvl_e AS \"E*\", overall AS \"OVERALL\" FROM (SELECT DISTINCT ON (project) project, quarter, lvl_a, lvl_b, lvl_c, lvl_d, lvl_e, overall FROM reporting.v_levels ORDER BY project, quarter DESC) x ORDER BY overall, project",
           "refId": "A"
         }
       ],
-      "description": "Each project's A-E levels for its latest quarter. C and E are gates (\u2605). Click a project to open its dashboard. OVERALL = MIN(E, C, round(avg))."
+      "description": "Each project's A-E levels for its latest quarter. C and E are gates (marked *). Click a project to open its dashboard. OVERALL = MIN(E, C, round(avg))."
     },
     {
       "type": "row",
-      "title": "Delivery Health & Direction",
+      "title": "Delivery Health",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -1763,7 +1763,7 @@
     },
     {
       "type": "row",
-      "title": "Where to Invest / Train",
+      "title": "Where to Invest",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -1801,16 +1801,47 @@
           "color": {
             "mode": "fixed",
             "fixedColor": "#3987e5"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "axisPlacement": "auto",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "axisCenteredZero": false,
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
           }
         },
         "overrides": []
       },
       "options": {
         "orientation": "horizontal",
+        "xField": "Project",
         "showValue": "always",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.9,
+        "fullHighlight": false,
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
         "legend": {
+          "showLegend": false,
           "displayMode": "hidden",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         }
       },
       "targets": [
@@ -1821,7 +1852,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT b.project AS \"Project\", round(100 * (b.v - a.v) / NULLIF(b.v, 0), 0) AS \"Cost Improvement %\" FROM (SELECT project, period_key, value::numeric v FROM reporting.manual_inputs WHERE field = 'cost_baseline') b JOIN (SELECT project, period_key, value::numeric v FROM reporting.manual_inputs WHERE field = 'cost_actual') a USING (project, period_key) JOIN (SELECT project, max(period_key) mk FROM reporting.manual_inputs WHERE field = 'cost_actual' GROUP BY project) m ON m.project = b.project AND m.mk = b.period_key ORDER BY 2 DESC",
+          "rawSql": "SELECT b.project AS \"Project\", round(100 * (b.v - a.v) / NULLIF(b.v, 0), 0)::float8 AS \"Cost Improvement %\" FROM (SELECT project, period_key, value::numeric v FROM reporting.manual_inputs WHERE field = 'cost_baseline') b JOIN (SELECT project, period_key, value::numeric v FROM reporting.manual_inputs WHERE field = 'cost_actual') a USING (project, period_key) JOIN (SELECT project, max(period_key) mk FROM reporting.manual_inputs WHERE field = 'cost_actual' GROUP BY project) m ON m.project = b.project AND m.mk = b.period_key ORDER BY 2 DESC",
           "refId": "A"
         }
       ],
@@ -1855,16 +1886,47 @@
           "color": {
             "mode": "fixed",
             "fixedColor": "#199e70"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "axisPlacement": "auto",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "axisCenteredZero": false,
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
           }
         },
         "overrides": []
       },
       "options": {
         "orientation": "horizontal",
+        "xField": "Project",
         "showValue": "always",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.9,
+        "fullHighlight": false,
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
         "legend": {
+          "showLegend": false,
           "displayMode": "hidden",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         }
       },
       "targets": [
@@ -1875,7 +1937,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT DISTINCT ON (w.project) w.project AS \"Project\", round(w.usage_pct, 0) AS \"Usage %\" FROM reporting.v_metrics w WHERE w.period_type = 'month' ORDER BY w.project, w.period_key DESC",
+          "rawSql": "SELECT DISTINCT ON (w.project) w.project AS \"Project\", round(w.usage_pct, 0)::float8 AS \"Usage %\" FROM reporting.v_metrics w WHERE w.period_type = 'month' ORDER BY w.project, w.period_key DESC",
           "refId": "A"
         }
       ],
@@ -1909,16 +1971,47 @@
           "color": {
             "mode": "fixed",
             "fixedColor": "#c98500"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "axisPlacement": "auto",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "axisCenteredZero": false,
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
           }
         },
         "overrides": []
       },
       "options": {
         "orientation": "horizontal",
+        "xField": "Tool",
         "showValue": "always",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.9,
+        "fullHighlight": false,
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
         "legend": {
+          "showLegend": false,
           "displayMode": "hidden",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         }
       },
       "targets": [
@@ -1929,15 +2022,15 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT replace(metric_key, 'ai_tasks_tool_', '') AS \"Tool\", sum(value) AS \"Tasks\" FROM reporting.metric_counts WHERE period_type = 'sprint' AND metric_key LIKE 'ai_tasks_tool_%' GROUP BY 1 ORDER BY 2 DESC",
+          "rawSql": "SELECT replace(metric_key, 'ai_tasks_tool_', '') AS \"Tool\", sum(value)::float8 AS \"Tasks\" FROM reporting.metric_counts WHERE period_type = 'sprint' AND metric_key LIKE 'ai_tasks_tool_%' GROUP BY 1 ORDER BY 2 DESC",
           "refId": "A"
         }
       ],
-      "description": "Portfolio tool mix \u2014 informs license decisions."
+      "description": "Portfolio tool mix: informs license decisions."
     },
     {
       "type": "row",
-      "title": "Ask",
+      "title": "Decisions Requested",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -1949,7 +2042,7 @@
     },
     {
       "type": "text",
-      "title": "ASK \u2014 decisions for the board this quarter",
+      "title": "Decisions for the board this quarter",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -1977,9 +2070,9 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "### Requested decisions\n- (update each quarter) Approve/defer expanding AI to project X\n- (update) Renew/adjust tool licences per the tool-mix panel\n- (update) Fund the governance gap flagged in the heatmap"
+        "content": "### Decisions requested\n- Approve or defer expanding AI to a new project\n- Renew or adjust tool licences based on the tool-mix panel\n- Fund the governance gap shown in the maturity table\n\n_Update before each board meeting._"
       },
-      "description": "Board decisions requested this quarter. Edit per meeting."
+      "description": "Board decisions requested this quarter. Edit before each meeting."
     }
   ]
 }

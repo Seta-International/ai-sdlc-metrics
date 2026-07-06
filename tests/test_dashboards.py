@@ -19,8 +19,8 @@ def test_generates_project_and_bod_dashboards(tmp_path):
     out = _generate(tmp_path)
     proj = json.loads((out / "Future" / "project.json").read_text())
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())
-    assert proj["title"] == "AI SDLC — Future"
-    assert bod["title"] == "AI SDLC — Portfolio (BOD)"
+    assert proj["title"] == "AI SDLC: Future"
+    assert bod["title"] == "AI SDLC: Portfolio (BOD)"
     assert proj["uid"] == "ai-sdlc-future"
 
 
@@ -94,7 +94,7 @@ def test_sections_config_controls_rows(tmp_path):
     future = json.loads((out / "Future" / "project.json").read_text())
     rows = [p["title"] for p in future["panels"] if p["type"] == "row"]
     assert rows[1].startswith("Sprint Steering")
-    assert any("paying off" in r for r in rows)
+    assert any("Return on Investment" in r for r in rows)
     assert any("Monthly Record" in r for r in rows)
 
 
@@ -140,7 +140,7 @@ def test_tool_breakdown_reads_metric_counts(tmp_path):
 def test_raw_dashboard_per_project(tmp_path):
     out = _generate(tmp_path)
     raw = json.loads((out / "Future" / "raw.json").read_text())
-    assert raw["title"] == "AI SDLC — Future (Raw Data)"
+    assert raw["title"] == "AI SDLC: Future (Raw Data)"
     assert raw["uid"] == "ai-sdlc-future-raw"
     body = json.dumps(raw)
     assert "reporting.metric_counts" in body   # the raw collected values
@@ -186,23 +186,40 @@ def test_pct_stats_are_n_guarded(tmp_path):
     assert "n_pr" in sql
 
 
+def _all_titles(dash):
+    """Every panel title, recursing into row-nested panels."""
+    out = []
+    for p in dash["panels"]:
+        out.append(p.get("title", ""))
+        out += [c.get("title", "") for c in p.get("panels", [])]
+    return out
+
+
+def _all_panels(dash):
+    """Every panel, recursing into row-nested panels."""
+    out = []
+    for p in dash["panels"]:
+        out.append(p)
+        out += p.get("panels", [])
+    return out
+
+
 def test_bod_has_verdict_and_heatmap(tmp_path):
     out = _generate(tmp_path)
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())
-    rows = [p["title"] for p in bod["panels"] if p["type"] == "row"]
-    titles = [p.get("title", "") for p in bod["panels"]]
-    assert any("Verdict" in t for t in titles)
-    assert any("Portfolio Maturity" in t for t in titles)   # heatmap (2 projects in config)
+    titles = _all_titles(bod)
+    assert any("Verdict" in t for t in titles)                # the verdict panel
+    assert any("Portfolio Maturity" in t for t in titles)     # heatmap (2 projects in config)
     body = json.dumps(bod)
     assert "reporting.v_levels" in body
-    assert any("Ask" in t or "ASK" in t for t in titles)
+    assert any("Decisions" in t for t in titles)              # the "Ask" section, renamed
 
 
 def test_bod_ask_uses_real_newlines(tmp_path):
     out = _generate(tmp_path)
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())
-    ask = next(p for p in bod["panels"]
-               if p.get("type") == "text" and "decisions" in p.get("title", ""))
+    ask = next(p for p in _all_panels(bod)
+               if p.get("type") == "text" and "Decisions" in p.get("title", ""))
     content = ask["options"]["content"]
     assert "\n" in content        # real line breaks render as markdown bullets
     assert "\\n" not in content   # not the literal backslash-n that renders as text
@@ -211,7 +228,7 @@ def test_bod_ask_uses_real_newlines(tmp_path):
 def test_bod_has_evidence_delta(tmp_path):
     out = _generate(tmp_path)
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())
-    titles = [p.get("title", "") for p in bod["panels"]]
-    assert any("AI vs non-AI" in t for t in titles)
+    titles = _all_titles(bod)
+    assert any("AI vs Non-AI" in t for t in titles)
     sql = json.dumps(bod)
     assert "lead_time_ai_h" in sql and "lead_time_nonai_h" in sql
