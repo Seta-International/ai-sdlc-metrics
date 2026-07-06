@@ -87,3 +87,14 @@ def test_new_ratios_null_safe(pg_url):
             FROM reporting.metrics_ratios WHERE project = 'P-Story2'
         """)
         assert cur.fetchone() == (None, None, None)
+
+
+def test_views_sql_is_reappliable(pg_url):
+    """views.sql must re-apply cleanly to an already-migrated DB (deploy re-runs it)."""
+    import os
+    base = os.path.join(os.path.dirname(__file__), "..", "infra", "db")
+    with open(os.path.join(base, "views.sql")) as f:
+        sql = f.read()
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute(sql)   # conftest already applied it once; this is the second apply
+        conn.commit()

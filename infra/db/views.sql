@@ -5,6 +5,7 @@
 
 DROP VIEW IF EXISTS reporting.metrics_ratios;
 DROP VIEW IF EXISTS reporting.v_levels;
+DROP VIEW IF EXISTS reporting.v_quarter_metrics;
 DROP VIEW IF EXISTS reporting.v_metrics;
 DROP VIEW IF EXISTS reporting.metrics_wide;
 
