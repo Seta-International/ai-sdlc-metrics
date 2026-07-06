@@ -755,6 +755,24 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
             "commits), completion vs human-fix rate, and cycle time."),
     ]
 
+    evidence = [
+        {"kind": "table", "title": "Evidence — AI vs non-AI (latest sprint)",
+         "sql": ("SELECT project AS \"Project\", "
+                 "round(lead_time_ai_h, 1) AS \"Lead AI h\", "
+                 "round(lead_time_nonai_h, 1) AS \"Lead non-AI h\", "
+                 "round(100 * (lead_time_nonai_h - lead_time_ai_h) "
+                 "/ NULLIF(lead_time_nonai_h, 0), 0) AS \"Lead Δ%\", "
+                 "round(pr_size_ai, 0) AS \"PR size AI\", "
+                 "round(pr_size_nonai, 0) AS \"PR size non-AI\", "
+                 "n_ai_pr AS \"n(AI PR)\" "
+                 f"{latest} ORDER BY project"),
+         "unit": "none", "w": 24, "h": 6,
+         "desc": ("AI vs non-AI, as pre-computed deltas with sample size. A "
+                  "slower AI lead time is a legitimate finding (verification "
+                  "overhead), not an error — read it with the quality columns. "
+                  "n(AI PR) is the sample behind the AI figures.")},
+    ]
+
     direction = [
         {"kind": "timeseries", "title": "AI PR % by Sprint",
          "sql": f"SELECT period_start AS time, project, ai_pr_pct {trend}",
@@ -848,6 +866,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
         ("Verdict", verdict),
         ("Is AI paying off? — Portfolio", pulse),
         ("Project Scorecard — Latest Sprint (A·B·C·D, mirrors Excel)", scorecard),
+        ("Evidence — AI vs non-AI", evidence),
     ]
     if len(cfgs) >= 2:
         sections.append(("Portfolio Maturity", heatmap))

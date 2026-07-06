@@ -193,3 +193,12 @@ def test_bod_ask_uses_real_newlines(tmp_path):
     content = ask["options"]["content"]
     assert "\n" in content        # real line breaks render as markdown bullets
     assert "\\n" not in content   # not the literal backslash-n that renders as text
+
+
+def test_bod_has_evidence_delta(tmp_path):
+    out = _generate(tmp_path)
+    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
+    titles = [p.get("title", "") for p in bod["panels"]]
+    assert any("AI vs non-AI" in t for t in titles)
+    sql = json.dumps(bod)
+    assert "lead_time_ai_h" in sql and "lead_time_nonai_h" in sql
