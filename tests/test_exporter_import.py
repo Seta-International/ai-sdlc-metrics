@@ -56,3 +56,26 @@ def test_token_guard_rejects_when_set(client, monkeypatch):
     # preview with no token -> 401 (guard runs before the file is read)
     r = c.post("/import/preview", files={"file": ("wb.xlsx", _filled_workbook())})
     assert r.status_code == 401
+
+
+def test_commit_writes_each_change(client, monkeypatch):
+    c, app_module = client
+    written = []
+    monkeypatch.setattr(app_module, "upsert_manual_input",
+                        lambda db, project, period, field, value, by: written.append(
+                            (project, period, field, value, by)))
+    changes = json.dumps([
+        {"project": "Future", "period_key": "2026-06", "field": "total_engineers", "value": "19"},
+        {"project": "Future", "period_key": "2026-Q3", "field": "g1_agents_md", "value": "Yes"},
+    ])
+    r = c.post("/import/commit", data={"changes": changes})
+    assert r.status_code == 200
+    assert len(written) == 2
+    assert ("Future", "2026-06", "total_engineers", "19", "excel-import") in written
+    assert "2" in r.text  # summary count
+
+
+def test_commit_rejects_bad_json(client):
+    c, _ = client
+    r = c.post("/import/commit", data={"changes": "not json"})
+    assert r.status_code == 400

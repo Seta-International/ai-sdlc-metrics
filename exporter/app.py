@@ -7,6 +7,7 @@ import os
 import openpyxl
 from fastapi import FastAPI, Form, HTTPException, Response, UploadFile
 from fastapi.responses import HTMLResponse
+from collector.db import upsert_manual_input
 from exporter.data import fetch_manual, fetch_period_rows, fetch_projects, fetch_auto_ai_users
 from exporter.importer import parse_manual_inputs, diff_changes, usage_warnings
 from exporter.template import build_workbook
@@ -117,3 +118,19 @@ def import_preview(file: UploadFile, token: str | None = Form(default=None)) -> 
   <input type="hidden" name="token" value="{html.escape(token or '')}">
   <button type="submit">Confirm &amp; import</button>
 </form>"""
+
+
+@app.post("/import/commit", response_class=HTMLResponse)
+def import_commit(changes: str = Form(...), token: str | None = Form(default=None)) -> str:
+    _check_token(token)
+    try:
+        rows = json.loads(changes)
+    except json.JSONDecodeError:
+        raise HTTPException(400, "malformed changes payload")
+    db_url = os.environ["REPORTING_DB_URL"]
+    for c in rows:
+        upsert_manual_input(db_url, c["project"], c["period_key"],
+                            c["field"], c["value"], "excel-import")
+    return (f"<!doctype html><meta charset='utf-8'><title>Imported</title>"
+            f"<h2>Imported {len(rows)} manual value(s).</h2>"
+            f"<p><a href='/import'>Import another</a></p>")
