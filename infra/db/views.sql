@@ -181,3 +181,57 @@ SELECT a.*, COALESCE(c.b3, false) AS b3,
 FROM agg a
 LEFT JOIN cost c USING (project, quarter)
 LEFT JOIN flags f USING (project, quarter);
+
+CREATE VIEW reporting.v_levels AS
+WITH t AS (
+  SELECT
+    max(value) FILTER (WHERE key='usage_L2') AS usage_L2,
+    max(value) FILTER (WHERE key='pr_L3')    AS pr_L3,
+    max(value) FILTER (WHERE key='pr_L4')    AS pr_L4,
+    max(value) FILTER (WHERE key='aut_L4')   AS aut_L4,
+    max(value) FILTER (WHERE key='aut_L5')   AS aut_L5,
+    max(value) FILTER (WHERE key='int_L5')   AS int_L5
+  FROM reporting.thresholds
+),
+lv AS (
+  SELECT q.project, q.quarter,
+    -- A. Adoption
+    CASE
+      WHEN q.a4 THEN 5
+      WHEN q.ai_pr_frac > t.pr_L4 AND q.a3 THEN 4
+      WHEN q.a2 AND q.ai_pr_frac >= t.pr_L3 THEN 3
+      WHEN q.a1 AND q.usage_frac >= t.usage_L2 THEN 2
+      ELSE 1 END AS lvl_a,
+    -- B. Delivery
+    CASE
+      WHEN q.b2 AND q.b3 AND q.b4 AND q.b5 AND q.b6 AND q.b7 AND q.b8 THEN 5
+      WHEN q.b4 AND q.b5 AND q.b6 AND q.b2 AND q.b3 THEN 4
+      WHEN q.b2 AND q.b3 THEN 3
+      WHEN q.b1 THEN 2
+      ELSE 1 END AS lvl_b,
+    -- C. Quality (gate)
+    CASE
+      WHEN q.c7 AND q.c8 AND q.c9 AND q.c4 AND q.c5 AND q.c6 AND q.g3 AND q.c2 AND q.b4 THEN 5
+      WHEN q.c4 AND q.c5 AND q.c6 AND q.g3 AND q.c2 AND q.b4 THEN 4
+      WHEN q.g3 AND q.c3 AND q.c2 THEN 3
+      WHEN q.g3 OR q.c3 THEN 2
+      ELSE 1 END AS lvl_c,
+    -- D. Agent
+    CASE
+      WHEN NOT q.d1 THEN 1
+      WHEN NOT q.d2 THEN 2
+      WHEN q.d5 AND q.d3 AND q.d4 AND q.autonomy_frac >= t.aut_L5 AND q.interv_frac <= t.int_L5 THEN 5
+      WHEN q.d3 AND q.d4 AND q.autonomy_frac >= t.aut_L4 THEN 4
+      ELSE 3 END AS lvl_d,
+    -- E. Governance (gate)
+    CASE
+      WHEN q.gov_score = 8 THEN 5
+      WHEN q.g1 AND q.g2 AND q.g3 AND q.g4 AND q.g5 THEN 4
+      WHEN q.g1 AND q.g2 AND q.g3 THEN 3
+      WHEN q.gov_score >= 2 THEN 2
+      ELSE 1 END AS lvl_e
+  FROM reporting.v_quarter_metrics q CROSS JOIN t
+)
+SELECT project, quarter, lvl_a, lvl_b, lvl_c, lvl_d, lvl_e,
+  LEAST(lvl_e, lvl_c, round((lvl_a + lvl_b + lvl_c + lvl_d + lvl_e) / 5.0))::int AS overall
+FROM lv;

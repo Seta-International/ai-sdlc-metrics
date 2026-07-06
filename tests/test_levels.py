@@ -37,3 +37,11 @@ def test_quarter_metrics_aggregates_and_flags(pg_url):
     assert b1 and b2 and b3 and d1 and d2
     assert gov == 5           # G1..G5 = Yes
     assert float(aut) > 0.30  # autonomous/agent_total averaged
+
+
+def test_p03_full_pass_levels(pg_url):
+    _seed_p03(pg_url)
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT lvl_a,lvl_b,lvl_c,lvl_d,lvl_e,overall FROM reporting.v_levels "
+                    "WHERE project='P03' AND quarter='2026-Q1'")
+        assert list(cur.fetchone()) == [4, 4, 4, 4, 4, 4]
