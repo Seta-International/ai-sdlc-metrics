@@ -246,6 +246,24 @@ def _stat(project: str, title: str, col: str, unit: str = "none",
     return spec
 
 
+def _guarded_pct(project: str, title: str, pct_col: str, n_col: str,
+                 th: dict | None = None, w: int = 6, h: int = 4,
+                 desc: str = "") -> dict:
+    """A pct stat greyed to NULL when its sample size (n_col) < 20 (board P5)."""
+    anchor = (f"(SELECT period_start FROM {RATIOS} WHERE project = '{project}' "
+              "AND period_type = 'sprint' AND period_key = '$sprint')")
+    guarded = f"CASE WHEN {n_col} < 20 THEN NULL ELSE {pct_col} END"
+    sql = (f"SELECT period_start AS time, {guarded} AS value FROM {RATIOS} "
+           f"WHERE project = '{project}' AND period_type = 'sprint' "
+           f"AND period_start <= {anchor} ORDER BY period_start")
+    spec = {"kind": "stat", "title": title, "sql": sql, "format": "time_series",
+            "unit": "percent", "w": w, "h": h,
+            "desc": desc + " Greyed when n<20 (too small to trust)."}
+    if th:
+        spec["th"] = th
+    return spec
+
+
 def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
     project = cfg["name"]
     th = _cfg_th(cfg)
@@ -347,10 +365,10 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
               desc="Share of rework whose culprit PR was AI-labeled."),
         _stat(project, "AI PR Test %", "ai_pr_test_pct", "percent", w=4, h=4,
               desc="AI PRs touching test files. Maturity gate input."),
-        _stat(project, "AI PR Review %", "ai_pr_review_pct", "percent",
-              TH["review"], w=4, h=4,
-              desc="Share of AI PRs with at least one human approval. "
-                   "Maturity gate for stages 3-4; target ~100%."),
+        _guarded_pct(project, "AI PR Review %", "ai_pr_review_pct", "n_ai_pr",
+                     TH["review"], w=4, h=4,
+                     desc="Share of AI PRs with a human approval. Gate for "
+                          "stages 3-4; target ~100%."),
     ]
 
     dora = [
@@ -385,8 +403,8 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
         _stat(project, "Engineer Usage Rate", "usage_pct", "percent",
               TH["usage"], w=4,
               desc="AI engineers ÷ active contributors. Target ≥80%."),
-        _stat(project, "AI PR %", "ai_pr_pct", "percent", TH["ai_share"], w=4,
-              desc="Merged PRs labeled ai-assisted. Framework: ≥30% = L3, >50% = L4."),
+        _guarded_pct(project, "AI PR %", "ai_pr_pct", "n_pr", TH["ai_share"], w=4,
+                     desc="Merged PRs labeled ai-assisted. Framework: ≥30% = L3, >50% = L4."),
         _stat(project, "AI Task %", "ai_task_pct", "percent", TH["ai_share"], w=4,
               desc="Done Jira issues with any AI usage."),
         _stat(project, "Agent Task %", "agent_task_pct", "percent", w=4,
@@ -423,8 +441,8 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
                               "value": {"mode": "fixed", "fixedColor": DEEMPH}}]},
          ],
          "desc": "Merged agent PRs: shipped untouched (blue) vs needing human commits (gray)."},
-        _stat(project, "Autonomy %", "autonomy_pct", "percent", TH["autonomy"],
-              w=6, h=8, desc="Agent PRs with zero human commits. L4 ≥30%, L5 ≥60%."),
+        _guarded_pct(project, "Autonomy %", "autonomy_pct", "n_agent_pr", TH["autonomy"],
+                     w=6, h=8, desc="Agent PRs with zero human commits. L4 ≥30%, L5 ≥60%."),
         _stat(project, "Completion %", "agent_completion_pct", "percent",
               w=8, h=6, desc="Agent PRs merged ÷ agent PRs opened."),
         _stat(project, "Intervention %", "human_intervention_pct", "percent",

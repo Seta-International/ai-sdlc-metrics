@@ -152,3 +152,13 @@ def test_bod_has_roi_and_tools(tmp_path):
     assert any("AI Net $" in t for t in titles)
     body = json.dumps(bod)
     assert "ai_tasks_tool_" in body            # portfolio tool mix
+
+
+def test_pct_stats_are_n_guarded(tmp_path):
+    out = _generate(tmp_path)
+    future = json.loads((out / "Future" / "project.json").read_text())
+    sql = json.dumps(future)
+    # AI PR % is suppressed below n=20 on n_pr
+    assert "< 20 THEN NULL" in sql
+    # the n is surfaced in a guarded panel's SQL
+    assert "n_pr" in sql
