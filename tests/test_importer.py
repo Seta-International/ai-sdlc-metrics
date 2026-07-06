@@ -1,5 +1,5 @@
 import openpyxl
-from exporter.importer import parse_manual_inputs, format_value
+from exporter.importer import parse_manual_inputs, format_value, diff_changes
 
 
 def _wb_with(projects_rows, monthly_rows=(), quarterly_rows=()):
@@ -61,3 +61,19 @@ def test_parse_reads_quarterly_flags_and_skips_blanks():
             "field": "g2_ai_policy", "value": "No"} in got
     # only the two filled flags, nothing for blank columns
     assert len(got) == 2
+
+
+def test_diff_classifies_new_changed_unchanged():
+    parsed = [
+        {"project": "Future", "period_key": "2026-06", "field": "total_engineers", "value": "19"},
+        {"project": "Future", "period_key": "2026-06", "field": "cost_actual", "value": "30"},
+        {"project": "Future", "period_key": "2026-Q3", "field": "g1_agents_md", "value": "Yes"},
+    ]
+    current = {("Future", "2026-06"): {"total_engineers": "18", "cost_actual": "30"}}
+    got = diff_changes(parsed, current)
+    by_field = {(c["period_key"], c["field"]): c for c in got}
+    assert by_field[("2026-06", "total_engineers")]["status"] == "changed"
+    assert by_field[("2026-06", "total_engineers")]["old"] == "18"
+    assert by_field[("2026-06", "cost_actual")]["status"] == "unchanged"
+    assert by_field[("2026-Q3", "g1_agents_md")]["status"] == "new"
+    assert by_field[("2026-Q3", "g1_agents_md")]["old"] is None

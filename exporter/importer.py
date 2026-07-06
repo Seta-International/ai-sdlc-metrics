@@ -1,7 +1,6 @@
 """Reverse of exporter.workbook.fill_workbook: read ONLY the manual cells a PM
 fills (Monthly E/O/P/S + all Quarterly flag columns) back out of an uploaded
 workbook. Auto-collected columns are never read — the collector owns those."""
-from openpyxl.utils import get_column_letter
 from exporter.workbook import SHEET3_MANUAL_COLS, SHEET4_FIELDS
 
 _MONTHLY_DATA_START = 4
@@ -57,3 +56,22 @@ def parse_manual_inputs(wb) -> list[dict]:
             changes.append({"project": ids[pid], "period_key": str(quarter),
                             "field": field, "value": format_value(val)})
     return changes
+
+
+def diff_changes(parsed: list[dict], current: dict) -> list[dict]:
+    """Classify each parsed manual value as new/changed/unchanged vs `current`
+    (the dict[(project, period_key)] -> dict[field] -> value shape returned
+    by exporter.data.fetch_manual)."""
+    out = []
+    for c in parsed:
+        old = current.get((c["project"], c["period_key"]), {}).get(c["field"])
+        if old is None:
+            status = "new"
+        elif str(old) == c["value"]:
+            status = "unchanged"
+        else:
+            status = "changed"
+        out.append({"project": c["project"], "period_key": c["period_key"],
+                    "field": c["field"], "old": old, "new": c["value"],
+                    "status": status})
+    return sorted(out, key=lambda x: (x["project"], x["period_key"], x["field"]))
