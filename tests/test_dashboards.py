@@ -171,3 +171,15 @@ def test_pct_stats_are_n_guarded(tmp_path):
     assert "< 20 THEN NULL" in sql
     # the n is surfaced in a guarded panel's SQL
     assert "n_pr" in sql
+
+
+def test_bod_has_verdict_and_heatmap(tmp_path):
+    out = _generate(tmp_path)
+    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
+    rows = [p["title"] for p in bod["panels"] if p["type"] == "row"]
+    titles = [p.get("title", "") for p in bod["panels"]]
+    assert any("Verdict" in t for t in titles)
+    assert any("Portfolio Maturity" in t for t in titles)   # heatmap (2 projects in config)
+    body = json.dumps(bod)
+    assert "reporting.v_levels" in body
+    assert any("Ask" in t or "ASK" in t for t in titles)

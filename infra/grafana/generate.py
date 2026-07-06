@@ -122,6 +122,8 @@ def _target(sql: str, fmt: str) -> dict:
 
 
 def _options(kind: str, spec: dict) -> dict:
+    if kind == "text":
+        return {"mode": "markdown", "content": spec.get("content", "")}
     if kind == "stat":
         return {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
                 "graphMode": spec.get("graph", "area"),
@@ -166,10 +168,11 @@ def _panel(spec: dict, x: int, y: int) -> dict:
     panel = {
         "type": spec["kind"], "title": spec["title"], "datasource": DS,
         "gridPos": {"x": x, "y": y, "w": spec.get("w", 6), "h": spec.get("h", 4)},
-        "targets": [_target(spec["sql"], spec.get("format", "table"))],
         "fieldConfig": {"defaults": defaults, "overrides": spec.get("overrides", [])},
         "options": _options(spec["kind"], spec),
     }
+    if spec["kind"] != "text":
+        panel["targets"] = [_target(spec["sql"], spec.get("format", "table"))]
     if "desc" in spec:
         panel["description"] = spec["desc"]
     return panel
@@ -799,11 +802,59 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
          "desc": "Portfolio tool mix — informs license decisions."},
     ]
 
+    verdict_sql = (
+        "WITH lv AS (" + _levels_latest_all() + "), "
+        "agg AS (SELECT min(lvl_c) mc, min(lvl_e) me, min(overall) mo, "
+        "count(*) n FROM lv) "
+        "SELECT CASE "
+        "WHEN me <= 1 OR mc <= 1 THEN "
+        "'🔴 A gate is red (governance/quality at L1) — stabilise before scaling AI.' "
+        "WHEN mo >= 3 THEN "
+        "'🟢 Portfolio maturing — median discipline holds; keep investing.' "
+        "ELSE '🟡 Building the baseline — measurement in place, levels still forming.' "
+        "END AS verdict FROM agg")
+    verdict = [
+        {"kind": "stat", "title": "Verdict", "sql": verdict_sql,
+         "format": "table", "unit": "none", "w": 24, "h": 4,
+         "custom": {}, "color": DEEMPH,
+         "desc": ("One-line conclusion generated from reporting.v_levels: red if "
+                  "any project's C-Quality or E-Governance gate is at L1, green if "
+                  "every project is L3+, amber while the baseline forms.")},
+    ]
+    heatmap = [
+        {"kind": "table", "title": "Portfolio Maturity — A–E Heatmap",
+         "sql": (f"SELECT project AS \"Project\", lvl_a AS \"A\", lvl_b AS \"B\", "
+                 "lvl_c AS \"C ★\", lvl_d AS \"D\", lvl_e AS \"E ★\", "
+                 "overall AS \"OVERALL\" FROM (" + _levels_latest_all() + ") x "
+                 "ORDER BY overall, project"),
+         "unit": "none", "w": 24, "h": 8,
+         "overrides": [_score_col(c, _th(CRIT, (2, WARN), (3, WARN), (4, GOOD)))
+                       for c in ("A", "B", "C ★", "D", "E ★", "OVERALL")],
+         "desc": ("Each project's A-E levels for its latest quarter. C and E are "
+                  "gates (★). Click a project to open its dashboard. "
+                  "OVERALL = MIN(E, C, round(avg)).")},
+    ]
+    ask = [
+        {"kind": "text", "title": "ASK — decisions for the board this quarter",
+         "sql": "SELECT 1", "unit": "none", "w": 24, "h": 4,
+         "desc": "Board decisions requested this quarter. Edit per meeting.",
+         "content": ("### Requested decisions\\n"
+                     "- (update each quarter) Approve/defer expanding AI to project X\\n"
+                     "- (update) Renew/adjust tool licences per the tool-mix panel\\n"
+                     "- (update) Fund the governance gap flagged in the heatmap")},
+    ]
+
     sections = [
+        ("Verdict", verdict),
         ("Is AI paying off? — Portfolio", pulse),
         ("Project Scorecard — Latest Sprint (A·B·C·D, mirrors Excel)", scorecard),
+    ]
+    if len(cfgs) >= 2:
+        sections.append(("Portfolio Maturity", heatmap))
+    sections += [
         ("Delivery Health & Direction", direction),
         ("Where to Invest / Train", value),
+        ("Ask", ask),
     ]
     links = [{"type": "link", "title": "Download Excel (all projects)", "icon": "doc",
               "targetBlank": True, "url": f"{exporter_url}/export.xlsx?project=all"}]
