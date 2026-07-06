@@ -838,9 +838,9 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
         {"kind": "text", "title": "ASK — decisions for the board this quarter",
          "sql": "SELECT 1", "unit": "none", "w": 24, "h": 4,
          "desc": "Board decisions requested this quarter. Edit per meeting.",
-         "content": ("### Requested decisions\\n"
-                     "- (update each quarter) Approve/defer expanding AI to project X\\n"
-                     "- (update) Renew/adjust tool licences per the tool-mix panel\\n"
+         "content": ("### Requested decisions\n"
+                     "- (update each quarter) Approve/defer expanding AI to project X\n"
+                     "- (update) Renew/adjust tool licences per the tool-mix panel\n"
                      "- (update) Fund the governance gap flagged in the heatmap")},
     ]
 
