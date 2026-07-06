@@ -25,6 +25,17 @@ def test_usage_pct_null_without_team_size(pg_url):
         assert cur.fetchone()[0] is None
 
 
+def test_usage_pct_null_when_team_size_zero(pg_url):
+    from collector.db import upsert_manual_input
+    upsert_counts(pg_url, "P-ZeroTeam", "month", "2026-06", date(2026, 6, 1), date(2026, 6, 30),
+                  {"ai_users_weekly_avg": 5.0})
+    upsert_manual_input(pg_url, "P-ZeroTeam", "2026-06", "total_engineers", "0", "seed")
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT usage_pct FROM reporting.v_metrics "
+                    "WHERE project='P-ZeroTeam' AND period_key='2026-06'")
+        assert cur.fetchone()[0] is None
+
+
 def test_n_columns_are_raw_counts(pg_url):
     upsert_counts(pg_url, "P-N", "sprint", "S1", date(2026, 6, 29), date(2026, 7, 13),
                   {"total_prs": 40, "ai_prs": 16, "agent_prs_total": 6, "deploys": 6,

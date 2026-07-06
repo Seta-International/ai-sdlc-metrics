@@ -58,7 +58,7 @@ SELECT
   -- plain LEAST(...) here would silently turn a missing team_size into 100%.
   -- Guard explicitly so the result is NULL whenever either input is NULL.
   CASE
-    WHEN ai_users_weekly_avg IS NULL OR ts.team_size IS NULL THEN NULL
+    WHEN ai_users_weekly_avg IS NULL OR ts.team_size IS NULL OR ts.team_size = 0 THEN NULL
     ELSE LEAST(100.0 * ai_users_weekly_avg / NULLIF(ts.team_size, 0), 100.0)
   END AS usage_pct,
   100.0 * ai_users_weekly_avg  / NULLIF(engineers_active, 0) AS usage_rate_pct,  -- legacy proxy, kept for compat
