@@ -63,3 +63,11 @@ def test_fetch_month_values(pg_url):
     vals = fetch_month_values(pg_url, "P-Fetch", ["deploys", "weeks"], ["2026-06", "2026-07"])
     assert vals == {("2026-06", "deploys"): 4.0, ("2026-06", "weeks"): 4.3,
                     ("2026-07", "deploys"): 6.0}
+
+
+def test_thresholds_seeded(pg_url):
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT value FROM reporting.thresholds WHERE key = 'usage_L2'")
+        assert float(cur.fetchone()[0]) == 0.50
+        cur.execute("SELECT count(*) FROM reporting.thresholds")
+        assert cur.fetchone()[0] == 11
