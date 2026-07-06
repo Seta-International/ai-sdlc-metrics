@@ -96,3 +96,87 @@ LEFT JOIN LATERAL (
 
 -- Backward-compat alias so existing consumers keep working during the migration.
 CREATE VIEW reporting.metrics_ratios AS SELECT * FROM reporting.v_metrics;
+
+CREATE VIEW reporting.v_quarter_metrics AS
+WITH months AS (
+  SELECT
+    m.project,
+    to_char(m.period_start, 'YYYY') || '-Q' ||
+      ceil(extract(month FROM m.period_start) / 3.0)::int AS quarter,
+    m.usage_pct, m.ai_pr_pct, m.agent_task_pct, m.autonomy_pct, m.human_intervention_pct,
+    m.ai_users_weekly_avg, m.total_tasks, m.deploys, m.weeks, m.incidents, m.mttr_h,
+    m.lead_time_h, m.rework_prs, m.total_prs, m.agent_tasks, m.agent_prs_merged
+  FROM reporting.v_metrics m
+  WHERE m.period_type = 'month'
+),
+agg AS (
+  SELECT project, quarter,
+    avg(usage_pct)/100.0              AS usage_frac,
+    avg(ai_pr_pct)/100.0              AS ai_pr_frac,
+    avg(agent_task_pct)/100.0         AS agent_task_frac,
+    avg(autonomy_pct)/100.0           AS autonomy_frac,
+    avg(human_intervention_pct)/100.0 AS interv_frac,
+    bool_or(ai_users_weekly_avg > 0)  AS a1,
+    bool_or(total_tasks > 0)          AS a3,
+    bool_or(deploys > 0 AND weeks > 0) AS b1,
+    bool_or(lead_time_h IS NOT NULL AND deploys IS NOT NULL AND weeks IS NOT NULL
+            AND incidents IS NOT NULL AND mttr_h IS NOT NULL) AS b2,
+    bool_or(rework_prs IS NOT NULL AND total_prs > 0) AS c2,
+    bool_or(agent_tasks > 0)          AS d1,
+    bool_or(agent_prs_merged IS NOT NULL) AS d2
+  FROM months GROUP BY project, quarter
+),
+cost AS (  -- b3: cost_baseline is a MONTHLY manual field; presence maps up to the quarter
+  SELECT project,
+    substr(period_key, 1, 4) || '-Q' || ceil(substr(period_key, 6, 2)::int / 3.0)::int AS quarter,
+    bool_or(field = 'cost_baseline') AS b3
+  FROM reporting.manual_inputs
+  WHERE period_key ~ '^[0-9]{4}-[0-9]{2}$'
+  GROUP BY project, quarter
+),
+flags AS (
+  SELECT project, period_key AS quarter,
+    bool_or(field='g1_agents_md'      AND value='Yes') AS g1,
+    bool_or(field='g2_ai_policy'      AND value='Yes') AS g2,
+    bool_or(field='g3_required_review' AND value='Yes') AS g3,
+    bool_or(field='g4_eval_suite'     AND value='Yes') AS g4,
+    bool_or(field='g5_shared_library' AND value='Yes') AS g5,
+    bool_or(field='g6_security_controls' AND value='Yes') AS g6,
+    bool_or(field='g7_traceability'   AND value='Yes') AS g7,
+    bool_or(field='g8_model_governance' AND value='Yes') AS g8,
+    bool_or(field='a2_dashboard'      AND value='Yes') AS a2,
+    bool_or(field='a4_near_universal' AND value='Yes') AS a4,
+    bool_or(field='b4_dora_improving' AND value='Yes') AS b4,
+    bool_or(field='b5_cost_multi_wf'  AND value='Yes') AS b5,
+    bool_or(field='b6_business_outcomes' AND value='Yes') AS b6,
+    bool_or(field='b7_top_quartile'   AND value='Yes') AS b7,
+    bool_or(field='b8_client_reporting' AND value='Yes') AS b8,
+    bool_or(field='c3_scan_ci'        AND value='Yes') AS c3,
+    bool_or(field='c4_ai_vs_nonai'    AND value='Yes') AS c4,
+    bool_or(field='c5_evals'          AND value='Yes') AS c5,
+    bool_or(field='c6_sast_pii_required' AND value='Yes') AS c6,
+    bool_or(field='c7_defect_zero'    AND value='Yes') AS c7,
+    bool_or(field='c8_evals_in_ci'    AND value='Yes') AS c8,
+    bool_or(field='c9_prompt_leak_pii' AND value='Yes') AS c9,
+    bool_or(field='d3_defined_class'  AND value='Yes') AS d3,
+    bool_or(field='d4_cycle_measured' AND value='Yes') AS d4,
+    bool_or(field='d5_multi_agent'    AND value='Yes') AS d5,
+    ( (bool_or(field='g1_agents_md' AND value='Yes'))::int
+    + (bool_or(field='g2_ai_policy' AND value='Yes'))::int
+    + (bool_or(field='g3_required_review' AND value='Yes'))::int
+    + (bool_or(field='g4_eval_suite' AND value='Yes'))::int
+    + (bool_or(field='g5_shared_library' AND value='Yes'))::int
+    + (bool_or(field='g6_security_controls' AND value='Yes'))::int
+    + (bool_or(field='g7_traceability' AND value='Yes'))::int
+    + (bool_or(field='g8_model_governance' AND value='Yes'))::int ) AS gov_score
+  FROM reporting.manual_inputs
+  WHERE period_key LIKE '%-Q%'
+  GROUP BY project, period_key
+)
+SELECT a.*, COALESCE(c.b3, false) AS b3,
+       f.g1,f.g2,f.g3,f.g4,f.g5,f.g6,f.g7,f.g8, f.a2,f.a4,
+       f.b4,f.b5,f.b6,f.b7,f.b8, f.c3,f.c4,f.c5,f.c6,f.c7,f.c8,f.c9,
+       f.d3,f.d4,f.d5, f.gov_score
+FROM agg a
+LEFT JOIN cost c USING (project, quarter)
+LEFT JOIN flags f USING (project, quarter);
