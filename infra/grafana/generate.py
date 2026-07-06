@@ -534,6 +534,23 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
     sections += [story_sections[key] for key in cfg["sections"] if key in story_sections]
     sections.append(("Monthly Record", monthly))
 
+    level_summary = [
+        {"kind": "table", "title": "Maturity — A–E Levels (latest quarter)",
+         "sql": (f"SELECT quarter AS \"Quarter\", lvl_a AS \"A Adoption\", "
+                 "lvl_b AS \"B Delivery\", lvl_c AS \"C Quality ★\", "
+                 "lvl_d AS \"D Agent\", lvl_e AS \"E Governance ★\", "
+                 f"overall AS \"OVERALL\" FROM {LEVELS} WHERE project = '{project}' "
+                 "ORDER BY quarter DESC LIMIT 1"),
+         "unit": "none", "w": 24, "h": 4,
+         "overrides": [_score_col(c, _th(CRIT, (2, WARN), (3, WARN), (4, GOOD)))
+                       for c in ("A Adoption", "B Delivery", "C Quality ★",
+                                 "D Agent", "E Governance ★", "OVERALL")],
+         "desc": ("OVERALL = MIN(E-Governance, C-Quality, round(avg(A..E))). "
+                  "C and E are gates: a low governance or quality level caps the "
+                  "whole score. Source: reporting.v_levels (≡ Excel workbook).")},
+    ]
+    sections.append(("Maturity — A–E Level Summary", level_summary))
+
     links = [
         {"type": "link", "title": "Raw Data", "icon": "doc", "targetBlank": False,
          "url": f"/d/ai-sdlc-{project.lower()}-raw"},

@@ -108,6 +108,15 @@ def test_project_has_data_quality_strip_first(tmp_path):
     assert any("Freshness" in t for t in titles)
 
 
+def test_project_has_level_summary(tmp_path):
+    out = _generate(tmp_path)
+    future = json.loads((out / "Future" / "project.json").read_text())
+    titles = [p.get("title", "") for p in future["panels"]]
+    assert any("A-E Levels" in t or "A–E Levels" in t for t in titles)
+    sql = json.dumps(future)
+    assert "lvl_a" in sql and "overall" in sql
+
+
 def test_tool_breakdown_reads_metric_counts(tmp_path):
     out = _generate(tmp_path)
     future = json.loads((out / "Future" / "project.json").read_text())
