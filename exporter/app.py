@@ -79,11 +79,18 @@ def import_form() -> str:
     return _IMPORT_FORM
 
 
+_REQUIRED_SHEETS = ("2. Projects", "3. Monthly", "4. Quarterly")
+
+
 def _load_workbook(raw: bytes):
     try:
-        return openpyxl.load_workbook(io.BytesIO(raw), data_only=True)
+        wb = openpyxl.load_workbook(io.BytesIO(raw), data_only=True)
     except Exception:
         raise HTTPException(400, "uploaded file is not a valid .xlsx workbook")
+    missing = [s for s in _REQUIRED_SHEETS if s not in wb.sheetnames]
+    if missing:
+        raise HTTPException(400, f"not a maturity workbook — missing sheets: {', '.join(missing)}")
+    return wb
 
 
 @app.post("/import/preview", response_class=HTMLResponse)

@@ -50,6 +50,14 @@ def test_preview_rejects_non_workbook(client):
     assert r.status_code == 400
 
 
+def test_preview_rejects_wrong_shape_workbook(client):
+    c, _ = client
+    wb = openpyxl.Workbook()  # a valid xlsx, but NOT the maturity template
+    buf = io.BytesIO(); wb.save(buf)
+    r = c.post("/import/preview", files={"file": ("wrong.xlsx", buf.getvalue())})
+    assert r.status_code == 400
+
+
 def test_token_guard_rejects_when_set(client, monkeypatch):
     c, _ = client
     monkeypatch.setenv("IMPORT_TOKEN", "secret")
