@@ -91,6 +91,7 @@ LEFT JOIN LATERAL (
   WHERE mi.project = w.project
     AND mi.field = 'total_engineers'
     AND mi.period_key <= to_char(w.period_start, 'YYYY-MM')
+    AND mi.value ~ '^[0-9]+(\.[0-9]+)?$'
   ORDER BY mi.period_key DESC
   LIMIT 1
 ) ts ON true;
@@ -218,8 +219,8 @@ lv AS (
       ELSE 1 END AS lvl_c,
     -- D. Agent
     CASE
-      WHEN NOT q.d1 THEN 1
-      WHEN NOT q.d2 THEN 2
+      WHEN q.d1 IS NOT TRUE THEN 1
+      WHEN q.d2 IS NOT TRUE THEN 2
       WHEN q.d5 AND q.d3 AND q.d4 AND q.autonomy_frac >= t.aut_L5 AND q.interv_frac <= t.int_L5 THEN 5
       WHEN q.d3 AND q.d4 AND q.autonomy_frac >= t.aut_L4 THEN 4
       ELSE 3 END AS lvl_d,

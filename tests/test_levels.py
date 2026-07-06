@@ -75,3 +75,14 @@ def test_p02_governance_gate_caps_overall(pg_url):
     assert lvl_a == 4          # adoption is high
     assert lvl_e == 1          # governance floor
     assert overall == 1        # MIN gate caps it
+
+
+def test_lvl_d_is_1_when_no_agent_data(pg_url):
+    # adoption present but zero agent metrics -> d1/d2 NULL -> D must be 1 (not 2/3)
+    upsert_counts(pg_url, "P-NoAgent", "month", "2026-01", date(2026, 1, 1), date(2026, 1, 31),
+                  {"ai_users_weekly_avg": 5.0, "ai_prs": 20, "total_prs": 40, "total_tasks": 50})
+    upsert_manual_input(pg_url, "P-NoAgent", "2026-01", "total_engineers", "10", "seed")
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT lvl_d FROM reporting.v_levels "
+                    "WHERE project='P-NoAgent' AND quarter='2026-Q1'")
+        assert cur.fetchone()[0] == 1

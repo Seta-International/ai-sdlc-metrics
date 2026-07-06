@@ -89,6 +89,17 @@ def test_new_ratios_null_safe(pg_url):
         assert cur.fetchone() == (None, None, None)
 
 
+def test_v_metrics_survives_non_numeric_team_size(pg_url):
+    from collector.db import upsert_manual_input
+    upsert_counts(pg_url, "P-BadTeam", "month", "2026-02", date(2026, 2, 1), date(2026, 2, 28),
+                  {"ai_users_weekly_avg": 4.0})
+    upsert_manual_input(pg_url, "P-BadTeam", "2026-02", "total_engineers", "not-a-number", "seed")
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT team_size, usage_pct FROM reporting.v_metrics "
+                    "WHERE project='P-BadTeam' AND period_key='2026-02'")
+        assert cur.fetchone() == (None, None)   # must not raise; bad value ignored
+
+
 def test_views_sql_is_reappliable(pg_url):
     """views.sql must re-apply cleanly to an already-migrated DB (deploy re-runs it)."""
     import os
