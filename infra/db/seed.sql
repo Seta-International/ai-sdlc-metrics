@@ -126,6 +126,101 @@ INSERT INTO reporting.metric_counts
 SELECT 'TeacherZone', 'month', v.period_key, p.period_start, p.period_end, v.metric_key, v.value
 FROM vals v JOIN periods p USING (period_key);
 
+-- Segmented AI-vs-non-AI metrics: these power the "delta not two numbers"
+-- evidence panels (lead-time / PR-size / review-latency comparison), the ROI
+-- panel (ai_time_saved_h), AI-PR test coverage, and AI rework. Without them
+-- those panels correctly render "No data". AI PRs merge faster, smaller, with
+-- fewer review rounds than non-AI PRs.
+WITH periods(period_key, period_start, period_end) AS (VALUES
+  ('S1', DATE '2026-06-29', DATE '2026-07-13'),
+  ('S2', DATE '2026-07-13', DATE '2026-07-27'),
+  ('S3', DATE '2026-07-27', DATE '2026-08-10')
+),
+vals(period_key, metric_key, value) AS (VALUES
+  ('S1','lead_time_ai_h',45),('S2','lead_time_ai_h',36),('S3','lead_time_ai_h',27),
+  ('S1','lead_time_nonai_h',72),('S2','lead_time_nonai_h',58),('S3','lead_time_nonai_h',44),
+  ('S1','pr_size_ai',180),('S2','pr_size_ai',165),('S3','pr_size_ai',150),
+  ('S1','pr_size_nonai',320),('S2','pr_size_nonai',300),('S3','pr_size_nonai',280),
+  ('S1','first_review_ai_h',4.0),('S2','first_review_ai_h',3.5),('S3','first_review_ai_h',3.0),
+  ('S1','first_review_nonai_h',8.0),('S2','first_review_nonai_h',7.0),('S3','first_review_nonai_h',6.0),
+  ('S1','review_rounds_ai',1.4),('S2','review_rounds_ai',1.3),('S3','review_rounds_ai',1.2),
+  ('S1','review_rounds_nonai',2.1),('S2','review_rounds_nonai',2.0),('S3','review_rounds_nonai',1.9),
+  ('S1','ai_time_saved_h',40),('S2','ai_time_saved_h',60),('S3','ai_time_saved_h',90),
+  ('S1','ai_prs_with_tests',12),('S2','ai_prs_with_tests',18),('S3','ai_prs_with_tests',26),
+  ('S1','rework_from_ai_prs',2),('S2','rework_from_ai_prs',2),('S3','rework_from_ai_prs',1)
+)
+INSERT INTO reporting.metric_counts
+  (project, period_type, period_key, period_start, period_end, metric_key, value)
+SELECT 'Future', 'sprint', v.period_key, p.period_start, p.period_end, v.metric_key, v.value
+FROM vals v JOIN periods p USING (period_key);
+
+WITH periods(period_key, period_start, period_end) AS (VALUES
+  ('2026-06', DATE '2026-06-01', DATE '2026-06-30'),
+  ('2026-07', DATE '2026-07-01', DATE '2026-07-31')
+),
+vals(period_key, metric_key, value) AS (VALUES
+  ('2026-06','lead_time_ai_h',42),('2026-07','lead_time_ai_h',30),
+  ('2026-06','lead_time_nonai_h',68),('2026-07','lead_time_nonai_h',50),
+  ('2026-06','pr_size_ai',170),('2026-07','pr_size_ai',155),
+  ('2026-06','pr_size_nonai',310),('2026-07','pr_size_nonai',290),
+  ('2026-06','first_review_ai_h',3.8),('2026-07','first_review_ai_h',3.2),
+  ('2026-06','first_review_nonai_h',7.5),('2026-07','first_review_nonai_h',6.5),
+  ('2026-06','review_rounds_ai',1.3),('2026-07','review_rounds_ai',1.2),
+  ('2026-06','review_rounds_nonai',2.0),('2026-07','review_rounds_nonai',1.9),
+  ('2026-06','ai_time_saved_h',120),('2026-07','ai_time_saved_h',180),
+  ('2026-06','ai_prs_with_tests',26),('2026-07','ai_prs_with_tests',42),
+  ('2026-06','rework_from_ai_prs',3),('2026-07','rework_from_ai_prs',2)
+)
+INSERT INTO reporting.metric_counts
+  (project, period_type, period_key, period_start, period_end, metric_key, value)
+SELECT 'Future', 'month', v.period_key, p.period_start, p.period_end, v.metric_key, v.value
+FROM vals v JOIN periods p USING (period_key);
+
+WITH periods(period_key, period_start, period_end) AS (VALUES
+  ('S1', DATE '2026-06-29', DATE '2026-07-13'),
+  ('S2', DATE '2026-07-13', DATE '2026-07-27'),
+  ('S3', DATE '2026-07-27', DATE '2026-08-10')
+),
+vals(period_key, metric_key, value) AS (VALUES
+  ('S1','lead_time_ai_h',65),('S2','lead_time_ai_h',55),('S3','lead_time_ai_h',42),
+  ('S1','lead_time_nonai_h',88),('S2','lead_time_nonai_h',78),('S3','lead_time_nonai_h',64),
+  ('S1','pr_size_ai',210),('S2','pr_size_ai',195),('S3','pr_size_ai',180),
+  ('S1','pr_size_nonai',340),('S2','pr_size_nonai',320),('S3','pr_size_nonai',300),
+  ('S1','first_review_ai_h',6.0),('S2','first_review_ai_h',5.0),('S3','first_review_ai_h',4.0),
+  ('S1','first_review_nonai_h',10.0),('S2','first_review_nonai_h',9.0),('S3','first_review_nonai_h',7.0),
+  ('S1','review_rounds_ai',1.6),('S2','review_rounds_ai',1.5),('S3','review_rounds_ai',1.4),
+  ('S1','review_rounds_nonai',2.3),('S2','review_rounds_nonai',2.2),('S3','review_rounds_nonai',2.0),
+  ('S1','ai_time_saved_h',20),('S2','ai_time_saved_h',35),('S3','ai_time_saved_h',55),
+  ('S1','ai_prs_with_tests',6),('S2','ai_prs_with_tests',11),('S3','ai_prs_with_tests',18),
+  ('S1','rework_from_ai_prs',3),('S2','rework_from_ai_prs',3),('S3','rework_from_ai_prs',2)
+)
+INSERT INTO reporting.metric_counts
+  (project, period_type, period_key, period_start, period_end, metric_key, value)
+SELECT 'TeacherZone', 'sprint', v.period_key, p.period_start, p.period_end, v.metric_key, v.value
+FROM vals v JOIN periods p USING (period_key);
+
+WITH periods(period_key, period_start, period_end) AS (VALUES
+  ('2026-06', DATE '2026-06-01', DATE '2026-06-30'),
+  ('2026-07', DATE '2026-07-01', DATE '2026-07-31')
+),
+vals(period_key, metric_key, value) AS (VALUES
+  ('2026-06','lead_time_ai_h',62),('2026-07','lead_time_ai_h',48),
+  ('2026-06','lead_time_nonai_h',86),('2026-07','lead_time_nonai_h',68),
+  ('2026-06','pr_size_ai',200),('2026-07','pr_size_ai',185),
+  ('2026-06','pr_size_nonai',330),('2026-07','pr_size_nonai',305),
+  ('2026-06','first_review_ai_h',5.5),('2026-07','first_review_ai_h',4.5),
+  ('2026-06','first_review_nonai_h',9.5),('2026-07','first_review_nonai_h',7.5),
+  ('2026-06','review_rounds_ai',1.5),('2026-07','review_rounds_ai',1.4),
+  ('2026-06','review_rounds_nonai',2.2),('2026-07','review_rounds_nonai',2.0),
+  ('2026-06','ai_time_saved_h',70),('2026-07','ai_time_saved_h',110),
+  ('2026-06','ai_prs_with_tests',18),('2026-07','ai_prs_with_tests',30),
+  ('2026-06','rework_from_ai_prs',4),('2026-07','rework_from_ai_prs',3)
+)
+INSERT INTO reporting.metric_counts
+  (project, period_type, period_key, period_start, period_end, metric_key, value)
+SELECT 'TeacherZone', 'month', v.period_key, p.period_start, p.period_end, v.metric_key, v.value
+FROM vals v JOIN periods p USING (period_key);
+
 -- Manual inputs: monthly numbers (drive the Manual KPI panels) + a few
 -- quarterly governance flags.
 INSERT INTO reporting.manual_inputs (project, period_key, field, value, entered_by) VALUES
