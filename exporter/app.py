@@ -4,7 +4,8 @@
 """
 import io
 import os
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, Form, HTTPException, Response, UploadFile
+from fastapi.responses import HTMLResponse
 from exporter.data import fetch_manual, fetch_period_rows, fetch_projects
 from exporter.template import build_workbook
 from exporter.workbook import (
@@ -47,3 +48,29 @@ def export(project: str = "all", sprints: str | None = None) -> Response:
     name = f"ai-sdlc-maturity_{project}_{sprints or 'all'}.xlsx"
     return Response(buf.getvalue(), media_type=XLSX,
                     headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+def _check_token(token: str | None) -> None:
+    expected = os.environ.get("IMPORT_TOKEN")
+    if expected and token != expected:
+        raise HTTPException(401, "invalid or missing import token")
+
+
+_IMPORT_FORM = """
+<!doctype html><meta charset="utf-8"><title>Import maturity workbook</title>
+<h2>Import filled maturity workbook</h2>
+<p>Download the workbook from <code>/export.xlsx</code>, fill the yellow manual
+cells (Monthly: team size, costs, coverage; Quarterly: governance checklist),
+then upload it here. Only manual cells are imported; auto-collected numbers are
+ignored.</p>
+<form action="/import/preview" method="post" enctype="multipart/form-data">
+  <input type="file" name="file" accept=".xlsx" required><br><br>
+  <label>Import token (if required): <input type="text" name="token"></label><br><br>
+  <button type="submit">Preview changes</button>
+</form>
+"""
+
+
+@app.get("/import", response_class=HTMLResponse)
+def import_form() -> str:
+    return _IMPORT_FORM
