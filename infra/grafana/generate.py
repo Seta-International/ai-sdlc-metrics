@@ -484,6 +484,26 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
                   "cost_baseline, cost_actual).")},
     ]
 
+    dq = [
+        _stat(project, "PRs (n)", "n_pr", w=4,
+              desc="Merged PRs in the selected sprint — the sample size behind "
+                   "every PR-based %. Below 20, percentages are greyed."),
+        _stat(project, "Agent tasks (n)", "n_agent_pr", w=4,
+              desc="Agent PRs in the sprint — sample size for the Agent section."),
+        {"kind": "stat", "title": "Months of data",
+         "sql": (f"SELECT count(*) FROM {RATIOS} WHERE {p} "
+                 "AND period_type = 'month'"),
+         "unit": "none", "w": 4, "graph": "none",
+         "desc": "How many monthly rows exist — trend/ROI need ≥3."},
+        _stat(project, "Usage %", "usage_pct", "percent", th["usage"], w=4,
+              desc="AI users ÷ team size (capped at 100%). >100% raw input "
+                   "raises a data-quality alert instead of rendering."),
+        {"kind": "stat", "title": "ETL Freshness",
+         "sql": (f"SELECT max(collected_at) FROM {COUNTS} WHERE {p}"),
+         "format": "table", "unit": "dateTimeFromNow", "w": 8, "graph": "none",
+         "desc": "When the collector last wrote data for this project."},
+    ]
+
     story_sections = {
         "steering": ("Sprint Steering ($sprint)", steering),
         "roi": ("Is AI paying off?", roi),
@@ -492,7 +512,8 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
         "maturity": ("Maturity Ladder", maturity),
         "adoption": ("Adoption Breadth", adoption),
     }
-    sections = [story_sections[key] for key in cfg["sections"] if key in story_sections]
+    sections = [("Data Quality — read this first", dq)]
+    sections += [story_sections[key] for key in cfg["sections"] if key in story_sections]
     sections.append(("Monthly Record", monthly))
 
     links = [

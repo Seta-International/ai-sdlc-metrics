@@ -93,9 +93,19 @@ def test_sections_config_controls_rows(tmp_path):
     out = _generate(tmp_path)
     future = json.loads((out / "Future" / "project.json").read_text())
     rows = [p["title"] for p in future["panels"] if p["type"] == "row"]
-    assert rows[0].startswith("Sprint Steering")
+    assert rows[1].startswith("Sprint Steering")
     assert any("paying off" in r for r in rows)
     assert any("Monthly Record" in r for r in rows)
+
+
+def test_project_has_data_quality_strip_first(tmp_path):
+    out = _generate(tmp_path)
+    future = json.loads((out / "Future" / "project.json").read_text())
+    rows = [p["title"] for p in future["panels"] if p["type"] == "row"]
+    assert rows[0].startswith("Data Quality")
+    titles = [p.get("title", "") for p in future["panels"]]
+    assert "PRs (n)" in titles and "Agent tasks (n)" in titles
+    assert any("Freshness" in t for t in titles)
 
 
 def test_tool_breakdown_reads_metric_counts(tmp_path):
