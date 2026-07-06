@@ -3,23 +3,47 @@ import psycopg2
 from collector.db import upsert_counts
 
 
-def test_metrics_ratios_view(pg_url):
-    upsert_counts(pg_url, "P-View", "sprint", "S1", date(2026, 6, 29), date(2026, 7, 13), {
-        "ai_prs": 3, "total_prs": 10, "deploys": 4, "weeks": 2.0, "incidents": 1,
-        "agent_prs_total": 2, "agent_prs_merged": 2, "agent_prs_human_fixed": 1,
-        "agent_prs_autonomous": 1, "ai_prs_reviewed": 3,
-        "sprint_committed": 10, "sprint_completed": 8,
-        "ai_users_weekly_avg": 6.0, "engineers_active": 12,
-    })
+def test_usage_pct_uses_team_size_and_caps(pg_url):
+    # 6 AI users, team_size 4 (manual, same month) -> raw 150% -> capped 100
+    upsert_counts(pg_url, "P-Usage", "month", "2026-06", date(2026, 6, 1), date(2026, 6, 30),
+                  {"ai_users_weekly_avg": 6.0, "engineers_active": 3})
+    from collector.db import upsert_manual_input
+    upsert_manual_input(pg_url, "P-Usage", "2026-06", "total_engineers", "4", "seed")
     with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
-        cur.execute("""
-            SELECT ai_pr_pct, deploys_per_week, cfr_pct, autonomy_pct,
-                   ai_pr_review_pct, predictability_pct, usage_rate_pct
-            FROM reporting.metrics_ratios
-            WHERE project = 'P-View' AND period_key = 'S1'
-        """)
-        row = cur.fetchone()
-    assert [round(float(v), 2) for v in row] == [30.0, 2.0, 25.0, 50.0, 100.0, 80.0, 50.0]
+        cur.execute("SELECT team_size, usage_pct FROM reporting.v_metrics "
+                    "WHERE project='P-Usage' AND period_key='2026-06'")
+        team, usage = cur.fetchone()
+    assert float(team) == 4 and float(usage) == 100.0
+
+
+def test_usage_pct_null_without_team_size(pg_url):
+    upsert_counts(pg_url, "P-NoTeam", "month", "2026-06", date(2026, 6, 1), date(2026, 6, 30),
+                  {"ai_users_weekly_avg": 3.0})
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT usage_pct FROM reporting.v_metrics "
+                    "WHERE project='P-NoTeam' AND period_key='2026-06'")
+        assert cur.fetchone()[0] is None
+
+
+def test_usage_pct_null_when_team_size_zero(pg_url):
+    from collector.db import upsert_manual_input
+    upsert_counts(pg_url, "P-ZeroTeam", "month", "2026-06", date(2026, 6, 1), date(2026, 6, 30),
+                  {"ai_users_weekly_avg": 5.0})
+    upsert_manual_input(pg_url, "P-ZeroTeam", "2026-06", "total_engineers", "0", "seed")
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT usage_pct FROM reporting.v_metrics "
+                    "WHERE project='P-ZeroTeam' AND period_key='2026-06'")
+        assert cur.fetchone()[0] is None
+
+
+def test_n_columns_are_raw_counts(pg_url):
+    upsert_counts(pg_url, "P-N", "sprint", "S1", date(2026, 6, 29), date(2026, 7, 13),
+                  {"total_prs": 40, "ai_prs": 16, "agent_prs_total": 6, "deploys": 6,
+                   "total_tasks": 50})
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT n_pr, n_ai_pr, n_agent_pr, n_deploys, n_tasks "
+                    "FROM reporting.v_metrics WHERE project='P-N' AND period_key='S1'")
+        assert [float(v) for v in cur.fetchone()] == [40, 16, 6, 6, 50]
 
 
 def test_metrics_wide_null_for_missing_metrics(pg_url):
@@ -63,3 +87,25 @@ def test_new_ratios_null_safe(pg_url):
             FROM reporting.metrics_ratios WHERE project = 'P-Story2'
         """)
         assert cur.fetchone() == (None, None, None)
+
+
+def test_v_metrics_survives_non_numeric_team_size(pg_url):
+    from collector.db import upsert_manual_input
+    upsert_counts(pg_url, "P-BadTeam", "month", "2026-02", date(2026, 2, 1), date(2026, 2, 28),
+                  {"ai_users_weekly_avg": 4.0})
+    upsert_manual_input(pg_url, "P-BadTeam", "2026-02", "total_engineers", "not-a-number", "seed")
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT team_size, usage_pct FROM reporting.v_metrics "
+                    "WHERE project='P-BadTeam' AND period_key='2026-02'")
+        assert cur.fetchone() == (None, None)   # must not raise; bad value ignored
+
+
+def test_views_sql_is_reappliable(pg_url):
+    """views.sql must re-apply cleanly to an already-migrated DB (deploy re-runs it)."""
+    import os
+    base = os.path.join(os.path.dirname(__file__), "..", "infra", "db")
+    with open(os.path.join(base, "views.sql")) as f:
+        sql = f.read()
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute(sql)   # conftest already applied it once; this is the second apply
+        conn.commit()

@@ -245,3 +245,36 @@ INSERT INTO reporting.manual_inputs (project, period_key, field, value, entered_
   ('TeacherZone','2026-07','cost_actual','24','seed'),
   ('TeacherZone','2026-Q3','g1_agents_md','No','auto-check'),
   ('TeacherZone','2026-Q3','a2_dashboard','Yes','auto-check');
+
+-- Gated-Demo: high adoption, empty governance -> A high, E=1, overall capped to 1.
+INSERT INTO reporting.metric_counts (project, period_type, period_key, period_start, period_end, metric_key, value) VALUES
+  ('Gated-Demo','month','2026-06',DATE '2026-06-01',DATE '2026-06-30','ai_users_weekly_avg',12),
+  ('Gated-Demo','month','2026-06',DATE '2026-06-01',DATE '2026-06-30','ai_prs',40),
+  ('Gated-Demo','month','2026-06',DATE '2026-06-01',DATE '2026-06-30','total_prs',60),
+  ('Gated-Demo','month','2026-06',DATE '2026-06-01',DATE '2026-06-30','deploys',6),
+  ('Gated-Demo','month','2026-06',DATE '2026-06-01',DATE '2026-06-30','weeks',4),
+  ('Gated-Demo','month','2026-06',DATE '2026-06-01',DATE '2026-06-30','incidents',1),
+  ('Gated-Demo','month','2026-06',DATE '2026-06-01',DATE '2026-06-30','mttr_h',5),
+  ('Gated-Demo','month','2026-06',DATE '2026-06-01',DATE '2026-06-30','lead_time_h',40),
+  ('Gated-Demo','month','2026-06',DATE '2026-06-01',DATE '2026-06-30','total_tasks',80),
+  ('Gated-Demo','month','2026-06',DATE '2026-06-01',DATE '2026-06-30','rework_prs',6);
+INSERT INTO reporting.manual_inputs (project, period_key, field, value, entered_by) VALUES
+  ('Gated-Demo','2026-06','total_engineers','15','seed'),
+  ('Gated-Demo','2026-Q2','a2_dashboard','Yes','seed');
+
+-- Tiny-Sample: n<20 so the presentation layer greys its percentages.
+INSERT INTO reporting.metric_counts (project, period_type, period_key, period_start, period_end, metric_key, value) VALUES
+  ('Tiny-Sample','sprint','S1',DATE '2026-06-29',DATE '2026-07-13','total_prs',8),
+  ('Tiny-Sample','sprint','S1',DATE '2026-06-29',DATE '2026-07-13','ai_prs',3),
+  ('Tiny-Sample','sprint','S1',DATE '2026-06-29',DATE '2026-07-13','agent_prs_total',2);
+
+-- Future/TeacherZone quarterly flags so their levels render (Q3 in seed).
+INSERT INTO reporting.manual_inputs (project, period_key, field, value, entered_by) VALUES
+  ('Future','2026-Q3','g3_required_review','Yes','auto-check'),
+  ('Future','2026-Q3','c3_scan_ci','Yes','auto-check'),
+  ('Future','2026-Q3','b4_dora_improving','Yes','auto-check')
+ON CONFLICT (project, period_key, field) DO NOTHING;
+
+-- A practice-change annotation for the trend charts.
+INSERT INTO reporting.events (ts, project, title, tag) VALUES
+  (TIMESTAMPTZ '2026-07-01 09:00+00', 'Future', 'Enabled branch protection', 'practice-change');

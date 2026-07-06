@@ -20,7 +20,7 @@
         },
         "refresh": 2,
         "sort": 0,
-        "query": "SELECT period_key FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' ORDER BY period_start DESC",
+        "query": "SELECT period_key FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' ORDER BY period_start DESC",
         "current": {},
         "options": []
       }
@@ -52,11 +52,309 @@
   "panels": [
     {
       "type": "row",
-      "title": "Sprint Steering ($sprint)",
+      "title": "Data Quality \u2014 read this first",
       "collapsed": false,
       "gridPos": {
         "x": 0,
         "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "PRs (n)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, n_pr AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "description": "Merged PRs in the selected sprint \u2014 the sample size behind every PR-based %. Below 20, percentages are greyed."
+    },
+    {
+      "type": "stat",
+      "title": "Agent PRs (n)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, n_agent_pr AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "description": "Agent PRs in the sprint \u2014 sample size for the Agent section."
+    },
+    {
+      "type": "stat",
+      "title": "Months of data",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'month'",
+          "refId": "A"
+        }
+      ],
+      "description": "How many monthly rows exist \u2014 trend/ROI need \u22653."
+    },
+    {
+      "type": "stat",
+      "title": "Usage %",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#ec835a",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 50
+              },
+              {
+                "color": "#0ca30c",
+                "value": 80
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, usage_pct AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "description": "AI users \u00f7 team size (capped at 100%). >100% raw input raises a data-quality alert instead of rendering."
+    },
+    {
+      "type": "stat",
+      "title": "ETL Freshness",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 8,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dateTimeFromNow",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT max(collected_at) FROM reporting.metric_counts WHERE project = 'TeacherZone'",
+          "refId": "A"
+        }
+      ],
+      "description": "When the collector last wrote data for this project."
+    },
+    {
+      "type": "row",
+      "title": "Sprint Steering ($sprint)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 5,
         "w": 24,
         "h": 1
       },
@@ -71,22 +369,10 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 1,
+        "y": 6,
         "w": 6,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, predictability_pct AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -126,6 +412,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, predictability_pct AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Completed \u00f7 committed issues in the Jira sprint."
     },
     {
@@ -137,22 +435,10 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 1,
+        "y": 6,
         "w": 6,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, lead_time_h AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "h",
@@ -192,6 +478,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, lead_time_h AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Median hours from PR merge to next production deploy."
     },
     {
@@ -203,22 +501,10 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 1,
+        "y": 6,
         "w": 4,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, incidents AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "none",
@@ -258,6 +544,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, incidents AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Jira issues of type Incident created this sprint. Green 0, amber 1-2, red 3+."
     },
     {
@@ -269,22 +567,10 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 1,
+        "y": 6,
         "w": 4,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, mttr_h AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "h",
@@ -324,6 +610,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, mttr_h AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Mean time to resolve \u2014 hours from an incident being created to resolved. Lower is better."
     },
     {
@@ -335,22 +633,10 @@
       },
       "gridPos": {
         "x": 20,
-        "y": 1,
+        "y": 6,
         "w": 4,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, rework_pct AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -390,6 +676,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, rework_pct AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Share of merged PRs that revert or re-touch files changed in the prior 14 days. Lower is healthier."
     },
     {
@@ -398,7 +696,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 10,
         "w": 24,
         "h": 1
       },
@@ -413,22 +711,10 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 6,
+        "y": 11,
         "w": 8,
         "h": 6
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT (w.ai_time_saved_h * 12) - COALESCE(t.value::numeric, 0) FROM reporting.metrics_wide w LEFT JOIN reporting.manual_inputs t ON t.project = w.project AND t.period_key = w.period_key AND t.field = 'ai_tool_cost_monthly' WHERE w.project = 'TeacherZone' AND w.period_type = 'month' AND w.ai_time_saved_h IS NOT NULL ORDER BY w.period_key DESC LIMIT 1",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "currencyUSD",
@@ -464,6 +750,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT (w.ai_time_saved_h * 12) - COALESCE(t.value::numeric, 0) FROM reporting.metrics_wide w LEFT JOIN reporting.manual_inputs t ON t.project = w.project AND t.period_key = w.period_key AND t.field = 'ai_tool_cost_monthly' WHERE w.project = 'TeacherZone' AND w.period_type = 'month' AND w.ai_time_saved_h IS NOT NULL ORDER BY w.period_key DESC LIMIT 1",
+          "refId": "A"
+        }
+      ],
       "description": "Hours saved \u00d7 $12/h blended rate \u2212 monthly AI tool cost (seats + API). Green when net-positive."
     },
     {
@@ -475,22 +773,10 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 6,
+        "y": 11,
         "w": 8,
         "h": 6
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, ai_time_saved_h AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "h",
@@ -519,6 +805,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, ai_time_saved_h AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Sum of per-ticket 'AI Time Saved' on issues done this sprint."
     },
     {
@@ -530,22 +828,10 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 6,
+        "y": 11,
         "w": 8,
         "h": 6
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, throughput_per_engineer AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "none",
@@ -574,6 +860,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, throughput_per_engineer AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Tasks done \u00f7 active engineers \u2014 ROI supporting evidence."
     },
     {
@@ -585,22 +883,10 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 12,
+        "y": 17,
         "w": 12,
         "h": 7
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT w.period_start AS time, w.ai_time_saved_h * 12 AS \"Savings $\", t.value::numeric AS \"Tool cost $\" FROM reporting.metrics_wide w LEFT JOIN reporting.manual_inputs t ON t.project = w.project AND t.period_key = w.period_key AND t.field = 'ai_tool_cost_monthly' WHERE w.project = 'TeacherZone' AND w.period_type = 'month' ORDER BY w.period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "currencyUSD",
@@ -639,6 +925,18 @@
           "sort": "desc"
         }
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT w.period_start AS time, w.ai_time_saved_h * 12 AS \"Savings $\", t.value::numeric AS \"Tool cost $\" FROM reporting.metrics_wide w LEFT JOIN reporting.manual_inputs t ON t.project = w.project AND t.period_key = w.period_key AND t.field = 'ai_tool_cost_monthly' WHERE w.project = 'TeacherZone' AND w.period_type = 'month' ORDER BY w.period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Monthly AI hours saved \u00d7 $12/h (Savings) vs the entered AI tool cost. Savings above cost = positive ROI."
     },
     {
@@ -650,22 +948,10 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 12,
+        "y": 17,
         "w": 12,
         "h": 7
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT replace(metric_key, 'ai_tasks_tool_', '') AS \"Tool\", value AS \"Tasks\" FROM reporting.metric_counts WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint' AND metric_key LIKE 'ai_tasks_tool_%' ORDER BY value DESC",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "none",
@@ -693,6 +979,18 @@
           "placement": "bottom"
         }
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT replace(metric_key, 'ai_tasks_tool_', '') AS \"Tool\", value AS \"Tasks\" FROM reporting.metric_counts WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint' AND metric_key LIKE 'ai_tasks_tool_%' ORDER BY value DESC",
+          "refId": "A"
+        }
+      ],
       "description": "Which tool's licenses produce. From the Jira AI Tool field."
     },
     {
@@ -701,7 +999,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 19,
+        "y": 24,
         "w": 24,
         "h": 1
       },
@@ -716,22 +1014,10 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 20,
+        "y": 25,
         "w": 12,
         "h": 8
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, lead_time_ai_h AS \"AI PRs\", lead_time_nonai_h AS \"Non-AI PRs\" FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "h",
@@ -801,6 +1087,18 @@
           "sort": "desc"
         }
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, lead_time_ai_h AS \"AI PRs\", lead_time_nonai_h AS \"Non-AI PRs\" FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Neutral comparison \u2014 AI being slower on some work is a legitimate finding (verification overhead), not an error."
     },
     {
@@ -812,22 +1110,10 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 20,
+        "y": 25,
         "w": 12,
         "h": 8
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, first_review_ai_h AS \"AI PRs\", first_review_nonai_h AS \"Non-AI PRs\" FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "h",
@@ -897,6 +1183,18 @@
           "sort": "desc"
         }
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, first_review_ai_h AS \"AI PRs\", first_review_nonai_h AS \"Non-AI PRs\" FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Median hours from PR open to its first submitted review, by segment. A rising AI line can signal review-queue pressure from higher AI PR volume."
     },
     {
@@ -908,22 +1206,10 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 28,
+        "y": 33,
         "w": 4,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, pr_size_ai AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "none",
@@ -952,6 +1238,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, pr_size_ai AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Median lines changed (additions + deletions) per AI PR."
     },
     {
@@ -963,22 +1261,10 @@
       },
       "gridPos": {
         "x": 4,
-        "y": 28,
+        "y": 33,
         "w": 4,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, pr_size_nonai AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "none",
@@ -1007,6 +1293,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, pr_size_nonai AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Median lines changed per non-AI PR \u2014 the comparison baseline for PR Size (AI)."
     },
     {
@@ -1018,22 +1316,10 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 28,
+        "y": 33,
         "w": 4,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, review_rounds_ai AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "none",
@@ -1062,6 +1348,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, review_rounds_ai AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Mean CHANGES_REQUESTED per AI PR \u2014 verification burden."
     },
     {
@@ -1073,22 +1371,10 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 28,
+        "y": 33,
         "w": 4,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, rework_from_ai_pct AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -1117,6 +1403,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, rework_from_ai_pct AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Share of rework whose culprit PR was AI-labeled."
     },
     {
@@ -1128,22 +1426,10 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 28,
+        "y": 33,
         "w": 4,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, ai_pr_test_pct AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -1172,6 +1458,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, ai_pr_test_pct AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "AI PRs touching test files. Maturity gate input."
     },
     {
@@ -1183,22 +1481,10 @@
       },
       "gridPos": {
         "x": 20,
-        "y": 28,
+        "y": 33,
         "w": 4,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, ai_pr_review_pct AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -1228,7 +1514,7 @@
       "options": {
         "reduceOptions": {
           "calcs": [
-            "lastNotNull"
+            "last"
           ],
           "fields": "",
           "values": false
@@ -1238,7 +1524,19 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
-      "description": "Share of AI PRs with at least one human approval. Maturity gate for stages 3-4; target ~100%."
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, CASE WHEN n_ai_pr < 20 THEN NULL ELSE ai_pr_review_pct END AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "description": "Share of AI PRs with a human approval. Gate for stages 3-4; target ~100%. Greyed when n<20 (too small to trust)."
     },
     {
       "type": "row",
@@ -1246,7 +1544,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 32,
+        "y": 37,
         "w": 24,
         "h": 1
       },
@@ -1261,22 +1559,10 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 33,
+        "y": 38,
         "w": 6,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, lead_time_h AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "h",
@@ -1316,6 +1602,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, lead_time_h AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Median hours from PR merge to next production deploy."
     },
     {
@@ -1327,22 +1625,10 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 33,
+        "y": 38,
         "w": 6,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, deploys_per_week AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "none",
@@ -1378,6 +1664,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, deploys_per_week AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Production deploys \u00f7 weeks in the window. DORA throughput signal; higher is better."
     },
     {
@@ -1389,22 +1687,10 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 33,
+        "y": 38,
         "w": 6,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, cfr_pct AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -1444,6 +1730,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, cfr_pct AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Incidents per deploy (proxy). Target \u226415%."
     },
     {
@@ -1455,22 +1753,10 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 33,
+        "y": 38,
         "w": 6,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, mttr_h AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "h",
@@ -1510,6 +1796,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, mttr_h AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Mean hours from incident created to resolved. Lower is better."
     },
     {
@@ -1521,22 +1819,10 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 37,
+        "y": 42,
         "w": 6,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, predictability_pct AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -1576,33 +1862,6 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
-      "description": "Completed \u00f7 committed issues in the Jira sprint. Higher = more reliable delivery."
-    },
-    {
-      "type": "row",
-      "title": "Maturity Ladder",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 41,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "type": "stat",
-      "title": "Maturity Stage (1-4)",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 42,
-        "w": 6,
-        "h": 8
-      },
       "targets": [
         {
           "datasource": {
@@ -1611,10 +1870,37 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, CASE WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) AND (COALESCE(agent_pr_pct, 0) >= 10 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) AND (COALESCE(autonomy_pct, 0) >= 50 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) THEN 4 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) AND (COALESCE(agent_pr_pct, 0) >= 10 AND (COALESCE(ai_pr_review_pct, 0) >= 80 AND COALESCE(ai_pr_test_pct, 0) >= 50)) THEN 3 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) AND (COALESCE(usage_rate_pct, 0) >= 50 AND COALESCE(ai_pr_pct, 0) >= 30) THEN 2 WHEN (COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0) THEN 1 ELSE 0 END AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, predictability_pct AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
           "refId": "A"
         }
       ],
+      "description": "Completed \u00f7 committed issues in the Jira sprint. Higher = more reliable delivery."
+    },
+    {
+      "type": "row",
+      "title": "Maturity Ladder",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 46,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Overall Maturity (1-5)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 47,
+        "w": 6,
+        "h": 8
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "none",
@@ -1622,19 +1908,19 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text",
+                "color": "#d03b3b",
                 "value": null
               },
               {
-                "color": "#86b6ef",
+                "color": "#fab219",
                 "value": 2
               },
               {
-                "color": "#3987e5",
+                "color": "#fab219",
                 "value": 3
               },
               {
-                "color": "#3987e5",
+                "color": "#0ca30c",
                 "value": 4
               }
             ]
@@ -1658,7 +1944,19 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
-      "description": "1 Assisted \u00b7 2 Adopted \u00b7 3 Agentic \u00b7 4 Autonomous. Stages 3-4 gated on AI-PR review % and test % \u2014 high agent volume with weak verification caps at 2."
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT overall FROM reporting.v_levels WHERE project = 'TeacherZone' ORDER BY quarter DESC LIMIT 1",
+          "refId": "A"
+        }
+      ],
+      "description": "A-E gated model: OVERALL = MIN(E-Governance, C-Quality, round(avg(A..E))). Computed in reporting.v_levels, identical to the Excel workbook."
     },
     {
       "type": "timeseries",
@@ -1669,22 +1967,10 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 42,
+        "y": 47,
         "w": 12,
         "h": 8
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, agent_prs_autonomous AS \"Autonomous\", agent_prs_human_fixed AS \"Human-fixed\" FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "none",
@@ -1758,6 +2044,18 @@
           "sort": "desc"
         }
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, agent_prs_autonomous AS \"Autonomous\", agent_prs_human_fixed AS \"Human-fixed\" FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Merged agent PRs: shipped untouched (blue) vs needing human commits (gray)."
     },
     {
@@ -1769,22 +2067,10 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 42,
+        "y": 47,
         "w": 6,
         "h": 8
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, autonomy_pct AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -1814,7 +2100,7 @@
       "options": {
         "reduceOptions": {
           "calcs": [
-            "lastNotNull"
+            "last"
           ],
           "fields": "",
           "values": false
@@ -1824,7 +2110,19 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
-      "description": "Agent PRs with zero human commits. L4 \u226530%, L5 \u226560%."
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, CASE WHEN n_agent_pr < 20 THEN NULL ELSE autonomy_pct END AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "description": "Agent PRs with zero human commits. L4 \u226530%, L5 \u226560%. Greyed when n<20 (too small to trust)."
     },
     {
       "type": "stat",
@@ -1835,22 +2133,10 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 50,
+        "y": 55,
         "w": 8,
         "h": 6
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, agent_completion_pct AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -1879,6 +2165,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, agent_completion_pct AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Agent PRs merged \u00f7 agent PRs opened."
     },
     {
@@ -1890,22 +2188,10 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 50,
+        "y": 55,
         "w": 8,
         "h": 6
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, human_intervention_pct AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -1934,6 +2220,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, human_intervention_pct AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Agent PRs needing human commits. Lower is better."
     },
     {
@@ -1945,22 +2243,10 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 50,
+        "y": 55,
         "w": 8,
         "h": 6
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, agent_cycle_h AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "h",
@@ -1989,6 +2275,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, agent_cycle_h AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Median hours from agent PR opened to merged."
     },
     {
@@ -1997,7 +2295,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 56,
+        "y": 61,
         "w": 24,
         "h": 1
       },
@@ -2012,22 +2310,10 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 57,
+        "y": 62,
         "w": 4,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, ai_users_weekly_avg AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "none",
@@ -2056,6 +2342,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, ai_users_weekly_avg AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Distinct people using AI per week (PR + Jira proxy)."
     },
     {
@@ -2067,22 +2365,10 @@
       },
       "gridPos": {
         "x": 4,
-        "y": 57,
+        "y": 62,
         "w": 4,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, engineers_active AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "none",
@@ -2111,6 +2397,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, engineers_active AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Distinct engineers who merged a PR this sprint (bots excluded)."
     },
     {
@@ -2122,22 +2420,10 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 57,
+        "y": 62,
         "w": 4,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, usage_rate_pct AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -2177,6 +2463,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, usage_pct AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "AI engineers \u00f7 active contributors. Target \u226580%."
     },
     {
@@ -2188,22 +2486,10 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 57,
+        "y": 62,
         "w": 4,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, ai_pr_pct AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -2233,7 +2519,7 @@
       "options": {
         "reduceOptions": {
           "calcs": [
-            "lastNotNull"
+            "last"
           ],
           "fields": "",
           "values": false
@@ -2243,7 +2529,19 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
-      "description": "Merged PRs labeled ai-assisted. Framework: \u226530% = L3, >50% = L4."
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, CASE WHEN n_pr < 20 THEN NULL ELSE ai_pr_pct END AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "description": "Merged PRs labeled ai-assisted. Framework: \u226530% = L3, >50% = L4. Greyed when n<20 (too small to trust)."
     },
     {
       "type": "stat",
@@ -2254,22 +2552,10 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 57,
+        "y": 62,
         "w": 4,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, ai_task_pct AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -2309,6 +2595,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, ai_task_pct AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Done Jira issues with any AI usage."
     },
     {
@@ -2320,22 +2618,10 @@
       },
       "gridPos": {
         "x": 20,
-        "y": 57,
+        "y": 62,
         "w": 4,
         "h": 4
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, agent_task_pct AS value FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -2364,6 +2650,18 @@
         "justifyMode": "auto",
         "textMode": "auto"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, agent_task_pct AS value FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Done Jira issues delegated to autonomous agents."
     },
     {
@@ -2375,22 +2673,10 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 61,
+        "y": 66,
         "w": 24,
         "h": 8
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, ai_pr_pct AS \"AI PR %\", ai_task_pct AS \"AI Task %\", agent_task_pct AS \"Agent Task %\" FROM reporting.metrics_ratios WHERE project = 'TeacherZone' AND period_type = 'sprint' ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -2475,6 +2761,18 @@
           "sort": "desc"
         }
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, ai_pr_pct AS \"AI PR %\", ai_task_pct AS \"AI Task %\", agent_task_pct AS \"Agent Task %\" FROM reporting.v_metrics WHERE project = 'TeacherZone' AND period_type = 'sprint' ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
       "description": "Trend of AI-labeled PRs, AI-usage Jira tasks, and agent tasks as a share of all work \u2014 adoption breadth over time."
     },
     {
@@ -2483,7 +2781,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 69,
+        "y": 74,
         "w": 24,
         "h": 1
       },
@@ -2498,22 +2796,10 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 70,
+        "y": 75,
         "w": 24,
         "h": 8
       },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT w.period_key AS \"Month\", round(w.ai_users_weekly_avg, 1) AS \"AI Engineers/wk\", w.engineers_active AS \"Contributors\", e.value::numeric AS \"Team Size\", round(100 * w.ai_users_weekly_avg / NULLIF(COALESCE(e.value::numeric, w.engineers_active), 0), 0) AS \"Usage %\", round(100.0 * w.ai_prs / NULLIF(w.total_prs, 0), 1) AS \"AI PR %\", w.total_tasks AS \"Tasks\", w.deploys AS \"Deploys\", round(w.ai_time_saved_h * 12, 0) AS \"AI $ Saved\", tc.value::numeric AS \"Tool Cost $\", round(100 * c.value::numeric, 0) AS \"Coverage %\", cb.value::numeric AS \"Cost Baseline\", ca.value::numeric AS \"Cost Actual\", round(100 * (cb.value::numeric - ca.value::numeric) / NULLIF(cb.value::numeric, 0), 0) AS \"Cost Improvement %\" FROM reporting.metrics_wide w LEFT JOIN reporting.manual_inputs e ON e.project = w.project AND e.period_key = w.period_key AND e.field = 'total_engineers' LEFT JOIN reporting.manual_inputs tc ON tc.project = w.project AND tc.period_key = w.period_key AND tc.field = 'ai_tool_cost_monthly' LEFT JOIN reporting.manual_inputs c ON c.project = w.project AND c.period_key = w.period_key AND c.field = 'coverage_ai' LEFT JOIN reporting.manual_inputs cb ON cb.project = w.project AND cb.period_key = w.period_key AND cb.field = 'cost_baseline' LEFT JOIN reporting.manual_inputs ca ON ca.project = w.project AND ca.period_key = w.period_key AND ca.field = 'cost_actual' WHERE w.project = 'TeacherZone' AND w.period_type = 'month' ORDER BY w.period_key DESC",
-          "refId": "A"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "unit": "none",
@@ -2572,7 +2858,315 @@
         "showHeader": true,
         "cellHeight": "sm"
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT w.period_key AS \"Month\", round(w.ai_users_weekly_avg, 1) AS \"AI Engineers/wk\", w.engineers_active AS \"Contributors\", e.value::numeric AS \"Team Size\", round(w.usage_pct, 0) AS \"Usage %\", round(100.0 * w.ai_prs / NULLIF(w.total_prs, 0), 1) AS \"AI PR %\", w.total_tasks AS \"Tasks\", w.deploys AS \"Deploys\", round(w.ai_time_saved_h * 12, 0) AS \"AI $ Saved\", tc.value::numeric AS \"Tool Cost $\", round(100 * c.value::numeric, 0) AS \"Coverage %\", cb.value::numeric AS \"Cost Baseline\", ca.value::numeric AS \"Cost Actual\", round(100 * (cb.value::numeric - ca.value::numeric) / NULLIF(cb.value::numeric, 0), 0) AS \"Cost Improvement %\" FROM reporting.v_metrics w LEFT JOIN reporting.manual_inputs e ON e.project = w.project AND e.period_key = w.period_key AND e.field = 'total_engineers' LEFT JOIN reporting.manual_inputs tc ON tc.project = w.project AND tc.period_key = w.period_key AND tc.field = 'ai_tool_cost_monthly' LEFT JOIN reporting.manual_inputs c ON c.project = w.project AND c.period_key = w.period_key AND c.field = 'coverage_ai' LEFT JOIN reporting.manual_inputs cb ON cb.project = w.project AND cb.period_key = w.period_key AND cb.field = 'cost_baseline' LEFT JOIN reporting.manual_inputs ca ON ca.project = w.project AND ca.period_key = w.period_key AND ca.field = 'cost_actual' WHERE w.project = 'TeacherZone' AND w.period_type = 'month' ORDER BY w.period_key DESC",
+          "refId": "A"
+        }
+      ],
       "description": "Empty cells mean a manual input is missing \u2014 run the 'AI SDLC \u2014 Metrics Collection' workflow with manual_period=<month> (total_engineers, ai_tool_cost_monthly, coverage_ai, cost_baseline, cost_actual)."
+    },
+    {
+      "type": "row",
+      "title": "Maturity \u2014 A\u2013E Level Summary",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 83,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Maturity \u2014 A\u2013E Levels (latest quarter)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 84,
+        "w": 24,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "A Adoption"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#d03b3b",
+                      "value": null
+                    },
+                    {
+                      "color": "#fab219",
+                      "value": 2
+                    },
+                    {
+                      "color": "#fab219",
+                      "value": 3
+                    },
+                    {
+                      "color": "#0ca30c",
+                      "value": 4
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "B Delivery"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#d03b3b",
+                      "value": null
+                    },
+                    {
+                      "color": "#fab219",
+                      "value": 2
+                    },
+                    {
+                      "color": "#fab219",
+                      "value": 3
+                    },
+                    {
+                      "color": "#0ca30c",
+                      "value": 4
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "C Quality \u2605"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#d03b3b",
+                      "value": null
+                    },
+                    {
+                      "color": "#fab219",
+                      "value": 2
+                    },
+                    {
+                      "color": "#fab219",
+                      "value": 3
+                    },
+                    {
+                      "color": "#0ca30c",
+                      "value": 4
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "D Agent"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#d03b3b",
+                      "value": null
+                    },
+                    {
+                      "color": "#fab219",
+                      "value": 2
+                    },
+                    {
+                      "color": "#fab219",
+                      "value": 3
+                    },
+                    {
+                      "color": "#0ca30c",
+                      "value": 4
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "E Governance \u2605"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#d03b3b",
+                      "value": null
+                    },
+                    {
+                      "color": "#fab219",
+                      "value": 2
+                    },
+                    {
+                      "color": "#fab219",
+                      "value": 3
+                    },
+                    {
+                      "color": "#0ca30c",
+                      "value": 4
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "OVERALL"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#d03b3b",
+                      "value": null
+                    },
+                    {
+                      "color": "#fab219",
+                      "value": 2
+                    },
+                    {
+                      "color": "#fab219",
+                      "value": 3
+                    },
+                    {
+                      "color": "#0ca30c",
+                      "value": 4
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT quarter AS \"Quarter\", lvl_a AS \"A Adoption\", lvl_b AS \"B Delivery\", lvl_c AS \"C Quality \u2605\", lvl_d AS \"D Agent\", lvl_e AS \"E Governance \u2605\", overall AS \"OVERALL\" FROM reporting.v_levels WHERE project = 'TeacherZone' ORDER BY quarter DESC LIMIT 1",
+          "refId": "A"
+        }
+      ],
+      "description": "OVERALL = MIN(E-Governance, C-Quality, round(avg(A..E))). C and E are gates: a low governance or quality level caps the whole score. Source: reporting.v_levels (\u2261 Excel workbook)."
     }
   ]
 }

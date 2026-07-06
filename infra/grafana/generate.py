@@ -22,10 +22,11 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 DS = {"type": "postgres", "uid": "reporting-postgres"}
-RATIOS = "reporting.metrics_ratios"
+RATIOS = "reporting.v_metrics"
 WIDE = "reporting.metrics_wide"
 MANUAL = "reporting.manual_inputs"
 COUNTS = "reporting.metric_counts"
+LEVELS = "reporting.v_levels"
 
 # Fixed categorical slots for project identity (projects.json order).
 PALETTE = ["#3987e5", "#199e70", "#c98500", "#008300",
@@ -102,20 +103,17 @@ def _cfg_th(cfg: dict) -> dict:
     return th
 
 
-def _maturity_case(cfg: dict) -> str:
-    m = cfg["maturity"]
-    assisted = "(COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0)"
-    adopted = (f"(COALESCE(usage_rate_pct, 0) >= {m['adopted_breadth_pct']} "
-               f"AND COALESCE(ai_pr_pct, 0) >= {m['adopted_ai_pr_pct']})")
-    gate = (f"(COALESCE(ai_pr_review_pct, 0) >= {m['gate_review_pct']} "
-            f"AND COALESCE(ai_pr_test_pct, 0) >= {m['gate_test_pct']})")
-    agentic = f"(COALESCE(agent_pr_pct, 0) >= {m['agentic_pr_pct']} AND {gate})"
-    autonomous = f"(COALESCE(autonomy_pct, 0) >= {m['autonomous_share_pct']} AND {gate})"
-    return ("CASE "
-            f"WHEN {assisted} AND {adopted} AND {agentic} AND {autonomous} THEN 4 "
-            f"WHEN {assisted} AND {adopted} AND {agentic} THEN 3 "
-            f"WHEN {assisted} AND {adopted} THEN 2 "
-            f"WHEN {assisted} THEN 1 ELSE 0 END")
+def _latest_level(project: str, col: str) -> str:
+    """Single reporting.v_levels column for a project's latest quarter."""
+    return (f"SELECT {col} FROM {LEVELS} WHERE project = '{project}' "
+            "ORDER BY quarter DESC LIMIT 1")
+
+
+def _levels_latest_all() -> str:
+    """One row per project: its most recent quarter's levels."""
+    return (f"SELECT DISTINCT ON (project) project, quarter, lvl_a, lvl_b, "
+            f"lvl_c, lvl_d, lvl_e, overall FROM {LEVELS} "
+            "ORDER BY project, quarter DESC")
 
 
 def _target(sql: str, fmt: str) -> dict:
@@ -124,8 +122,10 @@ def _target(sql: str, fmt: str) -> dict:
 
 
 def _options(kind: str, spec: dict) -> dict:
+    if kind == "text":
+        return {"mode": "markdown", "content": spec.get("content", "")}
     if kind == "stat":
-        return {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
+        return {"reduceOptions": {"calcs": [spec.get("reduce", "lastNotNull")], "fields": "", "values": False},
                 "graphMode": spec.get("graph", "area"),
                 "colorMode": "value", "justifyMode": "auto", "textMode": "auto"}
     if kind == "timeseries":
@@ -168,10 +168,11 @@ def _panel(spec: dict, x: int, y: int) -> dict:
     panel = {
         "type": spec["kind"], "title": spec["title"], "datasource": DS,
         "gridPos": {"x": x, "y": y, "w": spec.get("w", 6), "h": spec.get("h", 4)},
-        "targets": [_target(spec["sql"], spec.get("format", "table"))],
         "fieldConfig": {"defaults": defaults, "overrides": spec.get("overrides", [])},
         "options": _options(spec["kind"], spec),
     }
+    if spec["kind"] != "text":
+        panel["targets"] = [_target(spec["sql"], spec.get("format", "table"))]
     if "desc" in spec:
         panel["description"] = spec["desc"]
     return panel
@@ -245,6 +246,24 @@ def _stat(project: str, title: str, col: str, unit: str = "none",
         spec["th"] = th
     if desc:
         spec["desc"] = desc
+    return spec
+
+
+def _guarded_pct(project: str, title: str, pct_col: str, n_col: str,
+                 th: dict | None = None, w: int = 6, h: int = 4,
+                 desc: str = "") -> dict:
+    """A pct stat greyed to NULL when its sample size (n_col) < 20 (board P5)."""
+    anchor = (f"(SELECT period_start FROM {RATIOS} WHERE project = '{project}' "
+              "AND period_type = 'sprint' AND period_key = '$sprint')")
+    guarded = f"CASE WHEN {n_col} < 20 THEN NULL ELSE {pct_col} END"
+    sql = (f"SELECT period_start AS time, {guarded} AS value FROM {RATIOS} "
+           f"WHERE project = '{project}' AND period_type = 'sprint' "
+           f"AND period_start <= {anchor} ORDER BY period_start")
+    spec = {"kind": "stat", "title": title, "sql": sql, "format": "time_series",
+            "unit": "percent", "w": w, "h": h, "reduce": "last",
+            "desc": desc + " Greyed when n<20 (too small to trust)."}
+    if th:
+        spec["th"] = th
     return spec
 
 
@@ -349,10 +368,10 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
               desc="Share of rework whose culprit PR was AI-labeled."),
         _stat(project, "AI PR Test %", "ai_pr_test_pct", "percent", w=4, h=4,
               desc="AI PRs touching test files. Maturity gate input."),
-        _stat(project, "AI PR Review %", "ai_pr_review_pct", "percent",
-              TH["review"], w=4, h=4,
-              desc="Share of AI PRs with at least one human approval. "
-                   "Maturity gate for stages 3-4; target ~100%."),
+        _guarded_pct(project, "AI PR Review %", "ai_pr_review_pct", "n_ai_pr",
+                     TH["review"], w=4, h=4,
+                     desc="Share of AI PRs with a human approval. Gate for "
+                          "stages 3-4; target ~100%."),
     ]
 
     dora = [
@@ -384,11 +403,11 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
               desc="Distinct people using AI per week (PR + Jira proxy)."),
         _stat(project, "Contributors", "engineers_active", w=4,
               desc="Distinct engineers who merged a PR this sprint (bots excluded)."),
-        _stat(project, "Engineer Usage Rate", "usage_rate_pct", "percent",
+        _stat(project, "Engineer Usage Rate", "usage_pct", "percent",
               TH["usage"], w=4,
               desc="AI engineers ÷ active contributors. Target ≥80%."),
-        _stat(project, "AI PR %", "ai_pr_pct", "percent", TH["ai_share"], w=4,
-              desc="Merged PRs labeled ai-assisted. Framework: ≥30% = L3, >50% = L4."),
+        _guarded_pct(project, "AI PR %", "ai_pr_pct", "n_pr", TH["ai_share"], w=4,
+                     desc="Merged PRs labeled ai-assisted. Framework: ≥30% = L3, >50% = L4."),
         _stat(project, "AI Task %", "ai_task_pct", "percent", TH["ai_share"], w=4,
               desc="Done Jira issues with any AI usage."),
         _stat(project, "Agent Task %", "agent_task_pct", "percent", w=4,
@@ -425,8 +444,8 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
                               "value": {"mode": "fixed", "fixedColor": DEEMPH}}]},
          ],
          "desc": "Merged agent PRs: shipped untouched (blue) vs needing human commits (gray)."},
-        _stat(project, "Autonomy %", "autonomy_pct", "percent", TH["autonomy"],
-              w=6, h=8, desc="Agent PRs with zero human commits. L4 ≥30%, L5 ≥60%."),
+        _guarded_pct(project, "Autonomy %", "autonomy_pct", "n_agent_pr", TH["autonomy"],
+                     w=6, h=8, desc="Agent PRs with zero human commits. L4 ≥30%, L5 ≥60%."),
         _stat(project, "Completion %", "agent_completion_pct", "percent",
               w=8, h=6, desc="Agent PRs merged ÷ agent PRs opened."),
         _stat(project, "Intervention %", "human_intervention_pct", "percent",
@@ -436,13 +455,13 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
     ]
 
     maturity = [
-        {"kind": "stat", "title": "Maturity Stage (1-4)",
-         "sql": _spark(project, _maturity_case(cfg)),
-         "format": "time_series", "unit": "none", "w": 6, "h": 8,
-         "th": _th("text", (2, BLUE_SOFT), (3, BLUE_MID), (4, ACCENT)),
-         "desc": ("1 Assisted · 2 Adopted · 3 Agentic · 4 Autonomous. "
-                  "Stages 3-4 gated on AI-PR review % and test % — "
-                  "high agent volume with weak verification caps at 2.")},
+        {"kind": "stat", "title": "Overall Maturity (1-5)",
+         "sql": _latest_level(project, "overall"),
+         "format": "table", "unit": "none", "w": 6, "h": 8,
+         "th": _th(CRIT, (2, WARN), (3, WARN), (4, GOOD)),
+         "desc": ("A-E gated model: OVERALL = MIN(E-Governance, C-Quality, "
+                  "round(avg(A..E))). Computed in reporting.v_levels, identical "
+                  "to the Excel workbook.")},
         *agent,
     ]
 
@@ -451,8 +470,7 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
         "round(w.ai_users_weekly_avg, 1) AS \"AI Engineers/wk\", "
         "w.engineers_active AS \"Contributors\", "
         "e.value::numeric AS \"Team Size\", "
-        "round(100 * w.ai_users_weekly_avg "
-        "/ NULLIF(COALESCE(e.value::numeric, w.engineers_active), 0), 0) AS \"Usage %\", "
+        "round(w.usage_pct, 0) AS \"Usage %\", "
         "round(100.0 * w.ai_prs / NULLIF(w.total_prs, 0), 1) AS \"AI PR %\", "
         "w.total_tasks AS \"Tasks\", w.deploys AS \"Deploys\", "
         f"round(w.ai_time_saved_h * {rate}, 0) AS \"AI $ Saved\", "
@@ -461,7 +479,7 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
         "cb.value::numeric AS \"Cost Baseline\", ca.value::numeric AS \"Cost Actual\", "
         "round(100 * (cb.value::numeric - ca.value::numeric) "
         "/ NULLIF(cb.value::numeric, 0), 0) AS \"Cost Improvement %\" "
-        f"FROM {WIDE} w "
+        f"FROM {RATIOS} w "
         f"LEFT JOIN {MANUAL} e ON e.project = w.project AND e.period_key = w.period_key "
         "AND e.field = 'total_engineers' "
         f"LEFT JOIN {MANUAL} tc ON tc.project = w.project AND tc.period_key = w.period_key "
@@ -487,6 +505,26 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
                   "cost_baseline, cost_actual).")},
     ]
 
+    dq = [
+        _stat(project, "PRs (n)", "n_pr", w=4,
+              desc="Merged PRs in the selected sprint — the sample size behind "
+                   "every PR-based %. Below 20, percentages are greyed."),
+        _stat(project, "Agent PRs (n)", "n_agent_pr", w=4,
+              desc="Agent PRs in the sprint — sample size for the Agent section."),
+        {"kind": "stat", "title": "Months of data",
+         "sql": (f"SELECT count(*) FROM {RATIOS} WHERE {p} "
+                 "AND period_type = 'month'"),
+         "unit": "none", "w": 4, "graph": "none",
+         "desc": "How many monthly rows exist — trend/ROI need ≥3."},
+        _stat(project, "Usage %", "usage_pct", "percent", th["usage"], w=4,
+              desc="AI users ÷ team size (capped at 100%). >100% raw input "
+                   "raises a data-quality alert instead of rendering."),
+        {"kind": "stat", "title": "ETL Freshness",
+         "sql": (f"SELECT max(collected_at) FROM {COUNTS} WHERE {p}"),
+         "format": "table", "unit": "dateTimeFromNow", "w": 8, "graph": "none",
+         "desc": "When the collector last wrote data for this project."},
+    ]
+
     story_sections = {
         "steering": ("Sprint Steering ($sprint)", steering),
         "roi": ("Is AI paying off?", roi),
@@ -495,8 +533,26 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
         "maturity": ("Maturity Ladder", maturity),
         "adoption": ("Adoption Breadth", adoption),
     }
-    sections = [story_sections[key] for key in cfg["sections"] if key in story_sections]
+    sections = [("Data Quality — read this first", dq)]
+    sections += [story_sections[key] for key in cfg["sections"] if key in story_sections]
     sections.append(("Monthly Record", monthly))
+
+    level_summary = [
+        {"kind": "table", "title": "Maturity — A–E Levels (latest quarter)",
+         "sql": (f"SELECT quarter AS \"Quarter\", lvl_a AS \"A Adoption\", "
+                 "lvl_b AS \"B Delivery\", lvl_c AS \"C Quality ★\", "
+                 "lvl_d AS \"D Agent\", lvl_e AS \"E Governance ★\", "
+                 f"overall AS \"OVERALL\" FROM {LEVELS} WHERE project = '{project}' "
+                 "ORDER BY quarter DESC LIMIT 1"),
+         "unit": "none", "w": 24, "h": 4,
+         "overrides": [_score_col(c, _th(CRIT, (2, WARN), (3, WARN), (4, GOOD)))
+                       for c in ("A Adoption", "B Delivery", "C Quality ★",
+                                 "D Agent", "E Governance ★", "OVERALL")],
+         "desc": ("OVERALL = MIN(E-Governance, C-Quality, round(avg(A..E))). "
+                  "C and E are gates: a low governance or quality level caps the "
+                  "whole score. Source: reporting.v_levels (≡ Excel workbook).")},
+    ]
+    sections.append(("Maturity — A–E Level Summary", level_summary))
 
     links = [
         {"type": "link", "title": "Raw Data", "icon": "doc", "targetBlank": False,
@@ -533,8 +589,8 @@ def build_raw_dashboard(cfg: dict, exporter_url: str) -> dict:
          "sql": (f"SELECT * FROM {RATIOS} WHERE {p} "
                  "ORDER BY period_type, period_start DESC"),
          "unit": "none", "w": 24, "h": 10,
-         "desc": "The metrics_wide + metrics_ratios view: one row per period, "
-                 "every metric pivoted into columns plus the computed ratios."},
+         "desc": "The v_metrics view: one row per period, every metric "
+                 "pivoted into columns plus the computed ratios."},
     ]
     manual = [
         {"kind": "table", "title": "Manual Inputs",
@@ -634,10 +690,6 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
                  "project). Empty until cost_baseline/cost_actual are entered."},
     ]
 
-    stage_case = ("CASE project " +
-                  " ".join(f"WHEN '{c['name']}' THEN ({_maturity_case(c)})"
-                           for c in cfgs) + " END")
-
     def _score_table(title: str, cols: list[str], overrides: list[dict],
                      desc: str) -> dict:
         # Project + Sprint are pinned first; each themed table stays narrow
@@ -656,7 +708,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
             ["total_tasks AS \"Tasks\"", "total_prs AS \"PRs\"",
              "round(ai_pr_pct, 1) AS \"AI PR %\"",
              "round(agent_task_pct, 1) AS \"Agent Task %\"",
-             "round(usage_rate_pct, 0) AS \"Usage %\"",
+             "round(usage_pct, 0) AS \"Usage %\"",
              "round(ai_task_pct, 1) AS \"AI Task %\"",
              "round(throughput_per_engineer, 1) AS \"Throughput/Eng\""],
             [_score_col("AI PR %", TH["ai_share"]),
@@ -697,14 +749,28 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
              "round(autonomy_pct, 1) AS \"Autonomy %\"",
              "round(agent_completion_pct, 1) AS \"Completion %\"",
              "round(human_intervention_pct, 1) AS \"Human-fix %\"",
-             "round(agent_cycle_h, 1) AS \"Agent Cycle h\"",
-             f"{stage_case} AS \"Stage\""],
-            [_score_col("Autonomy %", TH["autonomy"]),
-             _score_col("Stage", _th("text", (2, BLUE_SOFT), (3, BLUE_MID),
-                                     (4, ACCENT)))],
+             "round(agent_cycle_h, 1) AS \"Agent Cycle h\""],
+            [_score_col("Autonomy %", TH["autonomy"])],
             "Agent maturity — agent PR share, autonomy (merged with zero human "
-            "commits), completion vs human-fix rate, cycle time, and framework "
-            "stage. Blue marks maturity level, not health."),
+            "commits), completion vs human-fix rate, and cycle time."),
+    ]
+
+    evidence = [
+        {"kind": "table", "title": "Evidence — AI vs non-AI (latest sprint)",
+         "sql": ("SELECT project AS \"Project\", "
+                 "round(lead_time_ai_h, 1) AS \"Lead AI h\", "
+                 "round(lead_time_nonai_h, 1) AS \"Lead non-AI h\", "
+                 "round(100 * (lead_time_nonai_h - lead_time_ai_h) "
+                 "/ NULLIF(lead_time_nonai_h, 0), 0) AS \"Lead Δ%\", "
+                 "round(pr_size_ai, 0) AS \"PR size AI\", "
+                 "round(pr_size_nonai, 0) AS \"PR size non-AI\", "
+                 "n_ai_pr AS \"n(AI PR)\" "
+                 f"{latest} ORDER BY project"),
+         "unit": "none", "w": 24, "h": 6,
+         "desc": ("AI vs non-AI, as pre-computed deltas with sample size. A "
+                  "slower AI lead time is a legitimate finding (verification "
+                  "overhead), not an error — read it with the quality columns. "
+                  "n(AI PR) is the sample behind the AI figures.")},
     ]
 
     direction = [
@@ -730,10 +796,8 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
 
     usage_by_project = (
         "SELECT DISTINCT ON (w.project) w.project AS \"Project\", "
-        "round(100 * w.ai_users_weekly_avg "
-        "/ NULLIF(COALESCE(e.value::numeric, w.engineers_active), 0), 0) AS \"Usage %\" "
-        f"FROM {WIDE} w LEFT JOIN {MANUAL} e ON e.project = w.project "
-        "AND e.period_key = w.period_key AND e.field = 'total_engineers' "
+        "round(w.usage_pct, 0) AS \"Usage %\" "
+        f"FROM {RATIOS} w "
         "WHERE w.period_type = 'month' ORDER BY w.project, w.period_key DESC")
     value = [
         {"kind": "barchart", "title": "Cost Improvement % by Project (latest)",
@@ -756,11 +820,60 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
          "desc": "Portfolio tool mix — informs license decisions."},
     ]
 
+    verdict_sql = (
+        "WITH lv AS (" + _levels_latest_all() + "), "
+        "agg AS (SELECT min(lvl_c) mc, min(lvl_e) me, min(overall) mo, "
+        "count(*) n FROM lv) "
+        "SELECT CASE "
+        "WHEN me <= 1 OR mc <= 1 THEN "
+        "'🔴 A gate is red (governance/quality at L1) — stabilise before scaling AI.' "
+        "WHEN mo >= 3 THEN "
+        "'🟢 Portfolio maturing — median discipline holds; keep investing.' "
+        "ELSE '🟡 Building the baseline — measurement in place, levels still forming.' "
+        "END AS verdict FROM agg")
+    verdict = [
+        {"kind": "stat", "title": "Verdict", "sql": verdict_sql,
+         "format": "table", "unit": "none", "w": 24, "h": 4,
+         "custom": {}, "color": DEEMPH,
+         "desc": ("One-line conclusion generated from reporting.v_levels: red if "
+                  "any project's C-Quality or E-Governance gate is at L1, green if "
+                  "every project is L3+, amber while the baseline forms.")},
+    ]
+    heatmap = [
+        {"kind": "table", "title": "Portfolio Maturity — A–E Heatmap",
+         "sql": (f"SELECT project AS \"Project\", lvl_a AS \"A\", lvl_b AS \"B\", "
+                 "lvl_c AS \"C ★\", lvl_d AS \"D\", lvl_e AS \"E ★\", "
+                 "overall AS \"OVERALL\" FROM (" + _levels_latest_all() + ") x "
+                 "ORDER BY overall, project"),
+         "unit": "none", "w": 24, "h": 8,
+         "overrides": [_score_col(c, _th(CRIT, (2, WARN), (3, WARN), (4, GOOD)))
+                       for c in ("A", "B", "C ★", "D", "E ★", "OVERALL")],
+         "desc": ("Each project's A-E levels for its latest quarter. C and E are "
+                  "gates (★). Click a project to open its dashboard. "
+                  "OVERALL = MIN(E, C, round(avg)).")},
+    ]
+    ask = [
+        {"kind": "text", "title": "ASK — decisions for the board this quarter",
+         "sql": "SELECT 1", "unit": "none", "w": 24, "h": 4,
+         "desc": "Board decisions requested this quarter. Edit per meeting.",
+         "content": ("### Requested decisions\n"
+                     "- (update each quarter) Approve/defer expanding AI to project X\n"
+                     "- (update) Renew/adjust tool licences per the tool-mix panel\n"
+                     "- (update) Fund the governance gap flagged in the heatmap")},
+    ]
+
     sections = [
+        ("Verdict", verdict),
         ("Is AI paying off? — Portfolio", pulse),
         ("Project Scorecard — Latest Sprint (A·B·C·D, mirrors Excel)", scorecard),
+        ("Evidence — AI vs non-AI", evidence),
+    ]
+    if len(cfgs) >= 2:
+        sections.append(("Portfolio Maturity", heatmap))
+    sections += [
         ("Delivery Health & Direction", direction),
         ("Where to Invest / Train", value),
+        ("Ask", ask),
     ]
     links = [{"type": "link", "title": "Download Excel (all projects)", "icon": "doc",
               "targetBlank": True, "url": f"{exporter_url}/export.xlsx?project=all"}]

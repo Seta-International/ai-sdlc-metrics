@@ -27,12 +27,21 @@ def test_generates_project_and_bod_dashboards(tmp_path):
 def test_project_dashboard_is_pinned_and_reads_views(tmp_path):
     out = _generate(tmp_path)
     raw = (out / "Future" / "project.json").read_text()
-    assert "metrics_ratios" in raw
+    assert "reporting.v_metrics" in raw
+    assert "metrics_ratios" not in raw
     assert "ai_sprint_metrics" not in raw
     assert "project = 'Future'" in raw
     proj = json.loads(raw)
     var_names = [v["name"] for v in proj["templating"]["list"]]
     assert var_names == ["sprint"]  # project pinned, no project variable
+
+
+def test_usage_uses_fixed_usage_pct(tmp_path):
+    out = _generate(tmp_path)
+    future = json.loads((out / "Future" / "project.json").read_text())
+    sql = json.dumps(future)
+    assert "usage_pct" in sql
+    assert "usage_rate_pct" not in sql   # legacy proxy retired from the UI
 
 
 def test_all_panel_sql_targets_reporting_schema(tmp_path):
@@ -68,21 +77,57 @@ def test_teacherzone_keeps_production_panels(tmp_path):
     assert "Change Failure Rate" in titles
 
 
-def test_config_literals_embedded_in_sql(tmp_path):
+def test_maturity_reads_v_levels_not_computed(tmp_path):
     out = _generate(tmp_path)
     future = json.loads((out / "Future" / "project.json").read_text())
-    sql = json.dumps(future)
-    assert "ai_time_saved_h * 12" in sql          # blended rate literal
-    assert ">= 80" in sql and ">= 50" in sql      # maturity gate thresholds
+    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
+    body = json.dumps(future) + json.dumps(bod)
+    assert "reporting.v_levels" in body
+    # the blended-rate literal still embeds (ROI panel), proving config still flows
+    assert "ai_time_saved_h * 12" in json.dumps(future)
+    # no in-Grafana maturity ladder
+    assert "THEN 4 " not in body and "THEN 3 " not in body
 
 
 def test_sections_config_controls_rows(tmp_path):
     out = _generate(tmp_path)
     future = json.loads((out / "Future" / "project.json").read_text())
     rows = [p["title"] for p in future["panels"] if p["type"] == "row"]
-    assert rows[0].startswith("Sprint Steering")
+    assert rows[1].startswith("Sprint Steering")
     assert any("paying off" in r for r in rows)
     assert any("Monthly Record" in r for r in rows)
+
+
+def test_project_has_data_quality_strip_first(tmp_path):
+    out = _generate(tmp_path)
+    future = json.loads((out / "Future" / "project.json").read_text())
+    rows = [p["title"] for p in future["panels"] if p["type"] == "row"]
+    assert rows[0].startswith("Data Quality")
+    titles = [p.get("title", "") for p in future["panels"]]
+    assert "PRs (n)" in titles and "Agent PRs (n)" in titles
+    assert any("Freshness" in t for t in titles)
+
+
+def test_guarded_pct_panels_use_last_reduce(tmp_path):
+    out = _generate(tmp_path)
+    future = json.loads((out / "Future" / "project.json").read_text())
+    guarded = [p for p in future["panels"]
+               if p.get("type") == "stat"
+               and "< 20 THEN NULL" in json.dumps(p.get("targets", []))]
+    assert guarded, "expected at least one n-guarded stat panel"
+    for p in guarded:
+        # must be 'last' so a NULL current sprint greys, not lastNotNull (which
+        # would surface a stale earlier-sprint value as if current)
+        assert p["options"]["reduceOptions"]["calcs"] == ["last"], p["title"]
+
+
+def test_project_has_level_summary(tmp_path):
+    out = _generate(tmp_path)
+    future = json.loads((out / "Future" / "project.json").read_text())
+    titles = [p.get("title", "") for p in future["panels"]]
+    assert any("A-E Levels" in t or "A–E Levels" in t for t in titles)
+    sql = json.dumps(future)
+    assert "lvl_a" in sql and "overall" in sql
 
 
 def test_tool_breakdown_reads_metric_counts(tmp_path):
@@ -122,11 +167,51 @@ def test_every_panel_has_a_description(tmp_path):
     assert not missing, "panels without description:\n" + "\n".join(missing)
 
 
-def test_bod_has_roi_and_stage(tmp_path):
+def test_bod_has_roi_and_tools(tmp_path):
     out = _generate(tmp_path)
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())
     titles = [p.get("title", "") for p in bod["panels"]]
     assert any("AI Net $" in t for t in titles)
     body = json.dumps(bod)
-    assert "\"Stage\"" in body                 # scorecard stage column
     assert "ai_tasks_tool_" in body            # portfolio tool mix
+
+
+def test_pct_stats_are_n_guarded(tmp_path):
+    out = _generate(tmp_path)
+    future = json.loads((out / "Future" / "project.json").read_text())
+    sql = json.dumps(future)
+    # AI PR % is suppressed below n=20 on n_pr
+    assert "< 20 THEN NULL" in sql
+    # the n is surfaced in a guarded panel's SQL
+    assert "n_pr" in sql
+
+
+def test_bod_has_verdict_and_heatmap(tmp_path):
+    out = _generate(tmp_path)
+    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
+    rows = [p["title"] for p in bod["panels"] if p["type"] == "row"]
+    titles = [p.get("title", "") for p in bod["panels"]]
+    assert any("Verdict" in t for t in titles)
+    assert any("Portfolio Maturity" in t for t in titles)   # heatmap (2 projects in config)
+    body = json.dumps(bod)
+    assert "reporting.v_levels" in body
+    assert any("Ask" in t or "ASK" in t for t in titles)
+
+
+def test_bod_ask_uses_real_newlines(tmp_path):
+    out = _generate(tmp_path)
+    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
+    ask = next(p for p in bod["panels"]
+               if p.get("type") == "text" and "decisions" in p.get("title", ""))
+    content = ask["options"]["content"]
+    assert "\n" in content        # real line breaks render as markdown bullets
+    assert "\\n" not in content   # not the literal backslash-n that renders as text
+
+
+def test_bod_has_evidence_delta(tmp_path):
+    out = _generate(tmp_path)
+    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
+    titles = [p.get("title", "") for p in bod["panels"]]
+    assert any("AI vs non-AI" in t for t in titles)
+    sql = json.dumps(bod)
+    assert "lead_time_ai_h" in sql and "lead_time_nonai_h" in sql
