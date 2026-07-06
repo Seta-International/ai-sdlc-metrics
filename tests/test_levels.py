@@ -45,3 +45,33 @@ def test_p03_full_pass_levels(pg_url):
         cur.execute("SELECT lvl_a,lvl_b,lvl_c,lvl_d,lvl_e,overall FROM reporting.v_levels "
                     "WHERE project='P03' AND quarter='2026-Q1'")
         assert list(cur.fetchone()) == [4, 4, 4, 4, 4, 4]
+
+
+def _seed_p02(pg_url):
+    """Internal-Tool Q1: high adoption, almost no governance -> A=4, E=1, overall=1."""
+    months = [("2026-01", date(2026,1,1), date(2026,1,31)),
+              ("2026-02", date(2026,2,1), date(2026,2,28)),
+              ("2026-03", date(2026,3,1), date(2026,3,31))]
+    raw = [(10,30,50,8,100,3,4),(11,32,52,8,100,3,4),(12,31,50,9,100,3,4)]
+    for (pk,s,e),(au,aip,tp,at,tt,dep,inc) in zip(months,raw):
+        upsert_counts(pg_url,"P02","month",pk,s,e,{
+            "ai_users_weekly_avg":au,"ai_prs":aip,"total_prs":tp,"agent_tasks":at,"total_tasks":tt,
+            "deploys":dep,"weeks":4,"incidents":inc,"mttr_h":6,"lead_time_h":45,
+            "rework_prs":11,"ai_prs_reviewed":20,"agent_prs_total":0,"agent_prs_merged":0})
+        upsert_manual_input(pg_url,"P02",pk,"total_engineers","15","seed")
+        upsert_manual_input(pg_url,"P02",pk,"cost_baseline","45","seed")
+    q="2026-Q1"
+    # governance essentially empty; a couple of adoption/delivery flags only
+    for f in ["a2_dashboard","b4_dora_improving"]:
+        upsert_manual_input(pg_url,"P02",q,f,"Yes","seed")
+    upsert_manual_input(pg_url,"P02",q,"c3_scan_ci","Yes","auto-check")
+
+def test_p02_governance_gate_caps_overall(pg_url):
+    _seed_p02(pg_url)
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT lvl_a, lvl_e, overall FROM reporting.v_levels "
+                    "WHERE project='P02' AND quarter='2026-Q1'")
+        lvl_a, lvl_e, overall = cur.fetchone()
+    assert lvl_a == 4          # adoption is high
+    assert lvl_e == 1          # governance floor
+    assert overall == 1        # MIN gate caps it
