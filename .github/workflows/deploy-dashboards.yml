@@ -1,0 +1,34 @@
+name: Deploy dashboards to prod
+
+# Auto-deploys the Grafana dashboards + reporting schema to prod (ai-srv) when
+# main changes. Runs on a SELF-HOSTED runner on the prod host, because prod is
+# on a private LAN (192.168.90.x) that GitHub-hosted runners cannot reach — the
+# runner dials out to GitHub, so no inbound access is needed. DB credentials
+# come from repo secrets (REPORTING_DB_HOST / REPORTING_DB_PASSWORD).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/grafana/**'
+      - 'infra/db/**'
+      - 'infra/deploy.sh'
+      - '.github/workflows/deploy-dashboards.yml'
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, ai-srv]
+    steps:
+      - name: Pull latest and run the idempotent deploy
+        env:
+          REPORTING_DB_HOST: ${{ secrets.REPORTING_DB_HOST }}
+          REPORTING_DB_PASSWORD: ${{ secrets.REPORTING_DB_PASSWORD }}
+        run: |
+          cd /home/ubuntu/ai-sdlc-metrics
+          git pull --ff-only origin main
+          bash infra/deploy.sh
