@@ -103,20 +103,17 @@ def _cfg_th(cfg: dict) -> dict:
     return th
 
 
-def _maturity_case(cfg: dict) -> str:
-    m = cfg["maturity"]
-    assisted = "(COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0)"
-    adopted = (f"(COALESCE(usage_pct, 0) >= {m['adopted_breadth_pct']} "
-               f"AND COALESCE(ai_pr_pct, 0) >= {m['adopted_ai_pr_pct']})")
-    gate = (f"(COALESCE(ai_pr_review_pct, 0) >= {m['gate_review_pct']} "
-            f"AND COALESCE(ai_pr_test_pct, 0) >= {m['gate_test_pct']})")
-    agentic = f"(COALESCE(agent_pr_pct, 0) >= {m['agentic_pr_pct']} AND {gate})"
-    autonomous = f"(COALESCE(autonomy_pct, 0) >= {m['autonomous_share_pct']} AND {gate})"
-    return ("CASE "
-            f"WHEN {assisted} AND {adopted} AND {agentic} AND {autonomous} THEN 4 "
-            f"WHEN {assisted} AND {adopted} AND {agentic} THEN 3 "
-            f"WHEN {assisted} AND {adopted} THEN 2 "
-            f"WHEN {assisted} THEN 1 ELSE 0 END")
+def _latest_level(project: str, col: str) -> str:
+    """Single reporting.v_levels column for a project's latest quarter."""
+    return (f"SELECT {col} FROM {LEVELS} WHERE project = '{project}' "
+            "ORDER BY quarter DESC LIMIT 1")
+
+
+def _levels_latest_all() -> str:
+    """One row per project: its most recent quarter's levels."""
+    return (f"SELECT DISTINCT ON (project) project, quarter, lvl_a, lvl_b, "
+            f"lvl_c, lvl_d, lvl_e, overall FROM {LEVELS} "
+            "ORDER BY project, quarter DESC")
 
 
 def _target(sql: str, fmt: str) -> dict:
@@ -437,13 +434,13 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
     ]
 
     maturity = [
-        {"kind": "stat", "title": "Maturity Stage (1-4)",
-         "sql": _spark(project, _maturity_case(cfg)),
-         "format": "time_series", "unit": "none", "w": 6, "h": 8,
-         "th": _th("text", (2, BLUE_SOFT), (3, BLUE_MID), (4, ACCENT)),
-         "desc": ("1 Assisted · 2 Adopted · 3 Agentic · 4 Autonomous. "
-                  "Stages 3-4 gated on AI-PR review % and test % — "
-                  "high agent volume with weak verification caps at 2.")},
+        {"kind": "stat", "title": "Overall Maturity (1-5)",
+         "sql": _latest_level(project, "overall"),
+         "format": "table", "unit": "none", "w": 6, "h": 8,
+         "th": _th(CRIT, (2, WARN), (3, WARN), (4, GOOD)),
+         "desc": ("A-E gated model: OVERALL = MIN(E-Governance, C-Quality, "
+                  "round(avg(A..E))). Computed in reporting.v_levels, identical "
+                  "to the Excel workbook.")},
         *agent,
     ]
 
@@ -634,10 +631,6 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
                  "project). Empty until cost_baseline/cost_actual are entered."},
     ]
 
-    stage_case = ("CASE project " +
-                  " ".join(f"WHEN '{c['name']}' THEN ({_maturity_case(c)})"
-                           for c in cfgs) + " END")
-
     def _score_table(title: str, cols: list[str], overrides: list[dict],
                      desc: str) -> dict:
         # Project + Sprint are pinned first; each themed table stays narrow
@@ -697,14 +690,10 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
              "round(autonomy_pct, 1) AS \"Autonomy %\"",
              "round(agent_completion_pct, 1) AS \"Completion %\"",
              "round(human_intervention_pct, 1) AS \"Human-fix %\"",
-             "round(agent_cycle_h, 1) AS \"Agent Cycle h\"",
-             f"{stage_case} AS \"Stage\""],
-            [_score_col("Autonomy %", TH["autonomy"]),
-             _score_col("Stage", _th("text", (2, BLUE_SOFT), (3, BLUE_MID),
-                                     (4, ACCENT)))],
+             "round(agent_cycle_h, 1) AS \"Agent Cycle h\""],
+            [_score_col("Autonomy %", TH["autonomy"])],
             "Agent maturity — agent PR share, autonomy (merged with zero human "
-            "commits), completion vs human-fix rate, cycle time, and framework "
-            "stage. Blue marks maturity level, not health."),
+            "commits), completion vs human-fix rate, and cycle time."),
     ]
 
     direction = [

@@ -77,12 +77,16 @@ def test_teacherzone_keeps_production_panels(tmp_path):
     assert "Change Failure Rate" in titles
 
 
-def test_config_literals_embedded_in_sql(tmp_path):
+def test_maturity_reads_v_levels_not_computed(tmp_path):
     out = _generate(tmp_path)
     future = json.loads((out / "Future" / "project.json").read_text())
-    sql = json.dumps(future)
-    assert "ai_time_saved_h * 12" in sql          # blended rate literal
-    assert ">= 80" in sql and ">= 50" in sql      # maturity gate thresholds
+    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
+    body = json.dumps(future) + json.dumps(bod)
+    assert "reporting.v_levels" in body
+    # the blended-rate literal still embeds (ROI panel), proving config still flows
+    assert "ai_time_saved_h * 12" in json.dumps(future)
+    # no in-Grafana maturity ladder
+    assert "THEN 4 " not in body and "THEN 3 " not in body
 
 
 def test_sections_config_controls_rows(tmp_path):
@@ -131,11 +135,10 @@ def test_every_panel_has_a_description(tmp_path):
     assert not missing, "panels without description:\n" + "\n".join(missing)
 
 
-def test_bod_has_roi_and_stage(tmp_path):
+def test_bod_has_roi_and_tools(tmp_path):
     out = _generate(tmp_path)
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())
     titles = [p.get("title", "") for p in bod["panels"]]
     assert any("AI Net $" in t for t in titles)
     body = json.dumps(bod)
-    assert "\"Stage\"" in body                 # scorecard stage column
     assert "ai_tasks_tool_" in body            # portfolio tool mix
