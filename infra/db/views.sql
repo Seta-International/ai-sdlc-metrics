@@ -4,6 +4,8 @@
 -- Drop first: CREATE OR REPLACE cannot add/reorder view columns.
 
 DROP VIEW IF EXISTS reporting.metrics_ratios;
+DROP VIEW IF EXISTS reporting.v_levels;
+DROP VIEW IF EXISTS reporting.v_metrics;
 DROP VIEW IF EXISTS reporting.metrics_wide;
 
 CREATE VIEW reporting.metrics_wide AS
@@ -47,11 +49,19 @@ SELECT
 FROM reporting.metric_counts
 GROUP BY project, period_type, period_key;
 
-CREATE VIEW reporting.metrics_ratios AS
+CREATE VIEW reporting.v_metrics AS
 SELECT
   w.*,
+  ts.team_size,
   100.0 * ai_prs               / NULLIF(total_prs, 0)        AS ai_pr_pct,
-  100.0 * ai_users_weekly_avg  / NULLIF(engineers_active, 0) AS usage_rate_pct,
+  -- Postgres LEAST()/GREATEST() ignore NULL args (LEAST(NULL, 100) = 100), so a
+  -- plain LEAST(...) here would silently turn a missing team_size into 100%.
+  -- Guard explicitly so the result is NULL whenever either input is NULL.
+  CASE
+    WHEN ai_users_weekly_avg IS NULL OR ts.team_size IS NULL THEN NULL
+    ELSE LEAST(100.0 * ai_users_weekly_avg / NULLIF(ts.team_size, 0), 100.0)
+  END AS usage_pct,
+  100.0 * ai_users_weekly_avg  / NULLIF(engineers_active, 0) AS usage_rate_pct,  -- legacy proxy, kept for compat
   100.0 * agent_tasks          / NULLIF(total_tasks, 0)      AS agent_task_pct,
   100.0 * ai_tasks             / NULLIF(total_tasks, 0)      AS ai_task_pct,
   deploys                      / NULLIF(weeks, 0)            AS deploys_per_week,
@@ -62,10 +72,27 @@ SELECT
   100.0 * agent_prs_human_fixed / NULLIF(agent_prs_total, 0) AS human_intervention_pct,
   100.0 * agent_prs_autonomous / NULLIF(agent_prs_total, 0)  AS autonomy_pct,
   100.0 * sprint_completed     / NULLIF(sprint_committed, 0) AS predictability_pct,
-  100.0 * agent_prs_total      / NULLIF(total_prs, 0)          AS agent_pr_pct,
-  total_tasks::numeric         / NULLIF(engineers_active, 0)   AS throughput_per_engineer,
+  100.0 * agent_prs_total      / NULLIF(total_prs, 0)        AS agent_pr_pct,
+  total_tasks::numeric         / NULLIF(engineers_active, 0) AS throughput_per_engineer,
   100.0 * (lead_time_nonai_h - lead_time_ai_h)
-                               / NULLIF(lead_time_nonai_h, 0)  AS lead_time_ai_delta_pct,
-  100.0 * ai_prs_with_tests    / NULLIF(ai_prs, 0)             AS ai_pr_test_pct,
-  100.0 * rework_from_ai_prs   / NULLIF(rework_prs, 0)         AS rework_from_ai_pct
-FROM reporting.metrics_wide w;
+                               / NULLIF(lead_time_nonai_h, 0) AS lead_time_ai_delta_pct,
+  100.0 * ai_prs_with_tests    / NULLIF(ai_prs, 0)           AS ai_pr_test_pct,
+  100.0 * rework_from_ai_prs   / NULLIF(rework_prs, 0)       AS rework_from_ai_pct,
+  total_prs        AS n_pr,
+  ai_prs           AS n_ai_pr,
+  agent_prs_total  AS n_agent_pr,
+  deploys          AS n_deploys,
+  total_tasks      AS n_tasks
+FROM reporting.metrics_wide w
+LEFT JOIN LATERAL (
+  SELECT mi.value::numeric AS team_size
+  FROM reporting.manual_inputs mi
+  WHERE mi.project = w.project
+    AND mi.field = 'total_engineers'
+    AND mi.period_key <= to_char(w.period_start, 'YYYY-MM')
+  ORDER BY mi.period_key DESC
+  LIMIT 1
+) ts ON true;
+
+-- Backward-compat alias so existing consumers keep working during the migration.
+CREATE VIEW reporting.metrics_ratios AS SELECT * FROM reporting.v_metrics;
