@@ -27,12 +27,21 @@ def test_generates_project_and_bod_dashboards(tmp_path):
 def test_project_dashboard_is_pinned_and_reads_views(tmp_path):
     out = _generate(tmp_path)
     raw = (out / "Future" / "project.json").read_text()
-    assert "metrics_ratios" in raw
+    assert "reporting.v_metrics" in raw
+    assert "metrics_ratios" not in raw
     assert "ai_sprint_metrics" not in raw
     assert "project = 'Future'" in raw
     proj = json.loads(raw)
     var_names = [v["name"] for v in proj["templating"]["list"]]
     assert var_names == ["sprint"]  # project pinned, no project variable
+
+
+def test_usage_uses_fixed_usage_pct(tmp_path):
+    out = _generate(tmp_path)
+    future = json.loads((out / "Future" / "project.json").read_text())
+    sql = json.dumps(future)
+    assert "usage_pct" in sql
+    assert "usage_rate_pct" not in sql   # legacy proxy retired from the UI
 
 
 def test_all_panel_sql_targets_reporting_schema(tmp_path):

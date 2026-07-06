@@ -22,10 +22,11 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 DS = {"type": "postgres", "uid": "reporting-postgres"}
-RATIOS = "reporting.metrics_ratios"
+RATIOS = "reporting.v_metrics"
 WIDE = "reporting.metrics_wide"
 MANUAL = "reporting.manual_inputs"
 COUNTS = "reporting.metric_counts"
+LEVELS = "reporting.v_levels"
 
 # Fixed categorical slots for project identity (projects.json order).
 PALETTE = ["#3987e5", "#199e70", "#c98500", "#008300",
@@ -105,7 +106,7 @@ def _cfg_th(cfg: dict) -> dict:
 def _maturity_case(cfg: dict) -> str:
     m = cfg["maturity"]
     assisted = "(COALESCE(ai_tasks, 0) > 0 OR COALESCE(ai_prs, 0) > 0)"
-    adopted = (f"(COALESCE(usage_rate_pct, 0) >= {m['adopted_breadth_pct']} "
+    adopted = (f"(COALESCE(usage_pct, 0) >= {m['adopted_breadth_pct']} "
                f"AND COALESCE(ai_pr_pct, 0) >= {m['adopted_ai_pr_pct']})")
     gate = (f"(COALESCE(ai_pr_review_pct, 0) >= {m['gate_review_pct']} "
             f"AND COALESCE(ai_pr_test_pct, 0) >= {m['gate_test_pct']})")
@@ -384,7 +385,7 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
               desc="Distinct people using AI per week (PR + Jira proxy)."),
         _stat(project, "Contributors", "engineers_active", w=4,
               desc="Distinct engineers who merged a PR this sprint (bots excluded)."),
-        _stat(project, "Engineer Usage Rate", "usage_rate_pct", "percent",
+        _stat(project, "Engineer Usage Rate", "usage_pct", "percent",
               TH["usage"], w=4,
               desc="AI engineers ÷ active contributors. Target ≥80%."),
         _stat(project, "AI PR %", "ai_pr_pct", "percent", TH["ai_share"], w=4,
@@ -451,8 +452,7 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
         "round(w.ai_users_weekly_avg, 1) AS \"AI Engineers/wk\", "
         "w.engineers_active AS \"Contributors\", "
         "e.value::numeric AS \"Team Size\", "
-        "round(100 * w.ai_users_weekly_avg "
-        "/ NULLIF(COALESCE(e.value::numeric, w.engineers_active), 0), 0) AS \"Usage %\", "
+        "round(w.usage_pct, 0) AS \"Usage %\", "
         "round(100.0 * w.ai_prs / NULLIF(w.total_prs, 0), 1) AS \"AI PR %\", "
         "w.total_tasks AS \"Tasks\", w.deploys AS \"Deploys\", "
         f"round(w.ai_time_saved_h * {rate}, 0) AS \"AI $ Saved\", "
@@ -461,7 +461,7 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
         "cb.value::numeric AS \"Cost Baseline\", ca.value::numeric AS \"Cost Actual\", "
         "round(100 * (cb.value::numeric - ca.value::numeric) "
         "/ NULLIF(cb.value::numeric, 0), 0) AS \"Cost Improvement %\" "
-        f"FROM {WIDE} w "
+        f"FROM {RATIOS} w "
         f"LEFT JOIN {MANUAL} e ON e.project = w.project AND e.period_key = w.period_key "
         "AND e.field = 'total_engineers' "
         f"LEFT JOIN {MANUAL} tc ON tc.project = w.project AND tc.period_key = w.period_key "
@@ -533,8 +533,8 @@ def build_raw_dashboard(cfg: dict, exporter_url: str) -> dict:
          "sql": (f"SELECT * FROM {RATIOS} WHERE {p} "
                  "ORDER BY period_type, period_start DESC"),
          "unit": "none", "w": 24, "h": 10,
-         "desc": "The metrics_wide + metrics_ratios view: one row per period, "
-                 "every metric pivoted into columns plus the computed ratios."},
+         "desc": "The v_metrics view: one row per period, every metric "
+                 "pivoted into columns plus the computed ratios."},
     ]
     manual = [
         {"kind": "table", "title": "Manual Inputs",
@@ -656,7 +656,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
             ["total_tasks AS \"Tasks\"", "total_prs AS \"PRs\"",
              "round(ai_pr_pct, 1) AS \"AI PR %\"",
              "round(agent_task_pct, 1) AS \"Agent Task %\"",
-             "round(usage_rate_pct, 0) AS \"Usage %\"",
+             "round(usage_pct, 0) AS \"Usage %\"",
              "round(ai_task_pct, 1) AS \"AI Task %\"",
              "round(throughput_per_engineer, 1) AS \"Throughput/Eng\""],
             [_score_col("AI PR %", TH["ai_share"]),
@@ -730,10 +730,8 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
 
     usage_by_project = (
         "SELECT DISTINCT ON (w.project) w.project AS \"Project\", "
-        "round(100 * w.ai_users_weekly_avg "
-        "/ NULLIF(COALESCE(e.value::numeric, w.engineers_active), 0), 0) AS \"Usage %\" "
-        f"FROM {WIDE} w LEFT JOIN {MANUAL} e ON e.project = w.project "
-        "AND e.period_key = w.period_key AND e.field = 'total_engineers' "
+        "round(w.usage_pct, 0) AS \"Usage %\" "
+        f"FROM {RATIOS} w "
         "WHERE w.period_type = 'month' ORDER BY w.project, w.period_key DESC")
     value = [
         {"kind": "barchart", "title": "Cost Improvement % by Project (latest)",
