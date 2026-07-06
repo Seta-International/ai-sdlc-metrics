@@ -348,10 +348,16 @@ agg AS (
     bool_or(agent_prs_merged IS NOT NULL) AS d2
   FROM months GROUP BY project, quarter
 ),
+cost AS (  -- b3: cost_baseline is a MONTHLY manual field; presence maps up to the quarter
+  SELECT project,
+    substr(period_key, 1, 4) || '-Q' || ceil(substr(period_key, 6, 2)::int / 3.0)::int AS quarter,
+    bool_or(field = 'cost_baseline') AS b3
+  FROM reporting.manual_inputs
+  WHERE period_key ~ '^[0-9]{4}-[0-9]{2}$'
+  GROUP BY project, quarter
+),
 flags AS (
   SELECT project, period_key AS quarter,
-    max(value) FILTER (WHERE field='total_engineers') IS NOT NULL AS has_team,  -- unused placeholder
-    bool_or(field='cost_baseline')                    AS b3,
     bool_or(field='g1_agents_md'      AND value='Yes') AS g1,
     bool_or(field='g2_ai_policy'      AND value='Yes') AS g2,
     bool_or(field='g3_required_review' AND value='Yes') AS g3,
@@ -389,14 +395,14 @@ flags AS (
   WHERE period_key LIKE '%-Q%'
   GROUP BY project, period_key
 )
-SELECT a.*, f.b3, f.g1,f.g2,f.g3,f.g4,f.g5,f.g6,f.g7,f.g8, f.a2,f.a4,
+SELECT a.*, COALESCE(c.b3, false) AS b3,
+       f.g1,f.g2,f.g3,f.g4,f.g5,f.g6,f.g7,f.g8, f.a2,f.a4,
        f.b4,f.b5,f.b6,f.b7,f.b8, f.c3,f.c4,f.c5,f.c6,f.c7,f.c8,f.c9,
        f.d3,f.d4,f.d5, f.gov_score
 FROM agg a
+LEFT JOIN cost c USING (project, quarter)
 LEFT JOIN flags f USING (project, quarter);
 ```
-
-Note: the `has_team` line is a harmless unused expression kept only to avoid an empty grouping edge; the level logic never reads it. Remove it if PG complains — it does not.
 
 - [ ] **Step 4: Run test to verify it passes**
 
