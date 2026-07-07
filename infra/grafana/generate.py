@@ -900,24 +900,44 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
          "desc": "Portfolio tool mix: informs license decisions."},
     ]
 
+    # Verdict: portfolio status, scoped to the selected projects.
     verdict_sql = (
-        "WITH lv AS (" + _levels_latest_all() + "), "
-        "agg AS (SELECT min(lvl_c) mc, min(lvl_e) me, min(overall) mo, "
-        "count(*) n FROM lv) "
+        "WITH lv AS (SELECT * FROM (" + _levels_latest_all() + ") z WHERE "
+        + _proj() + "), "
+        "agg AS (SELECT min(lvl_c) mc, min(lvl_e) me, min(overall) mo FROM lv) "
         "SELECT CASE "
-        "WHEN me <= 1 OR mc <= 1 THEN "
-        "'Action required: a quality or governance gate is at Level 1. Remediate before expanding AI use.' "
-        "WHEN mo >= 3 THEN "
-        "'On track: every project is at Level 3 or higher. Maintain current investment.' "
-        "ELSE 'Baseline established. Maturity levels are still forming across the portfolio.' "
-        "END AS verdict FROM agg")
+        "WHEN me <= 1 OR mc <= 1 THEN 'Action required: a quality or governance gate is at Level 1. Remediate before expanding AI use.' "
+        "WHEN mo >= 3 THEN 'On track: every selected project is at Level 3 or higher. Maintain current investment.' "
+        "ELSE 'Baseline established. Maturity levels are still forming.' END AS verdict FROM agg")
     verdict = [
-        {"kind": "stat", "title": "Verdict", "sql": verdict_sql,
-         "format": "table", "unit": "none", "w": 24, "h": 4,
-         "text_stat": True, "custom": {}, "color": DEEMPH,
-         "desc": ("Portfolio status from reporting.v_levels: flags a Level-1 "
-                  "C-Quality or E-Governance gate, confirms when every project "
-                  "reaches Level 3, otherwise reports the baseline is forming.")},
+        {"kind": "stat", "title": "Verdict", "sql": verdict_sql, "format": "table",
+         "unit": "none", "w": 24, "h": 3, "text_stat": True, "custom": {},
+         "color": DEEMPH, "desc": "Portfolio status from reporting.v_levels for the "
+         "selected projects: flags a Level-1 quality (C) or governance (E) gate."},
+    ]
+    # Decisions: at most 3 data-driven items, worst-first, from v_attention.
+    decisions = [
+        {"kind": "table", "title": "Needs a decision this period", "w": 24, "h": 4,
+         "sql": ("SELECT reason AS \"Item\", count(*) AS \"Projects\" "
+                 "FROM reporting.v_attention WHERE " + _proj()
+                 + " AND severity >= 2 GROUP BY reason ORDER BY max(severity) DESC, 2 DESC "
+                 "LIMIT 3"),
+         "desc": ("Auto-generated from reporting.v_attention: the highest-severity "
+                  "board items (gate at Level 1, overall Level 1). Empty = no action "
+                  "required this period.")},
+    ]
+    # Attention list: the projects to act on, each linking to its own board.
+    attention = [
+        {"kind": "table", "title": "Projects to act on", "w": 24, "h": 6,
+         "sql": ("SELECT project AS \"Project\", severity AS \"Severity\", "
+                 "reason AS \"Why\" FROM reporting.v_attention WHERE " + _proj()
+                 + " ORDER BY severity DESC, project"),
+         "overrides": [{"matcher": {"id": "byName", "options": "Project"},
+                        "properties": [{"id": "links", "value": [
+                            {"title": "Open project board", "targetBlank": False,
+                             "url": "/d/ai-sdlc-${__data.fields.Project}"}]}]}],
+         "desc": "The only per-project detail on this board. Click a project to "
+                 "drill into its operational dashboard."},
     ]
     heatmap = [
         {"kind": "table", "title": "Portfolio Maturity (A–E)",
@@ -933,7 +953,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
                   "OVERALL = MIN(E, C, round(avg)).")},
     ]
     sections = [
-        ("Summary", verdict),
+        ("Verdict & Decisions", verdict + decisions + attention),
         ("Return on Investment", pulse),
         ("Project Scorecard (latest sprint)", scorecard),
         ("AI vs Non-AI Comparison", evidence),

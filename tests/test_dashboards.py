@@ -215,16 +215,6 @@ def test_bod_has_verdict_and_heatmap(tmp_path):
     assert any("Decisions" in t for t in titles)              # the "Ask" section, renamed
 
 
-def test_bod_ask_uses_real_newlines(tmp_path):
-    out = _generate(tmp_path)
-    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
-    ask = next(p for p in _all_panels(bod)
-               if p.get("type") == "text" and "Decisions" in p.get("title", ""))
-    content = ask["options"]["content"]
-    assert "\n" in content        # real line breaks render as markdown bullets
-    assert "\\n" not in content   # not the literal backslash-n that renders as text
-
-
 def test_bod_has_granularity_and_project_vars(tmp_path):
     out = _generate(tmp_path)
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())
@@ -248,6 +238,17 @@ def test_bod_stat_has_sparkline_and_delta(tmp_path):
     assert p["fieldConfig"]["defaults"]["custom"].get("showPercentChange") is True
     assert "period_start AS time" in p["targets"][0]["rawSql"]  # time-series shaped
     assert "IN ($project)" in p["targets"][0]["rawSql"]         # scoped
+
+
+def test_bod_section0_decisions_and_attention(tmp_path):
+    out = _generate(tmp_path)
+    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
+    titles = [p["title"] for p in bod["panels"]]
+    assert any("Decision" in t for t in titles)
+    assert any("Attention" in t or "Needs" in t for t in titles)
+    raw = json.dumps(bod)
+    assert "reporting.v_attention" in raw
+    assert "/d/ai-sdlc-" in raw          # drill-down link present
 
 
 def test_bod_has_evidence_delta(tmp_path):
