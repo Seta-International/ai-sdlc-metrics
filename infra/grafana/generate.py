@@ -13,7 +13,7 @@ Design notes (dataviz method):
 - The categorical palette below is the dataviz reference palette's dark steps,
   validated against Grafana's dark surface #181b1f (validate_palette.js: all
   checks pass; slots 4+ rely on the legend as secondary encoding).
-- Stat tiles carry sparklines (history up to the selected sprint) so "current
+- Stat tiles carry sparklines (history up to the selected month) so "current
   value + direction" is one glance.
 """
 import argparse
@@ -58,7 +58,6 @@ TH = {
     "review":         _th(CRIT, (80, WARN), (99.5, GOOD)),
     "rework":         _th(GOOD, (10, WARN), (20, CRIT)),
     "alerts":         _th(GOOD, (1, WARN), (4, CRIT)),
-    "predictability": _th(SERIOUS, (60, WARN), (80, GOOD)),
     "incidents":      _th(GOOD, (1, WARN), (3, CRIT)),
     "autonomy":       _th("text", (30, BLUE_SOFT), (60, BLUE_MID)),
 }
@@ -68,7 +67,7 @@ DEFAULTS = {
     "blended_hourly_rate": 12,
     "has_production": True,
     "sections": ["steering", "roi", "cause_effect", "dora", "maturity", "adoption"],
-    "thresholds": {"lead_time_h": [72, 168], "predictability_pct": [80, 60]},
+    "thresholds": {"lead_time_h": [72, 168]},
     "maturity": {"adopted_breadth_pct": 50, "adopted_ai_pr_pct": 30,
                  "agentic_pr_pct": 10, "autonomous_share_pct": 50,
                  "gate_review_pct": 80, "gate_test_pct": 50},
@@ -96,10 +95,8 @@ def load_config() -> tuple[str, list[dict]]:
 def _cfg_th(cfg: dict) -> dict:
     t = cfg["thresholds"]
     lead_w, lead_c = t["lead_time_h"]
-    pred_g, pred_w = t["predictability_pct"]
     th = dict(TH)
     th["lead"] = _th(GOOD, (lead_w, WARN), (lead_c, CRIT))
-    th["predictability"] = _th(SERIOUS, (pred_w, WARN), (pred_g, GOOD))
     return th
 
 
@@ -166,8 +163,8 @@ def _panel(spec: dict, x: int, y: int) -> dict:
     elif "th" in spec:
         defaults["color"] = {"mode": "thresholds"}
     if spec["kind"] == "timeseries":
-        # A one-sprint history (every project's first weeks) draws no line;
-        # always render the points so a single sprint is still visible.
+        # A one-month history (every project's first weeks) draws no line;
+        # always render the points so a single month is still visible.
         # Area fill + gradient gives the filled-line look; low opacity keeps
         # overlapping multi-project series readable, linear stays honest.
         defaults["custom"] = {"showPoints": "always", "pointSize": 6,
@@ -232,8 +229,8 @@ def _dashboard(uid: str, title: str, panels: list[dict],
     return {
         "uid": uid, "title": title, "schemaVersion": 39, "version": 1,
         "editable": True, "timezone": "Asia/Ho_Chi_Minh",  # UTC+7 (Vietnam)
-        # Default to a focused recent window (~2 sprints) with a little forward
-        # headroom so the current sprint's start point sits inside the range;
+        # Default to a focused recent window (~1 month) with a little forward
+        # headroom so the current month's start point sits inside the range;
         # users can zoom out for older history.
         "time": {"from": "now-30d", "to": "now+7d"},
         "templating": {"list": templating},
@@ -242,12 +239,12 @@ def _dashboard(uid: str, title: str, panels: list[dict],
     }
 
 
-def _sprint_var(project: str) -> dict:
+def _month_var(project: str) -> dict:
     return {
-        "name": "sprint", "type": "query", "datasource": DS,
+        "name": "month", "type": "query", "datasource": DS,
         "refresh": 2, "sort": 0,
         "query": (f"SELECT period_key FROM {RATIOS} WHERE project = '{project}' "
-                  "AND period_type = 'sprint' ORDER BY period_start DESC"),
+                  "AND period_type = 'month' ORDER BY period_start DESC"),
         "current": {}, "options": [],
     }
 
@@ -255,11 +252,11 @@ def _sprint_var(project: str) -> dict:
 # ---------------------------------------------------------------- project ---
 
 def _spark(project: str, col: str) -> str:
-    """Value at the selected sprint + history sparkline up to it."""
+    """Value at the selected month + history sparkline up to it."""
     anchor = (f"(SELECT period_start FROM {RATIOS} WHERE project = '{project}' "
-              "AND period_type = 'sprint' AND period_key = '$sprint')")
+              "AND period_type = 'month' AND period_key = '$month')")
     return (f"SELECT period_start AS time, {col} AS value FROM {RATIOS} "
-            f"WHERE project = '{project}' AND period_type = 'sprint' "
+            f"WHERE project = '{project}' AND period_type = 'month' "
             f"AND period_start <= {anchor} ORDER BY period_start")
 
 
@@ -279,10 +276,10 @@ def _guarded_pct(project: str, title: str, pct_col: str, n_col: str,
                  desc: str = "") -> dict:
     """A pct stat greyed to NULL when its sample size (n_col) < 20 (board P5)."""
     anchor = (f"(SELECT period_start FROM {RATIOS} WHERE project = '{project}' "
-              "AND period_type = 'sprint' AND period_key = '$sprint')")
+              "AND period_type = 'month' AND period_key = '$month')")
     guarded = f"CASE WHEN {n_col} < 20 THEN NULL ELSE {pct_col} END"
     sql = (f"SELECT period_start AS time, {guarded} AS value FROM {RATIOS} "
-           f"WHERE project = '{project}' AND period_type = 'sprint' "
+           f"WHERE project = '{project}' AND period_type = 'month' "
            f"AND period_start <= {anchor} ORDER BY period_start")
     spec = {"kind": "stat", "title": title, "sql": sql, "format": "time_series",
             "unit": "percent", "w": w, "h": h, "reduce": "last",
@@ -298,20 +295,17 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
     rate = cfg["blended_hourly_rate"]
     has_prod = cfg["has_production"]
     p = f"project = '{project}'"
-    trend = (f"FROM {RATIOS} WHERE {p} AND period_type = 'sprint' "
+    trend = (f"FROM {RATIOS} WHERE {p} AND period_type = 'month' "
              "ORDER BY period_start")
 
     steering = [
-        _stat(project, "Sprint Predictability", "predictability_pct", "percent",
-              th["predictability"],
-              desc="Completed ÷ committed issues in the Jira sprint."),
         _stat(project, "Lead Time" if has_prod else "Merge Lead Time (no prod env)",
-              "lead_time_h", "h", th["lead"],
+              "lead_time_h", "h", th["lead"], w=12,
               desc="Median hours from PR merge to next production deploy."
                    if has_prod else "Median hours from PR open to merge (no "
                    "production env yet). Lower is faster delivery."),
         _stat(project, "Incidents", "incidents", th=TH["incidents"], w=4,
-              desc="Jira issues of type Incident created this sprint. "
+              desc="Jira issues of type Incident created this month. "
                    "Green 0, amber 1-2, red 3+."),
         _stat(project, "MTTR", "mttr_h", "h", TH["mttr"], w=4,
               desc="Mean time to resolve: hours from an incident being "
@@ -336,7 +330,7 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
     tools_sql = (
         "SELECT replace(metric_key, 'ai_tasks_tool_', '') AS \"Tool\", "
         "value::float8 AS \"Tasks\" FROM reporting.metric_counts "
-        f"WHERE {p} AND period_type = 'sprint' AND period_key = '$sprint' "
+        f"WHERE {p} AND period_type = 'month' AND period_key = '$month' "
         "AND metric_key LIKE 'ai_tasks_tool_%' ORDER BY value DESC")
     roi = [
         {"kind": "stat", "title": "AI Net $ (latest month)", "sql": net_sql,
@@ -345,7 +339,7 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
          "desc": f"Hours saved × ${rate}/h blended rate − monthly AI tool cost "
                  "(seats + API). Green when net-positive."},
         _stat(project, "AI Hours Saved", "ai_time_saved_h", "h", w=8, h=6,
-              desc="Sum of per-ticket 'AI Time Saved' on issues done this sprint."),
+              desc="Sum of per-ticket 'AI Time Saved' on issues done this month."),
         _stat(project, "Throughput / Engineer", "throughput_per_engineer", w=8, h=6,
               desc="Tasks done ÷ active engineers: ROI supporting evidence."),
         {"kind": "timeseries", "title": "Savings vs Tool Cost by Month",
@@ -353,7 +347,7 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
          "w": 12, "h": 7,
          "desc": f"Monthly AI hours saved × ${rate}/h (Savings) vs the entered "
                  "AI tool cost. Savings above cost = positive ROI."},
-        {"kind": "barchart", "title": "AI Tasks by Tool ($sprint)", "sql": tools_sql,
+        {"kind": "barchart", "title": "AI Tasks by Tool ($month)", "sql": tools_sql,
          "xfield": "Tool", "unit": "none", "w": 12, "h": 7, "color": ACCENT,
          "desc": "Which tool's licenses produce. From the Jira AI Tool field."},
     ]
@@ -415,19 +409,15 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
             _stat(project, "Change Failure Rate", "cfr_pct", "percent", TH["cfr"],
                   desc="Incidents per deploy (proxy). Target ≤15%."),
         ]
-    dora.append(_stat(project, "Sprint Predictability", "predictability_pct",
-                      "percent", th["predictability"],
-                      desc="Completed ÷ committed issues in the Jira sprint. "
-                           "Higher = more reliable delivery."))
-    if len(dora) == 3:            # no-prod env: 3 tiles fill the 24-wide row
+    if len(dora) == 2:            # no-prod env: 2 tiles fill the 24-wide row
         for pnl in dora:
-            pnl["w"] = 8
+            pnl["w"] = 12
 
     adoption = [
         _stat(project, "AI Engineers / Week", "ai_users_weekly_avg", w=4,
               desc="Distinct people using AI per week (PR + Jira proxy)."),
         _stat(project, "Contributors", "engineers_active", w=4,
-              desc="Distinct engineers who merged a PR this sprint (bots excluded)."),
+              desc="Distinct engineers who merged a PR this month (bots excluded)."),
         _stat(project, "Engineer Usage Rate", "usage_pct", "percent",
               TH["usage"], w=4,
               desc="AI engineers ÷ active contributors. Target ≥80%."),
@@ -456,7 +446,7 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
         "SELECT period_start AS time, agent_prs_autonomous AS \"Autonomous\", "
         f"agent_prs_human_fixed AS \"Human-fixed\" {trend}")
     agent = [
-        {"kind": "timeseries", "title": "Agent PRs by Sprint", "sql": agent_bars_sql,
+        {"kind": "timeseries", "title": "Agent PRs by Month", "sql": agent_bars_sql,
          "format": "time_series", "unit": "none", "w": 12, "h": 8,
          "custom": {"drawStyle": "bars", "stacking": {"mode": "normal"},
                     "fillOpacity": 80, "lineWidth": 0},
@@ -532,10 +522,10 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
 
     dq = [
         _stat(project, "PRs (n)", "n_pr", w=4,
-              desc="Merged PRs in the selected sprint: the sample size behind "
+              desc="Merged PRs in the selected month: the sample size behind "
                    "every PR-based %. Below 20, percentages are greyed."),
         _stat(project, "Agent PRs (n)", "n_agent_pr", w=4,
-              desc="Count of agent PRs this sprint. Agent-section percentages "
+              desc="Count of agent PRs this month. Agent-section percentages "
                    "stay hidden until this reaches the sample-size floor."),
         {"kind": "stat", "title": "Months of data",
          "sql": (f"SELECT count(*) FROM {RATIOS} WHERE {p} "
@@ -552,7 +542,7 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
     ]
 
     story_sections = {
-        "steering": ("Sprint Steering ($sprint)", steering),
+        "steering": ("Steering ($month)", steering),
         "roi": ("Return on Investment", roi),
         "cause_effect": ("Speed and Quality (AI vs Non-AI)", cause_effect),
         "dora": ("Delivery Health (DORA)", dora),
@@ -583,14 +573,14 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
     links = [
         {"type": "link", "title": "Raw Data", "icon": "doc", "targetBlank": False,
          "url": f"/d/ai-sdlc-{project.lower()}-raw"},
-        {"type": "link", "title": "Download Excel (all sprints)", "icon": "doc",
+        {"type": "link", "title": "Download Excel (all months)", "icon": "doc",
          "targetBlank": True, "url": f"{exporter_url}/export.xlsx?project={project}"},
-        {"type": "link", "title": "Download Excel (selected sprint)", "icon": "doc",
+        {"type": "link", "title": "Download Excel (selected month)", "icon": "doc",
          "targetBlank": True,
-         "url": f"{exporter_url}/export.xlsx?project={project}&sprints=${{sprint}}"},
+         "url": f"{exporter_url}/export.xlsx?project={project}&months=${{month}}"},
     ]
     return _dashboard(f"ai-sdlc-{project.lower()}", f"AI SDLC: {project}",
-                      _layout(sections), [_sprint_var(project)], links)
+                      _layout(sections), [_month_var(project)], links)
 
 
 def build_raw_dashboard(cfg: dict, exporter_url: str) -> dict:
@@ -636,7 +626,7 @@ def build_raw_dashboard(cfg: dict, exporter_url: str) -> dict:
     links = [
         {"type": "link", "title": "← Story Dashboard", "icon": "dashboard",
          "targetBlank": False, "url": f"/d/ai-sdlc-{project.lower()}"},
-        {"type": "link", "title": "Download Excel (all sprints)", "icon": "doc",
+        {"type": "link", "title": "Download Excel (all months)", "icon": "doc",
          "targetBlank": True, "url": f"{exporter_url}/export.xlsx?project={project}"},
     ]
     return _dashboard(f"ai-sdlc-{project.lower()}-raw",
@@ -661,6 +651,50 @@ def _score_col(name: str, th: dict) -> dict:
                             "value": {"type": "color-background", "mode": "basic"}}]}
 
 
+_BOD_COLS = (
+    "project, period_type, period_key, period_start, "
+    "ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, "
+    "lead_time_h, deploys_per_week, cfr_pct, mttr_h, "
+    "rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, "
+    "security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, "
+    "human_intervention_pct, agent_cycle_h, throughput_per_engineer, "
+    "lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, "
+    "n_pr, n_ai_pr, n_tasks"
+)
+
+
+def _bod_vars() -> list[dict]:
+    granularity = {
+        "name": "granularity", "type": "custom", "label": "Granularity",
+        "query": "month,quarter", "current": {"text": "month", "value": "month"},
+        "options": [{"text": "month", "value": "month", "selected": True},
+                    {"text": "quarter", "value": "quarter", "selected": False}],
+    }
+    project = {
+        "name": "project", "type": "query", "datasource": DS, "label": "Project",
+        "multi": True, "includeAll": True, "refresh": 2, "sort": 1,
+        "query": "SELECT DISTINCT project FROM reporting.v_metrics ORDER BY project",
+        "current": {}, "options": [],
+    }
+    return [granularity, project]
+
+
+def _bod_union(alias: str) -> str:
+    # Explicit shared column list, not SELECT * — v_metrics and v_metrics_q
+    # don't have identical full column sets (see this file's module docstring
+    # note / the plan's Global Constraints for why).
+    return (f"(SELECT {_BOD_COLS} FROM reporting.v_metrics WHERE period_type='month' "
+            f"UNION ALL SELECT {_BOD_COLS} FROM reporting.v_metrics_q) {alias}")
+
+
+def _bod_src() -> str:
+    return f"{_bod_union('r')} WHERE r.period_type = '$granularity'"
+
+
+def _proj(col: str = "project") -> str:
+    return f"{col} IN ($project)"
+
+
 def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
     projects = [c["name"] for c in cfgs]
     rate_case = ("CASE w.project " +
@@ -668,17 +702,18 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
                           for c in cfgs) + " ELSE 0 END")
     latest_month = (f"FROM (SELECT DISTINCT ON (project) * FROM {WIDE} "
                     "WHERE period_type = 'month' AND ai_time_saved_h IS NOT NULL "
+                    f"AND {_proj('project')} "
                     "ORDER BY project, period_key DESC) w "
                     f"LEFT JOIN {MANUAL} t ON t.project = w.project "
                     "AND t.period_key = w.period_key AND t.field = 'ai_tool_cost_monthly'")
-    latest = (f"FROM {RATIOS} r WHERE period_type = 'sprint' AND period_start = "
-              f"(SELECT max(period_start) FROM {RATIOS} r2 WHERE r2.project = r.project "
-              "AND r2.period_type = 'sprint')")
-    trend = f"FROM {RATIOS} WHERE period_type = 'sprint' ORDER BY period_start"
+    latest = (f"FROM {_bod_src()} AND {_proj('r.project')} AND r.period_start = "
+              f"(SELECT max(period_start) FROM {_bod_union('r2')} "
+              "WHERE r2.project = r.project AND r2.period_type = r.period_type)")
+    trend = f"FROM {_bod_src()} AND {_proj('r.project')} ORDER BY r.period_start"
 
     cost_latest = (
         f"FROM (SELECT project, period_key, value::numeric v FROM {MANUAL} "
-        "WHERE field = 'cost_baseline') b "
+        f"WHERE field = 'cost_baseline' AND {_proj('project')}) b "
         f"JOIN (SELECT project, period_key, value::numeric v FROM {MANUAL} "
         "WHERE field = 'cost_actual') a USING (project, period_key) "
         f"JOIN (SELECT project, max(period_key) mk FROM {MANUAL} "
@@ -686,9 +721,9 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
         "ON m.project = b.project AND m.mk = b.period_key")
     pulse = [
         {"kind": "stat", "title": "Projects Tracked",
-         "sql": f"SELECT count(DISTINCT project) FROM {RATIOS} WHERE period_type = 'sprint'",
+         "sql": f"SELECT count(DISTINCT r.project) {_bod_src()} AND {_proj('r.project')}",
          "unit": "none", "w": 8, "graph": "none",
-         "desc": "Distinct projects with at least one collected sprint."},
+         "desc": "Distinct projects with at least one collected period, at the selected granularity."},
         {"kind": "stat", "title": "AI Net $ (portfolio, latest month)",
          "sql": (f"SELECT sum(w.ai_time_saved_h * {rate_case}) "
                  f"- sum(COALESCE(t.value::numeric, 0)) {latest_month}"),
@@ -698,11 +733,11 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
         {"kind": "stat", "title": "AI PR % (portfolio)",
          "sql": f"SELECT round(avg(ai_pr_pct), 1) {latest}",
          "unit": "percent", "th": TH["ai_share"], "w": 8, "graph": "none",
-         "desc": "Average AI-labeled PR share across projects, latest sprint each."},
+         "desc": "Average AI-labeled PR share across projects, latest period each."},
         {"kind": "stat", "title": "Lead Time (portfolio)",
          "sql": f"SELECT round(avg(lead_time_h), 1) {latest}",
          "unit": "h", "th": TH["lead"], "w": 8, "graph": "none",
-         "desc": "Average lead time across projects (latest sprint each). "
+         "desc": "Average lead time across projects (latest period each). "
                  "Lower is faster delivery."},
         {"kind": "stat", "title": "Agent Autonomy (portfolio)",
          "sql": f"SELECT round(avg(autonomy_pct), 1) {latest}",
@@ -718,10 +753,10 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
 
     def _score_table(title: str, cols: list[str], overrides: list[dict],
                      desc: str) -> dict:
-        # Project + Sprint are pinned first; each themed table stays narrow
+        # Project + Period are pinned first; each themed table stays narrow
         # enough (~5-7 cols) to fit w:24 with no horizontal scroll, so a long
         # list of project rows reads top-to-bottom instead of sideways.
-        sql = ("SELECT project AS \"Project\", period_key AS \"Sprint\", "
+        sql = ("SELECT project AS \"Project\", period_key AS \"Period\", "
                + ", ".join(cols) + f" {latest} ORDER BY project")
         return {"kind": "table", "title": title, "sql": sql, "unit": "none",
                 "w": 24, "h": 6, "overrides": overrides, "desc": desc}
@@ -730,8 +765,8 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
     # dashboard and the Excel line up column-for-column.
     scorecard = [
         _score_table(
-            "A. Adoption: Latest Sprint",
-            ["total_tasks AS \"Tasks\"", "total_prs AS \"PRs\"",
+            "A. Adoption: Latest Period",
+            ["n_tasks AS \"Tasks\"", "n_pr AS \"PRs\"",
              "round(ai_pr_pct, 1) AS \"AI PR %\"",
              "round(agent_task_pct, 1) AS \"Agent Task %\"",
              "round(usage_pct, 0) AS \"Usage %\"",
@@ -743,21 +778,19 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
             "How broadly AI is used: PR share, agent task share, engineer "
             "usage rate (target ≥80%), and throughput per engineer."),
         _score_table(
-            "B. Delivery (DORA): Latest Sprint",
+            "B. Delivery (DORA): Latest Period",
             ["round(lead_time_h, 1) AS \"Lead Time h\"",
              "round(deploys_per_week, 2) AS \"Deploys/wk\"",
              "round(cfr_pct, 1) AS \"CFR %\"",
-             "round(mttr_h, 1) AS \"MTTR h\"",
-             "round(predictability_pct, 0) AS \"Predictability %\""],
+             "round(mttr_h, 1) AS \"MTTR h\""],
             [_score_col("Lead Time h", TH["lead"]),
              _score_col("Deploys/wk", TH["deploy_freq"]),
              _score_col("CFR %", TH["cfr"]),
-             _score_col("MTTR h", TH["mttr"]),
-             _score_col("Predictability %", TH["predictability"])],
-            "DORA throughput + stability plus sprint predictability. "
-            "Green = on target, yellow = watch, red = act."),
+             _score_col("MTTR h", TH["mttr"])],
+            "DORA throughput + stability. Green = on target, yellow = watch, "
+            "red = act."),
         _score_table(
-            "C. Quality: Latest Sprint",
+            "C. Quality: Latest Period",
             ["round(ai_pr_review_pct, 1) AS \"Review %\"",
              "round(rework_pct, 1) AS \"Rework %\"",
              "round(ai_pr_test_pct, 1) AS \"AI PR Test %\"",
@@ -770,7 +803,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
             "touching tests, share of rework traced to AI PRs, and open "
             "security alerts."),
         _score_table(
-            "D. Agent: Latest Sprint",
+            "D. Agent: Latest Period",
             ["round(agent_pr_pct, 1) AS \"Agent PR %\"",
              "round(autonomy_pct, 1) AS \"Autonomy %\"",
              "round(agent_completion_pct, 1) AS \"Completion %\"",
@@ -782,7 +815,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
     ]
 
     evidence = [
-        {"kind": "table", "title": "Evidence: AI vs Non-AI (latest sprint)",
+        {"kind": "table", "title": "Evidence: AI vs Non-AI (latest period)",
          "sql": ("SELECT project AS \"Project\", "
                  "round(lead_time_ai_h, 1) AS \"Lead AI h\", "
                  "round(lead_time_nonai_h, 1) AS \"Lead non-AI h\", "
@@ -802,23 +835,23 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
     ]
 
     direction = [
-        {"kind": "timeseries", "title": "AI PR % by Sprint",
-         "sql": f"SELECT period_start AS time, project, ai_pr_pct {trend}",
+        {"kind": "timeseries", "title": "AI PR % by Period",
+         "sql": f"SELECT r.period_start AS time, r.project, r.ai_pr_pct {trend}",
          "format": "time_series", "unit": "percent", "w": 8, "h": 8,
          "overrides": _project_colors(projects),
-         "desc": "AI-labeled PR share per sprint, one line per project. "
+         "desc": "AI-labeled PR share per period, one line per project. "
                  "Adoption trajectory across the portfolio."},
-        {"kind": "timeseries", "title": "Lead Time by Sprint",
-         "sql": f"SELECT period_start AS time, project, lead_time_h {trend}",
+        {"kind": "timeseries", "title": "Lead Time by Period",
+         "sql": f"SELECT r.period_start AS time, r.project, r.lead_time_h {trend}",
          "format": "time_series", "unit": "h", "w": 8, "h": 8,
          "overrides": _project_colors(projects),
-         "desc": "Lead time (hours) per sprint, one line per project. "
+         "desc": "Lead time (hours) per period, one line per project. "
                  "Lower/flatter is better."},
-        {"kind": "timeseries", "title": "Agent Autonomy % by Sprint",
-         "sql": f"SELECT period_start AS time, project, autonomy_pct {trend}",
+        {"kind": "timeseries", "title": "Agent Autonomy % by Period",
+         "sql": f"SELECT r.period_start AS time, r.project, r.autonomy_pct {trend}",
          "format": "time_series", "unit": "percent", "w": 8, "h": 8,
          "overrides": _project_colors(projects),
-         "desc": "Share of agent PRs merged with no human commits, per sprint "
+         "desc": "Share of agent PRs merged with no human commits, per period "
                  "and project. Rising = growing agent autonomy."},
     ]
 
@@ -826,7 +859,8 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
         "SELECT DISTINCT ON (w.project) w.project AS \"Project\", "
         "round(w.usage_pct, 0)::float8 AS \"Usage %\" "
         f"FROM {RATIOS} w "
-        "WHERE w.period_type = 'month' ORDER BY w.project, w.period_key DESC")
+        f"WHERE w.period_type = 'month' AND {_proj('w.project')} "
+        "ORDER BY w.project, w.period_key DESC")
     value = [
         {"kind": "barchart", "title": "Cost Improvement % by Project (latest)",
          "sql": (f"SELECT b.project AS \"Project\", "
@@ -839,10 +873,11 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
          "color": PALETTE[1],
          "desc": ("AI engineers ÷ team size (manual input, falls back to "
                   "active PR contributors). Framework target ≥80%.")},
-        {"kind": "barchart", "title": "AI Tasks by Tool (portfolio, all sprints)",
+        {"kind": "barchart", "title": "AI Tasks by Tool (portfolio, all months)",
          "sql": ("SELECT replace(metric_key, 'ai_tasks_tool_', '') AS \"Tool\", "
                  "sum(value)::float8 AS \"Tasks\" FROM reporting.metric_counts "
-                 "WHERE period_type = 'sprint' AND metric_key LIKE 'ai_tasks_tool_%' "
+                 f"WHERE period_type = 'month' AND metric_key LIKE 'ai_tasks_tool_%' "
+                 f"AND {_proj('project')} "
                  "GROUP BY 1 ORDER BY 2 DESC"),
          "xfield": "Tool", "unit": "none", "w": 8, "h": 8, "color": PALETTE[2],
          "desc": "Portfolio tool mix: informs license decisions."},
@@ -853,7 +888,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
          "sql": (f"SELECT project AS \"Project\", lvl_a AS \"A\", lvl_b AS \"B\", "
                  "lvl_c AS \"C*\", lvl_d AS \"D\", lvl_e AS \"E*\", "
                  "overall AS \"OVERALL\" FROM (" + _levels_latest_all() + ") x "
-                 "ORDER BY overall, project"),
+                 f"WHERE {_proj('project')} ORDER BY overall, project"),
          "unit": "none", "w": 24, "h": 8,
          "overrides": [_score_col(c, _th(CRIT, (2, WARN), (3, WARN), (4, GOOD)))
                        for c in ("A", "B", "C*", "D", "E*", "OVERALL")],
@@ -863,7 +898,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
     ]
     sections = [
         ("Return on Investment", pulse),
-        ("Project Scorecard (latest sprint)", scorecard),
+        ("Project Scorecard (latest period)", scorecard),
         ("AI vs Non-AI Comparison", evidence),
     ]
     if len(cfgs) >= 2:
@@ -875,7 +910,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
     links = [{"type": "link", "title": "Download Excel (all projects)", "icon": "doc",
               "targetBlank": True, "url": f"{exporter_url}/export.xlsx?project=all"}]
     return _dashboard("ai-sdlc-bod", "AI SDLC: Portfolio (BOD)",
-                      _layout(sections), [], links)
+                      _layout(sections), _bod_vars(), links)
 
 
 def main() -> None:

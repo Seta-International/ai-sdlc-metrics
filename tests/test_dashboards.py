@@ -33,7 +33,7 @@ def test_project_dashboard_is_pinned_and_reads_views(tmp_path):
     assert "project = 'Future'" in raw
     proj = json.loads(raw)
     var_names = [v["name"] for v in proj["templating"]["list"]]
-    assert var_names == ["sprint"]  # project pinned, no project variable
+    assert var_names == ["month"]  # project pinned, no project variable
 
 
 def test_usage_uses_fixed_usage_pct(tmp_path):
@@ -93,9 +93,17 @@ def test_sections_config_controls_rows(tmp_path):
     out = _generate(tmp_path)
     future = json.loads((out / "Future" / "project.json").read_text())
     rows = [p["title"] for p in future["panels"] if p["type"] == "row"]
-    assert rows[1].startswith("Sprint Steering")
+    assert rows[1].startswith("Steering")
     assert any("Return on Investment" in r for r in rows)
     assert any("Monthly Record" in r for r in rows)
+
+
+def test_project_dashboard_has_no_predictability(tmp_path):
+    out = _generate(tmp_path)
+    future = json.loads((out / "Future" / "project.json").read_text())
+    titles = [p.get("title", "") for p in future["panels"]]
+    assert not any("Predictability" in t for t in titles)
+    assert "predictability_pct" not in json.dumps(future)
 
 
 def test_project_has_data_quality_strip_first(tmp_path):
@@ -212,3 +220,33 @@ def test_bod_has_evidence_delta(tmp_path):
     assert any("AI vs Non-AI" in t for t in titles)
     sql = json.dumps(bod)
     assert "lead_time_ai_h" in sql and "lead_time_nonai_h" in sql
+
+
+def test_bod_has_granularity_and_project_vars(tmp_path):
+    out = _generate(tmp_path)
+    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
+    var_names = [v["name"] for v in bod["templating"]["list"]]
+    assert var_names == ["granularity", "project"]
+    granularity = bod["templating"]["list"][0]
+    assert granularity["query"] == "month,quarter"
+    assert granularity["current"]["value"] == "month"
+    project_var = bod["templating"]["list"][1]
+    assert project_var["multi"] is True
+    assert project_var["includeAll"] is True
+
+
+def test_bod_panels_filter_by_granularity_and_project(tmp_path):
+    out = _generate(tmp_path)
+    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
+    sql = json.dumps(bod)
+    assert "$granularity" in sql
+    assert "$project" in sql
+    assert "reporting.v_metrics_q" in sql
+
+
+def test_bod_has_no_predictability(tmp_path):
+    out = _generate(tmp_path)
+    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
+    titles = _all_titles(bod)
+    assert not any("Predictability" in t for t in titles)
+    assert "predictability_pct" not in json.dumps(bod)

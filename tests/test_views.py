@@ -121,6 +121,40 @@ def test_v_metrics_q_is_volume_weighted_not_averaged(pg_url):
     assert float(ai_pr_pct) == 11.90   # NOT 30.0 (the naive average)
 
 
+def test_v_metrics_q_exposes_security_alerts_and_agent_cycle(pg_url):
+    upsert_counts(pg_url, "P-QCols", "month", "2026-07",
+                  date(2026, 7, 1), date(2026, 7, 31),
+                  {"security_alerts": 3, "agent_cycle_h": 6.0, "agent_prs_total": 5,
+                   "deploys": 4, "weeks": 4.3})
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("""
+            SELECT security_alerts, agent_cycle_h, deploys
+            FROM reporting.v_metrics_q WHERE project = 'P-QCols'
+        """)
+        alerts, cycle, deploys = cur.fetchone()
+    assert float(alerts) == 3.0
+    assert float(cycle) == 6.0
+    assert float(deploys) == 4.0
+
+
+def test_metrics_wide_has_no_sprint_columns(pg_url):
+    upsert_counts(pg_url, "P-NoPred", "month", "2026-07",
+                  date(2026, 7, 1), date(2026, 7, 31), {"total_prs": 5})
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_schema = 'reporting' AND table_name = 'metrics_wide'
+        """)
+        wide_cols = {r[0] for r in cur.fetchall()}
+        cur.execute("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_schema = 'reporting' AND table_name = 'v_metrics'
+        """)
+        metrics_cols = {r[0] for r in cur.fetchall()}
+    assert "sprint_committed" not in wide_cols and "sprint_completed" not in wide_cols
+    assert "predictability_pct" not in metrics_cols
+
+
 def test_views_sql_is_reappliable(pg_url):
     """views.sql must re-apply cleanly to an already-migrated DB (deploy re-runs it)."""
     import os

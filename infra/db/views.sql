@@ -35,8 +35,6 @@ SELECT
   max(value) FILTER (WHERE metric_key = 'agent_prs_human_fixed') AS agent_prs_human_fixed,
   max(value) FILTER (WHERE metric_key = 'agent_prs_autonomous')  AS agent_prs_autonomous,
   max(value) FILTER (WHERE metric_key = 'agent_cycle_h')         AS agent_cycle_h,
-  max(value) FILTER (WHERE metric_key = 'sprint_committed')      AS sprint_committed,
-  max(value) FILTER (WHERE metric_key = 'sprint_completed')      AS sprint_completed,
   max(value) FILTER (WHERE metric_key = 'lead_time_ai_h')        AS lead_time_ai_h,
   max(value) FILTER (WHERE metric_key = 'lead_time_nonai_h')     AS lead_time_nonai_h,
   max(value) FILTER (WHERE metric_key = 'rework_from_ai_prs')    AS rework_from_ai_prs,
@@ -73,7 +71,6 @@ SELECT
   100.0 * agent_prs_merged     / NULLIF(agent_prs_total, 0)  AS agent_completion_pct,
   100.0 * agent_prs_human_fixed / NULLIF(agent_prs_total, 0) AS human_intervention_pct,
   100.0 * agent_prs_autonomous / NULLIF(agent_prs_total, 0)  AS autonomy_pct,
-  100.0 * sprint_completed     / NULLIF(sprint_committed, 0) AS predictability_pct,
   100.0 * agent_prs_total      / NULLIF(total_prs, 0)        AS agent_pr_pct,
   total_tasks::numeric         / NULLIF(engineers_active, 0) AS throughput_per_engineer,
   100.0 * (lead_time_nonai_h - lead_time_ai_h)
@@ -185,7 +182,7 @@ SELECT
   100.0 * rework_from_ai_prs / NULLIF(rework_prs, 0) AS rework_from_ai_pct,
   total_prs AS n_pr, ai_prs AS n_ai_pr, agent_prs_total AS n_agent_pr,
   deploys AS n_deploys, total_tasks AS n_tasks,
-  lead_time_h, deploys AS raw_deploys, weeks, incidents, mttr_h,
+  lead_time_h, deploys, weeks, incidents, mttr_h, security_alerts, agent_cycle_h,
   lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai,
   first_review_ai_h, first_review_nonai_h, review_rounds_ai, review_rounds_nonai
 FROM agg;
