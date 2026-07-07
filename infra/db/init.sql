@@ -45,7 +45,14 @@ INSERT INTO reporting.thresholds (key, value, note) VALUES
   ('delta_noise',     0.05, '|delta| below this renders grey "equivalent"'),
   ('review_gate',     1.00, 'Gate C: AI-PR review coverage target 100%'),
   ('usage_target',    0.80, 'Usage gauge target >= 80%'),
-  ('data_months_min', 3.00, 'Min months to draw a break-even projection')
+  ('data_months_min', 3.00, 'Min months to draw a break-even projection'),
+  ('roi_payback_ok',         0.00, 'ROI: cumulative net >= 0 is green (TCO-adjusted)'),
+  ('throughput_lift_target', 0.08, 'Throughput: DX realistic ~8% lift target (not vendor 10x)'),
+  ('sec_alerts_crit',        1.00, 'Risk: >=1 open critical code-scanning alert is red'),
+  ('lead_elite_h',          24.00, 'DORA lead time: elite band < 1 day (directional post-2025)'),
+  ('lead_high_h',          168.00, 'DORA lead time: high band < 1 week (directional post-2025)'),
+  ('cfr_elite',              0.15, 'DORA change-fail rate: elite band <= 15%'),
+  ('attn_roi_neg_periods',   2.00, 'Attention: N consecutive negative-ROI periods flags a decision')
 ON CONFLICT (key) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS reporting.events (

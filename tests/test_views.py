@@ -100,6 +100,26 @@ def test_v_metrics_survives_non_numeric_team_size(pg_url):
         assert cur.fetchone() == (None, None)   # must not raise; bad value ignored
 
 
+def test_board_benchmark_thresholds_present(pg_url):
+    import psycopg2
+    expected = {
+        "roi_payback_ok": 0,
+        "throughput_lift_target": 0.08,
+        "sec_alerts_crit": 1,
+        "lead_elite_h": 24,
+        "lead_high_h": 168,
+        "cfr_elite": 0.15,
+        "attn_roi_neg_periods": 2,
+    }
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT key, value, note FROM reporting.thresholds "
+                    "WHERE key = ANY(%s)", (list(expected),))
+        rows = cur.fetchall()
+    got = {k: float(v) for k, v, _ in rows}
+    assert got == expected
+    assert all(note for _, _, note in rows), "every benchmark row must document its basis"
+
+
 def test_views_sql_is_reappliable(pg_url):
     """views.sql must re-apply cleanly to an already-migrated DB (deploy re-runs it)."""
     import os
