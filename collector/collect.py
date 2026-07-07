@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Collect AI SDLC raw metric counts for one sprint or month window.
+Collect AI SDLC raw metric counts for one calendar month.
 
 Usage:
-  python -m collector.collect [--sprint S6 | --month 2026-06]
+  python -m collector.collect [--month 2026-06]
                               [--project Future] [--repo owner/repo]
                               [--jira-project FUT]
 """
@@ -11,9 +11,9 @@ import argparse
 import sys
 from datetime import datetime, timedelta
 from collector.config import (
-    SPRINT_ANCHOR, SPRINT_LENGTH_DAYS, GITHUB_TOKEN, GITHUB_REPO, GH_PROD_ENV,
+    GITHUB_TOKEN, GITHUB_REPO, GH_PROD_ENV,
     DEPLOY_COUNT_STRATEGY, JIRA_BASE, JIRA_PROJECT, JIRA_EMAIL, JIRA_TOKEN,
-    JIRA_AI_USAGE_FIELD, JIRA_BOARD_ID, REPORTING_DB_URL, PROJECT_LABEL,
+    JIRA_AI_USAGE_FIELD, REPORTING_DB_URL, PROJECT_LABEL,
     JIRA_AI_TOOL_FIELD, JIRA_AI_TIME_SAVED_FIELD,
 )
 from collector.github_client import GitHubClient
@@ -44,14 +44,13 @@ def build_counts(window: Window, prs: list[dict], all_prs: list[dict],
                  pr_files: dict[int, list[str]], deploy_times: list[datetime],
                  code_alerts: list[dict], secret_alerts: list[dict],
                  issues: list[dict], incidents: list[dict], field: str,
-                 sprint_issue_counts: tuple[int, int] | None,
                  pr_commits: dict[int, list] | None = None,
                  pr_file_details: dict[int, list[dict]] | None = None,
                  pr_reviews: dict[int, list] | None = None,
                  tool_field: str | None = None,
                  time_saved_field: str | None = None) -> dict:
     """Pure assembly of all raw counts for one window. No IO."""
-    counts = {
+    return {
         **adoption_counts(prs, issues, field),
         **delivery_counts(deploy_times, incidents, window.weeks),
         **quality_counts(prs, code_alerts, secret_alerts),
@@ -66,16 +65,11 @@ def build_counts(window: Window, prs: list[dict], all_prs: list[dict],
         "ai_time_saved_h": ai_time_saved_hours(issues, time_saved_field),
         "ai_users_weekly_avg": ai_users_weekly_avg(prs, issues, field, window.since, window.until),
     }
-    if sprint_issue_counts is not None:
-        counts["sprint_committed"], counts["sprint_completed"] = sprint_issue_counts
-    return counts
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Collect AI SDLC raw metric counts")
-    scope = parser.add_mutually_exclusive_group()
-    scope.add_argument("--sprint", default=None, help="Sprint label, e.g. S6")
-    scope.add_argument("--month", default=None, help="Calendar month, e.g. 2026-06")
+    parser.add_argument("--month", default=None, help="Calendar month, e.g. 2026-06")
     parser.add_argument("--project", default=PROJECT_LABEL)
     parser.add_argument("--jira-project", default=JIRA_PROJECT)
     parser.add_argument("--repo", default=GITHUB_REPO)
@@ -90,7 +84,7 @@ def main() -> None:
         sys.exit(1)
 
     try:
-        window = resolve_window(args.sprint, args.month, SPRINT_ANCHOR, SPRINT_LENGTH_DAYS)
+        window = resolve_window(args.month)
     except ValueError as e:
         print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(1)
@@ -120,16 +114,9 @@ def main() -> None:
     issues = jira.get_closed_issues(window.since, window.until, extra_fields=extra_fields)
     incidents = jira.get_incidents(window.since, window.until)
 
-    sprint_issue_counts = None
-    if window.period_type == "sprint":
-        board_id = JIRA_BOARD_ID or jira.resolve_board_id()
-        if board_id:
-            sprint_issue_counts = jira.get_sprint_issue_counts(
-                board_id, window.since, window.until)
-
     counts = build_counts(window, prs, all_prs, pr_files, deploy_times,
                           code_alerts, secret_alerts, issues, incidents,
-                          JIRA_AI_USAGE_FIELD, sprint_issue_counts,
+                          JIRA_AI_USAGE_FIELD,
                           pr_commits=pr_commits, pr_file_details=pr_file_details,
                           pr_reviews=pr_reviews, tool_field=JIRA_AI_TOOL_FIELD,
                           time_saved_field=JIRA_AI_TIME_SAVED_FIELD)
