@@ -29,10 +29,6 @@ JIRA_PROJECT: str = os.getenv("JIRA_PROJECT", "")
 JIRA_EMAIL: str = os.environ["JIRA_EMAIL"]
 JIRA_TOKEN: str = os.environ["JIRA_TOKEN"]
 JIRA_AI_USAGE_FIELD: str = os.environ["JIRA_AI_USAGE_FIELD"]
-# Jira Agile board id for sprint predictability (committed vs completed).
-# Optional override: when unset the collector auto-resolves the project's
-# first scrum board; the metric is skipped only if no board exists.
-JIRA_BOARD_ID: str | None = os.getenv("JIRA_BOARD_ID")
 # Only required by update_ticket.py, so optional here to not break collect.py callers.
 JIRA_AI_TOOL_FIELD: str | None = os.getenv("JIRA_AI_TOOL_FIELD")
 JIRA_AI_TIME_SAVED_FIELD: str | None = os.getenv("JIRA_AI_TIME_SAVED_FIELD")
