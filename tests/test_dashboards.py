@@ -204,14 +204,13 @@ def _all_panels(dash):
     return out
 
 
-def test_bod_has_verdict_and_decisions(tmp_path):
+def test_bod_has_decisions(tmp_path):
     out = _generate(tmp_path)
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())
     titles = _all_titles(bod)
-    assert any("Verdict" in t for t in titles)                # the verdict panel
-    body = json.dumps(bod)
-    assert "reporting.v_levels" in body
     assert any("Decisions" in t for t in titles)              # the decision-first section
+    body = json.dumps(bod)
+    assert "reporting.v_attention" in body
 
 
 def test_bod_has_granularity_and_project_vars(tmp_path):
@@ -295,7 +294,7 @@ def test_bod_is_decision_first_and_has_no_project_rows(tmp_path):
     out = _generate(tmp_path)
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())
     rows = [p["title"] for p in bod["panels"] if p.get("type") == "row"]
-    assert rows == ["Verdict & Decisions", "Is it paying off?", "Is it safe?",
+    assert rows == ["Decisions & Attention", "Is it paying off?", "Is it safe?",
                     "Is it working, honestly?", "Are we maturing?"]
     raw = json.dumps(bod)
     # legacy sections gone

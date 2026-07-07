@@ -109,13 +109,6 @@ def _latest_level(project: str, col: str) -> str:
             "ORDER BY quarter DESC LIMIT 1")
 
 
-def _levels_latest_all() -> str:
-    """One row per project: its most recent quarter's levels."""
-    return (f"SELECT DISTINCT ON (project) project, quarter, lvl_a, lvl_b, "
-            f"lvl_c, lvl_d, lvl_e, overall FROM {LEVELS} "
-            "ORDER BY project, quarter DESC")
-
-
 def _target(sql: str, fmt: str) -> dict:
     return {"datasource": DS, "format": fmt, "rawQuery": True,
             "rawSql": sql, "refId": "A"}
@@ -804,21 +797,6 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
                  "columns and with n(AI PR) in mind (small samples are noisy)."},
     ]
 
-    # Verdict: portfolio status, scoped to the selected projects.
-    verdict_sql = (
-        "WITH lv AS (SELECT * FROM (" + _levels_latest_all() + ") z WHERE "
-        + _proj() + "), "
-        "agg AS (SELECT min(lvl_c) mc, min(lvl_e) me, min(overall) mo FROM lv) "
-        "SELECT CASE "
-        "WHEN me <= 1 OR mc <= 1 THEN 'Action required: a quality or governance gate is at Level 1. Remediate before expanding AI use.' "
-        "WHEN mo >= 3 THEN 'On track: every selected project is at Level 3 or higher. Maintain current investment.' "
-        "ELSE 'Baseline established. Maturity levels are still forming.' END AS verdict FROM agg")
-    verdict = [
-        {"kind": "stat", "title": "Verdict", "sql": verdict_sql, "format": "table",
-         "unit": "none", "w": 24, "h": 3, "text_stat": True, "custom": {},
-         "color": DEEMPH, "desc": "Portfolio status from reporting.v_levels for the "
-         "selected projects: flags a Level-1 quality (C) or governance (E) gate."},
-    ]
     # Decisions: at most 3 data-driven items, worst-first, from v_attention.
     decisions = [
         {"kind": "table", "title": "Needs a decision this period", "w": 24, "h": 4,
@@ -876,7 +854,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
                  "autonomy only — do not credit a level the review evidence can't support."},
     ]
     sections = [
-        ("Verdict & Decisions", verdict + decisions + attention),
+        ("Decisions & Attention", decisions + attention),
         ("Is it paying off?", paying),
         ("Is it safe?", safe),
         ("Is it working, honestly?", honest),

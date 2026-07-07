@@ -63,7 +63,7 @@
   "panels": [
     {
       "type": "row",
-      "title": "Verdict & Decisions",
+      "title": "Decisions & Attention",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -74,66 +74,6 @@
       "panels": []
     },
     {
-      "type": "stat",
-      "title": "Verdict",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 1,
-        "w": 24,
-        "h": 3
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#898781"
-          },
-          "custom": {}
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "/.*/",
-          "values": false
-        },
-        "graphMode": "none",
-        "colorMode": "value",
-        "justifyMode": "auto",
-        "textMode": "value"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "WITH lv AS (SELECT * FROM (SELECT DISTINCT ON (project) project, quarter, lvl_a, lvl_b, lvl_c, lvl_d, lvl_e, overall FROM reporting.v_levels ORDER BY project, quarter DESC) z WHERE project IN ($project)), agg AS (SELECT min(lvl_c) mc, min(lvl_e) me, min(overall) mo FROM lv) SELECT CASE WHEN me <= 1 OR mc <= 1 THEN 'Action required: a quality or governance gate is at Level 1. Remediate before expanding AI use.' WHEN mo >= 3 THEN 'On track: every selected project is at Level 3 or higher. Maintain current investment.' ELSE 'Baseline established. Maturity levels are still forming.' END AS verdict FROM agg",
-          "refId": "A"
-        }
-      ],
-      "description": "Portfolio status from reporting.v_levels for the selected projects: flags a Level-1 quality (C) or governance (E) gate."
-    },
-    {
       "type": "table",
       "title": "Needs a decision this period",
       "datasource": {
@@ -142,7 +82,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 1,
         "w": 24,
         "h": 4
       },
@@ -191,7 +131,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 8,
+        "y": 5,
         "w": 24,
         "h": 6
       },
@@ -256,7 +196,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 14,
+        "y": 11,
         "w": 24,
         "h": 1
       },
@@ -271,7 +211,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 15,
+        "y": 12,
         "w": 8,
         "h": 4
       },
@@ -333,7 +273,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 15,
+        "y": 12,
         "w": 8,
         "h": 4
       },
@@ -388,7 +328,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 15,
+        "y": 12,
         "w": 8,
         "h": 4
       },
@@ -450,7 +390,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 19,
+        "y": 16,
         "w": 24,
         "h": 1
       },
@@ -465,7 +405,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 20,
+        "y": 17,
         "w": 8,
         "h": 4
       },
@@ -531,7 +471,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 20,
+        "y": 17,
         "w": 16,
         "h": 4
       },
@@ -580,7 +520,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 24,
+        "y": 21,
         "w": 12,
         "h": 6
       },
@@ -645,7 +585,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 24,
+        "y": 21,
         "w": 12,
         "h": 6
       },
@@ -727,7 +667,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 30,
+        "y": 27,
         "w": 24,
         "h": 1
       },
@@ -742,7 +682,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 31,
+        "y": 28,
         "w": 6,
         "h": 4
       },
@@ -811,7 +751,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 31,
+        "y": 28,
         "w": 6,
         "h": 4
       },
@@ -880,7 +820,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 31,
+        "y": 28,
         "w": 6,
         "h": 4
       },
@@ -949,7 +889,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 31,
+        "y": 28,
         "w": 6,
         "h": 4
       },
@@ -1018,7 +958,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 35,
+        "y": 32,
         "w": 24,
         "h": 5
       },
@@ -1064,7 +1004,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 40,
+        "y": 37,
         "w": 24,
         "h": 1
       },
@@ -1079,7 +1019,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 41,
+        "y": 38,
         "w": 12,
         "h": 7
       },
@@ -1164,7 +1104,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 41,
+        "y": 38,
         "w": 12,
         "h": 7
       },
@@ -1229,7 +1169,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 48,
+        "y": 45,
         "w": 24,
         "h": 6
       },
