@@ -1,14 +1,4 @@
 import os
-from datetime import date
-
-# Sprint calendar is per-project config, not hardcoded here — this repo is
-# shared across every project's collector runs. Each project sets its own
-# SPRINT_ANCHOR (first sprint's start date, ISO) and SPRINT_LENGTH_DAYS as
-# env vars on its own workflow. Sprint N's start = anchor + (N-1)*length.
-# Only required by collect.py, so optional here to not force it on other
-# entrypoints (e.g. update_ticket.py) that share this config module.
-SPRINT_ANCHOR: date | None = date.fromisoformat(os.environ["SPRINT_ANCHOR"]) if os.getenv("SPRINT_ANCHOR") else None
-SPRINT_LENGTH_DAYS: int = int(os.getenv("SPRINT_LENGTH_DAYS", "14"))
 
 GITHUB_TOKEN: str = os.environ["METRICS_GH_TOKEN"]
 # Per-project identity — always set by the project's caller workflow (or CLI
@@ -33,7 +23,7 @@ JIRA_AI_USAGE_FIELD: str = os.environ["JIRA_AI_USAGE_FIELD"]
 JIRA_AI_TOOL_FIELD: str | None = os.getenv("JIRA_AI_TOOL_FIELD")
 JIRA_AI_TIME_SAVED_FIELD: str | None = os.getenv("JIRA_AI_TIME_SAVED_FIELD")
 
-# Only required by collect.py (db upsert); optional here for the same reason as SPRINT_ANCHOR above.
+# Only required by collect.py (db upsert), so optional here to not force it on other entrypoints.
 REPORTING_DB_URL: str | None = os.getenv("REPORTING_DB_URL")
 PROJECT_LABEL: str = os.getenv("PROJECT_LABEL", "")
 
