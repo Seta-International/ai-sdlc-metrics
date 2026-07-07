@@ -274,6 +274,24 @@ def _tf(col: str = "period_start") -> str:
     return f"$__timeFilter({col})"
 
 
+def _bod_stat(title: str, col: str, agg: str, unit: str,
+              th: dict | None = None, w: int = 6, desc: str = "") -> dict:
+    # One row per period over the selected range → big value = last period,
+    # sparkline = the range, percentChange = last vs previous period.
+    sql = (f"SELECT r.period_start AS time, {agg} AS \"{title}\" "
+           f"FROM {_bod_src()} AND {_proj('r.project')} AND {_tf('r.period_start')} "
+           f"GROUP BY r.period_start ORDER BY r.period_start")
+    spec = {
+        "kind": "stat", "title": title, "sql": sql, "format": "time_series",
+        "unit": unit, "w": w, "h": 4, "graph": "area",
+        "custom": {"showPercentChange": True},
+        "desc": desc,
+    }
+    if th is not None:
+        spec["th"] = th
+    return spec
+
+
 def _sprint_var(project: str) -> dict:
     return {
         "name": "sprint", "type": "query", "datasource": DS,
@@ -717,6 +735,9 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
         "WHERE field = 'cost_actual' GROUP BY project) m "
         "ON m.project = b.project AND m.mk = b.period_key")
     pulse = [
+        _bod_stat("AI PR %", "ai_pr_pct", "round(avg(r.ai_pr_pct),1)", "percent",
+                  th=TH["ai_share"], w=8,
+                  desc="Portfolio AI-labeled PR share (context, not a success metric)."),
         {"kind": "stat", "title": "Projects Tracked",
          "sql": (f"SELECT count(DISTINCT project) FROM {RATIOS} "
                  f"WHERE period_type = 'sprint' AND {_proj()}"),

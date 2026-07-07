@@ -238,6 +238,18 @@ def test_bod_has_granularity_and_project_vars(tmp_path):
     assert "IN ($project)" in raw            # scope filter wired
 
 
+def test_bod_stat_has_sparkline_and_delta(tmp_path):
+    out = _generate(tmp_path)
+    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
+    stats = [p for p in bod["panels"] if p.get("type") == "stat" and "AI PR" in p["title"]]
+    assert stats, "expected an AI PR % headline stat"
+    p = stats[0]
+    assert p["options"]["graphMode"] == "area"                 # sparkline on
+    assert p["fieldConfig"]["defaults"]["custom"].get("showPercentChange") is True
+    assert "period_start AS time" in p["targets"][0]["rawSql"]  # time-series shaped
+    assert "IN ($project)" in p["targets"][0]["rawSql"]         # scoped
+
+
 def test_bod_has_evidence_delta(tmp_path):
     out = _generate(tmp_path)
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())
