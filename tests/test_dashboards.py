@@ -251,6 +251,16 @@ def test_bod_section0_decisions_and_attention(tmp_path):
     assert "/d/ai-sdlc-" in raw          # drill-down link present
 
 
+def test_bod_section1_roi(tmp_path):
+    out = _generate(tmp_path)
+    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
+    titles = [p["title"] for p in bod["panels"]]
+    assert any("Cumulative" in t and "$" in t for t in titles)
+    assert any("Capacity" in t for t in titles)
+    raw = json.dumps(bod)
+    assert "reporting.v_portfolio_roi" in raw
+
+
 def test_bod_has_evidence_delta(tmp_path):
     out = _generate(tmp_path)
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())

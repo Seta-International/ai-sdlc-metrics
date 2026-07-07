@@ -713,14 +713,6 @@ def _score_col(name: str, th: dict) -> dict:
 
 def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
     projects = [c["name"] for c in cfgs]
-    rate_case = ("CASE w.project " +
-                 " ".join(f"WHEN '{c['name']}' THEN {c['blended_hourly_rate']}"
-                          for c in cfgs) + " ELSE 0 END")
-    latest_month = (f"FROM (SELECT DISTINCT ON (project) * FROM {WIDE} "
-                    "WHERE period_type = 'month' AND ai_time_saved_h IS NOT NULL "
-                    "ORDER BY project, period_key DESC) w "
-                    f"LEFT JOIN {MANUAL} t ON t.project = w.project "
-                    "AND t.period_key = w.period_key AND t.field = 'ai_tool_cost_monthly'")
     latest = (f"FROM {RATIOS} r WHERE period_type = 'sprint' AND period_start = "
               f"(SELECT max(period_start) FROM {RATIOS} r2 WHERE r2.project = r.project "
               "AND r2.period_type = 'sprint')")
@@ -734,40 +726,37 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
         f"JOIN (SELECT project, max(period_key) mk FROM {MANUAL} "
         "WHERE field = 'cost_actual' GROUP BY project) m "
         "ON m.project = b.project AND m.mk = b.period_key")
-    pulse = [
-        _bod_stat("AI PR %", "ai_pr_pct", "round(avg(r.ai_pr_pct),1)", "percent",
-                  th=TH["ai_share"], w=8,
-                  desc="Portfolio AI-labeled PR share (context, not a success metric)."),
-        {"kind": "stat", "title": "Projects Tracked",
-         "sql": (f"SELECT count(DISTINCT project) FROM {RATIOS} "
-                 f"WHERE period_type = 'sprint' AND {_proj()}"),
-         "unit": "none", "w": 8, "graph": "none",
-         "desc": "Distinct projects with at least one collected sprint."},
-        {"kind": "stat", "title": "AI Net $ (portfolio, latest month)",
-         "sql": (f"SELECT sum(w.ai_time_saved_h * {rate_case}) "
-                 f"- sum(COALESCE(t.value::numeric, 0)) {latest_month}"),
-         "unit": "currencyUSD", "th": _th(CRIT, (0, GOOD)), "w": 8, "graph": "none",
-         "desc": "Sum across projects of (AI hours saved × that project's blended "
-                 "rate) − monthly AI tool cost. Green when net-positive."},
-        {"kind": "stat", "title": "AI PR % (portfolio)",
-         "sql": f"SELECT round(avg(ai_pr_pct), 1) {latest}",
-         "unit": "percent", "th": TH["ai_share"], "w": 8, "graph": "none",
-         "desc": "Average AI-labeled PR share across projects, latest sprint each."},
-        {"kind": "stat", "title": "Lead Time (portfolio)",
-         "sql": f"SELECT round(avg(lead_time_h), 1) {latest}",
-         "unit": "h", "th": TH["lead"], "w": 8, "graph": "none",
-         "desc": "Average lead time across projects (latest sprint each). "
-                 "Lower is faster delivery."},
-        {"kind": "stat", "title": "Agent Autonomy (portfolio)",
-         "sql": f"SELECT round(avg(autonomy_pct), 1) {latest}",
-         "unit": "percent", "th": TH["autonomy"], "w": 8, "graph": "none",
-         "desc": "Average share of agent PRs merged with zero human commits, "
-                 "across projects. Blue marks maturity level, not health."},
-        {"kind": "stat", "title": "Cost Improvement (portfolio)",
-         "sql": f"SELECT round(avg(100 * (b.v - a.v) / NULLIF(b.v, 0)), 0) {cost_latest}",
-         "unit": "percent", "w": 8, "graph": "none",
-         "desc": "Baseline vs actual cost per unit (latest manual input per "
-                 "project). Empty until cost_baseline/cost_actual are entered."},
+    roi_rate = ("CASE v.project " +
+                " ".join(f"WHEN '{c['name']}' THEN {c['blended_hourly_rate']}"
+                         for c in cfgs) + " ELSE 0 END")
+    # Net $ to date = Σ_project (cum_hours_saved × rate) − cum_tool_cost, at each
+    # project's latest month within the range; summed across selected projects.
+    net_latest = (
+        f"FROM (SELECT DISTINCT ON (v.project) v.*, {roi_rate} AS rate "
+        f"FROM reporting.v_portfolio_roi v WHERE {_proj('v.project')} "
+        f"AND {_tf('v.period_start')} ORDER BY v.project, v.period_start DESC) x")
+    paying = [
+        {"kind": "stat", "title": "Cumulative AI Net $ (to date)", "w": 8, "h": 4,
+         "unit": "currencyUSD", "graph": "none", "th": _th(CRIT, (0, GOOD)),
+         "sql": f"SELECT sum(cum_hours_saved * rate - cum_tool_cost) {net_latest}",
+         "desc": "Σ over selected projects of (cumulative AI hours saved × blended "
+                 "rate) − cumulative AI tool cost. Green once net-positive (payback)."},
+        {"kind": "stat", "title": "Capacity unlocked (engineer-equiv)", "w": 8, "h": 4,
+         "unit": "none", "graph": "none",
+         "sql": ("SELECT round(sum(cum_hours_saved) / (40.0 * 4 * "
+                 "GREATEST(count(DISTINCT date_trunc('month', period_start)),1)), 1) "
+                 f"FROM (SELECT v.* FROM reporting.v_portfolio_roi v WHERE {_proj('v.project')} "
+                 f"AND {_tf('v.period_start')}) v"),
+         "desc": "Cumulative hours saved expressed as full-time engineers of extra "
+                 "capacity (≈160 h/engineer-month), no headcount added."},
+        {"kind": "timeseries", "title": "Spend vs Return ($, cumulative)", "w": 8, "h": 4,
+         "format": "time_series", "unit": "currencyUSD",
+         "sql": (f"SELECT v.period_start AS time, "
+                 f"sum(v.cum_hours_saved * {roi_rate}) AS \"Value\", "
+                 f"sum(v.cum_tool_cost) AS \"Cost\" FROM reporting.v_portfolio_roi v "
+                 f"WHERE {_proj('v.project')} AND {_tf('v.period_start')} "
+                 "GROUP BY v.period_start ORDER BY v.period_start"),
+         "desc": "Cumulative value vs cumulative cost; the gap is running net ROI."},
     ]
 
     def _score_table(title: str, cols: list[str], overrides: list[dict],
@@ -954,7 +943,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
     ]
     sections = [
         ("Verdict & Decisions", verdict + decisions + attention),
-        ("Return on Investment", pulse),
+        ("Is it paying off?", paying),
         ("Project Scorecard (latest sprint)", scorecard),
         ("AI vs Non-AI Comparison", evidence),
     ]
