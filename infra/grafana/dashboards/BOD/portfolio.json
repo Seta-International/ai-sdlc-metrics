@@ -46,7 +46,12 @@
         "refresh": 2,
         "sort": 1,
         "query": "SELECT DISTINCT project FROM reporting.v_metrics ORDER BY project",
-        "current": {},
+        "current": {
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
         "options": []
       }
     ]
@@ -122,7 +127,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(DISTINCT r.project) (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project)",
+          "rawSql": "SELECT count(DISTINCT r.project) FROM (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project)",
           "refId": "A"
         }
       ],

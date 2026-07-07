@@ -2,6 +2,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+import psycopg2
 
 ROOT = Path(__file__).resolve().parent.parent
 GRAFANA = ROOT / "infra" / "grafana"
@@ -250,3 +251,36 @@ def test_bod_has_no_predictability(tmp_path):
     titles = _all_titles(bod)
     assert not any("Predictability" in t for t in titles)
     assert "predictability_pct" not in json.dumps(bod)
+
+
+def test_all_panel_sql_is_syntactically_valid(tmp_path, pg_url):
+    """EXPLAIN every generated panel query against a real schema (vars stubbed
+    with literals): catches malformed SQL (e.g. a missing FROM) that a plain
+    string-matching test can't, and that only ever surfaces in Grafana as a
+    silent "No data" panel."""
+    out = _generate(tmp_path)
+    # $granularity/$month are already wrapped in quotes at each SQL call site
+    # (e.g. period_key = '$month'); $project is not (it receives a
+    # Grafana-expanded comma-separated quoted list, e.g. IN ('Future','TZ')).
+    subs = {"$granularity": "month", "$month": "2026-06", "$project": "'Future'"}
+    conn = psycopg2.connect(pg_url)
+    try:
+        for f in out.rglob("*.json"):
+            d = json.loads(f.read_text())
+            for p in d["panels"]:
+                for t in p.get("targets", []):
+                    sql = t["rawSql"]
+                    for var, literal in subs.items():
+                        sql = sql.replace(var, literal)
+                    with conn.cursor() as cur:
+                        try:
+                            cur.execute(f"EXPLAIN {sql}")
+                        except Exception as e:
+                            conn.rollback()
+                            raise AssertionError(
+                                f"{f.parent.name}/{f.name}: panel {p.get('title')!r} "
+                                f"has invalid SQL: {e}\nSQL: {sql}"
+                            ) from e
+                    conn.rollback()
+    finally:
+        conn.close()

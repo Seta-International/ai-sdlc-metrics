@@ -674,7 +674,12 @@ def _bod_vars() -> list[dict]:
         "name": "project", "type": "query", "datasource": DS, "label": "Project",
         "multi": True, "includeAll": True, "refresh": 2, "sort": 1,
         "query": "SELECT DISTINCT project FROM reporting.v_metrics ORDER BY project",
-        "current": {}, "options": [],
+        # Explicit "All" default: this JSON is generated, never saved from the
+        # Grafana UI, so an empty `current` leaves $project unresolved until a
+        # user manually opens the picker — every panel reads "No data" until
+        # then. $__all is Grafana's own placeholder, expanded once the query
+        # variable's options are fetched.
+        "current": {"text": "All", "value": ["$__all"]}, "options": [],
     }
     return [granularity, project]
 
@@ -721,7 +726,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
         "ON m.project = b.project AND m.mk = b.period_key")
     pulse = [
         {"kind": "stat", "title": "Projects Tracked",
-         "sql": f"SELECT count(DISTINCT r.project) {_bod_src()} AND {_proj('r.project')}",
+         "sql": f"SELECT count(DISTINCT r.project) FROM {_bod_src()} AND {_proj('r.project')}",
          "unit": "none", "w": 8, "graph": "none",
          "desc": "Distinct projects with at least one collected period, at the selected granularity."},
         {"kind": "stat", "title": "AI Net $ (portfolio, latest month)",
