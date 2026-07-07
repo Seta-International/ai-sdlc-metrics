@@ -798,16 +798,6 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
     ]
 
     # Decisions: at most 3 data-driven items, worst-first, from v_attention.
-    decisions = [
-        {"kind": "table", "title": "Needs a decision this period", "w": 24, "h": 4,
-         "sql": ("SELECT reason AS \"Item\", count(*) AS \"Projects\" "
-                 "FROM reporting.v_attention WHERE " + _proj()
-                 + " AND severity >= 2 GROUP BY reason ORDER BY max(severity) DESC, 2 DESC "
-                 "LIMIT 3"),
-         "desc": ("Auto-generated from reporting.v_attention: the highest-severity "
-                  "board items (gate at Level 1, overall Level 1). Empty = no action "
-                  "required this period.")},
-    ]
     # Attention list: the projects to act on, each linking to its own board.
     attention = [
         {"kind": "table", "title": "Projects to act on", "w": 24, "h": 6,
@@ -854,7 +844,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
                  "autonomy only — do not credit a level the review evidence can't support."},
     ]
     sections = [
-        ("Decisions & Attention", decisions + attention),
+        ("Attention", attention),
         ("Is it paying off?", paying),
         ("Is it safe?", safe),
         ("Is it working, honestly?", honest),

@@ -204,11 +204,11 @@ def _all_panels(dash):
     return out
 
 
-def test_bod_has_decisions(tmp_path):
+def test_bod_has_attention_list(tmp_path):
     out = _generate(tmp_path)
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())
     titles = _all_titles(bod)
-    assert any("Decisions" in t for t in titles)              # the decision-first section
+    assert any("Attention" in t for t in titles)              # the attention-list section
     body = json.dumps(bod)
     assert "reporting.v_attention" in body
 
@@ -238,12 +238,11 @@ def test_bod_stat_has_sparkline_and_delta(tmp_path):
     assert "IN ($project)" in p["targets"][0]["rawSql"]         # scoped
 
 
-def test_bod_section0_decisions_and_attention(tmp_path):
+def test_bod_section0_attention(tmp_path):
     out = _generate(tmp_path)
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())
     titles = [p["title"] for p in bod["panels"]]
-    assert any("Decision" in t for t in titles)
-    assert any("Attention" in t or "Needs" in t for t in titles)
+    assert any("Attention" in t for t in titles)
     raw = json.dumps(bod)
     assert "reporting.v_attention" in raw
     assert "/d/ai-sdlc-" in raw          # drill-down link present
@@ -294,7 +293,7 @@ def test_bod_is_decision_first_and_has_no_project_rows(tmp_path):
     out = _generate(tmp_path)
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())
     rows = [p["title"] for p in bod["panels"] if p.get("type") == "row"]
-    assert rows == ["Decisions & Attention", "Is it paying off?", "Is it safe?",
+    assert rows == ["Attention", "Is it paying off?", "Is it safe?",
                     "Is it working, honestly?", "Are we maturing?"]
     raw = json.dumps(bod)
     # legacy sections gone

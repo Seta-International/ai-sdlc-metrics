@@ -63,7 +63,7 @@
   "panels": [
     {
       "type": "row",
-      "title": "Decisions & Attention",
+      "title": "Attention",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -75,55 +75,6 @@
     },
     {
       "type": "table",
-      "title": "Needs a decision this period",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 1,
-        "w": 24,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "custom": {
-            "filterable": true
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT reason AS \"Item\", count(*) AS \"Projects\" FROM reporting.v_attention WHERE project IN ($project) AND severity >= 2 GROUP BY reason ORDER BY max(severity) DESC, 2 DESC LIMIT 3",
-          "refId": "A"
-        }
-      ],
-      "description": "Auto-generated from reporting.v_attention: the highest-severity board items (gate at Level 1, overall Level 1). Empty = no action required this period."
-    },
-    {
-      "type": "table",
       "title": "Projects to act on",
       "datasource": {
         "type": "postgres",
@@ -131,7 +82,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 1,
         "w": 24,
         "h": 6
       },
@@ -196,7 +147,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 11,
+        "y": 7,
         "w": 24,
         "h": 1
       },
@@ -211,7 +162,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 12,
+        "y": 8,
         "w": 8,
         "h": 4
       },
@@ -273,7 +224,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 12,
+        "y": 8,
         "w": 8,
         "h": 4
       },
@@ -328,7 +279,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 12,
+        "y": 8,
         "w": 8,
         "h": 4
       },
@@ -390,7 +341,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 16,
+        "y": 12,
         "w": 24,
         "h": 1
       },
@@ -405,7 +356,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 17,
+        "y": 13,
         "w": 8,
         "h": 4
       },
@@ -471,7 +422,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 17,
+        "y": 13,
         "w": 16,
         "h": 4
       },
@@ -520,7 +471,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 21,
+        "y": 17,
         "w": 12,
         "h": 6
       },
@@ -585,7 +536,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 21,
+        "y": 17,
         "w": 12,
         "h": 6
       },
@@ -667,7 +618,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 27,
+        "y": 23,
         "w": 24,
         "h": 1
       },
@@ -682,7 +633,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 28,
+        "y": 24,
         "w": 6,
         "h": 4
       },
@@ -751,7 +702,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 28,
+        "y": 24,
         "w": 6,
         "h": 4
       },
@@ -820,7 +771,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 28,
+        "y": 24,
         "w": 6,
         "h": 4
       },
@@ -889,7 +840,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 28,
+        "y": 24,
         "w": 6,
         "h": 4
       },
@@ -958,7 +909,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 32,
+        "y": 28,
         "w": 24,
         "h": 5
       },
@@ -1004,7 +955,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 37,
+        "y": 33,
         "w": 24,
         "h": 1
       },
@@ -1019,7 +970,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 38,
+        "y": 34,
         "w": 12,
         "h": 7
       },
@@ -1104,7 +1055,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 38,
+        "y": 34,
         "w": 12,
         "h": 7
       },
@@ -1169,7 +1120,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 45,
+        "y": 41,
         "w": 24,
         "h": 6
       },
