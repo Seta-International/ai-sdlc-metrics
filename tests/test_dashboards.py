@@ -195,34 +195,14 @@ def _all_titles(dash):
     return out
 
 
-def _all_panels(dash):
-    """Every panel, recursing into row-nested panels."""
-    out = []
-    for p in dash["panels"]:
-        out.append(p)
-        out += p.get("panels", [])
-    return out
-
-
-def test_bod_has_verdict_and_heatmap(tmp_path):
+def test_bod_has_heatmap(tmp_path):
     out = _generate(tmp_path)
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())
     titles = _all_titles(bod)
-    assert any("Verdict" in t for t in titles)                # the verdict panel
+    assert not any("Verdict" in t for t in titles)            # panel removed
     assert any("Portfolio Maturity" in t for t in titles)     # heatmap (2 projects in config)
     body = json.dumps(bod)
     assert "reporting.v_levels" in body
-    assert any("Decisions" in t for t in titles)              # the "Ask" section, renamed
-
-
-def test_bod_ask_uses_real_newlines(tmp_path):
-    out = _generate(tmp_path)
-    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
-    ask = next(p for p in _all_panels(bod)
-               if p.get("type") == "text" and "Decisions" in p.get("title", ""))
-    content = ask["options"]["content"]
-    assert "\n" in content        # real line breaks render as markdown bullets
-    assert "\\n" not in content   # not the literal backslash-n that renders as text
 
 
 def test_bod_has_evidence_delta(tmp_path):

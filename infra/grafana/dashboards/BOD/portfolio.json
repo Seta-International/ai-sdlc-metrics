@@ -24,83 +24,11 @@
   "panels": [
     {
       "type": "row",
-      "title": "Summary",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "type": "stat",
-      "title": "Verdict",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 1,
-        "w": 24,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#898781"
-          },
-          "custom": {}
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "/.*/",
-          "values": false
-        },
-        "graphMode": "none",
-        "colorMode": "value",
-        "justifyMode": "auto",
-        "textMode": "value"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "WITH lv AS (SELECT DISTINCT ON (project) project, quarter, lvl_a, lvl_b, lvl_c, lvl_d, lvl_e, overall FROM reporting.v_levels ORDER BY project, quarter DESC), agg AS (SELECT min(lvl_c) mc, min(lvl_e) me, min(overall) mo, count(*) n FROM lv) SELECT CASE WHEN me <= 1 OR mc <= 1 THEN 'Action required: a quality or governance gate is at Level 1. Remediate before expanding AI use.' WHEN mo >= 3 THEN 'On track: every project is at Level 3 or higher. Maintain current investment.' ELSE 'Baseline established. Maturity levels are still forming across the portfolio.' END AS verdict FROM agg",
-          "refId": "A"
-        }
-      ],
-      "description": "Portfolio status from reporting.v_levels: flags a Level-1 C-Quality or E-Governance gate, confirms when every project reaches Level 3, otherwise reports the baseline is forming."
-    },
-    {
-      "type": "row",
       "title": "Return on Investment",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 0,
         "w": 24,
         "h": 1
       },
@@ -115,7 +43,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 6,
+        "y": 1,
         "w": 8,
         "h": 4
       },
@@ -170,7 +98,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 6,
+        "y": 1,
         "w": 8,
         "h": 4
       },
@@ -232,7 +160,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 6,
+        "y": 1,
         "w": 8,
         "h": 4
       },
@@ -298,7 +226,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 10,
+        "y": 5,
         "w": 8,
         "h": 4
       },
@@ -364,7 +292,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 10,
+        "y": 5,
         "w": 8,
         "h": 4
       },
@@ -430,7 +358,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 10,
+        "y": 5,
         "w": 8,
         "h": 4
       },
@@ -482,7 +410,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 14,
+        "y": 9,
         "w": 24,
         "h": 1
       },
@@ -497,7 +425,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 15,
+        "y": 10,
         "w": 24,
         "h": 6
       },
@@ -652,7 +580,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 21,
+        "y": 16,
         "w": 24,
         "h": 6
       },
@@ -873,7 +801,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 27,
+        "y": 22,
         "w": 24,
         "h": 6
       },
@@ -1028,7 +956,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 33,
+        "y": 28,
         "w": 24,
         "h": 6
       },
@@ -1110,7 +1038,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 39,
+        "y": 34,
         "w": 24,
         "h": 1
       },
@@ -1125,7 +1053,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 40,
+        "y": 35,
         "w": 24,
         "h": 6
       },
@@ -1159,11 +1087,11 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT project AS \"Project\", round(lead_time_ai_h, 1) AS \"Lead AI h\", round(lead_time_nonai_h, 1) AS \"Lead non-AI h\", round(100 * (lead_time_nonai_h - lead_time_ai_h) / NULLIF(lead_time_nonai_h, 0), 0) AS \"Lead \u0394%\", round(pr_size_ai, 0) AS \"PR size AI\", round(pr_size_nonai, 0) AS \"PR size non-AI\", n_ai_pr AS \"n(AI PR)\" FROM reporting.v_metrics r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.v_metrics r2 WHERE r2.project = r.project AND r2.period_type = 'sprint') ORDER BY project",
+          "rawSql": "SELECT project AS \"Project\", round(lead_time_ai_h, 1) AS \"Lead AI h\", round(lead_time_nonai_h, 1) AS \"Lead non-AI h\", round(100 * (lead_time_nonai_h - lead_time_ai_h) / NULLIF(lead_time_nonai_h, 0), 0) AS \"Lead Time Faster %\", round(pr_size_ai, 0) AS \"PR size AI\", round(pr_size_nonai, 0) AS \"PR size non-AI\", n_ai_pr AS \"n(AI PR)\" FROM reporting.v_metrics r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.v_metrics r2 WHERE r2.project = r.project AND r2.period_type = 'sprint') ORDER BY project",
           "refId": "A"
         }
       ],
-      "description": "AI vs non-AI, as pre-computed deltas with sample size. A slower AI lead time is a legitimate finding (verification overhead), not an error: read it with the quality columns. n(AI PR) is the sample behind the AI figures."
+      "description": "AI vs non-AI, as pre-computed deltas with sample size. Lead Time Faster % is positive when AI is faster, negative when AI is slower \u2014 a negative value is a legitimate finding (verification overhead), not an error: read it with the quality columns. n(AI PR) is the sample behind the AI figures."
     },
     {
       "type": "row",
@@ -1171,7 +1099,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 46,
+        "y": 41,
         "w": 24,
         "h": 1
       },
@@ -1186,7 +1114,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 47,
+        "y": 42,
         "w": 24,
         "h": 8
       },
@@ -1467,7 +1395,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 55,
+        "y": 50,
         "w": 24,
         "h": 1
       },
@@ -1482,7 +1410,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 56,
+        "y": 51,
         "w": 8,
         "h": 8
       },
@@ -1578,7 +1506,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 56,
+        "y": 51,
         "w": 8,
         "h": 8
       },
@@ -1674,7 +1602,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 56,
+        "y": 51,
         "w": 8,
         "h": 8
       },
@@ -1767,7 +1695,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 64,
+        "y": 59,
         "w": 24,
         "h": 1
       },
@@ -1782,7 +1710,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 65,
+        "y": 60,
         "w": 8,
         "h": 8
       },
@@ -1867,7 +1795,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 65,
+        "y": 60,
         "w": 8,
         "h": 8
       },
@@ -1952,7 +1880,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 65,
+        "y": 60,
         "w": 8,
         "h": 8
       },

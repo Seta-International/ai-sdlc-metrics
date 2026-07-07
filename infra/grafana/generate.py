@@ -787,16 +787,18 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
                  "round(lead_time_ai_h, 1) AS \"Lead AI h\", "
                  "round(lead_time_nonai_h, 1) AS \"Lead non-AI h\", "
                  "round(100 * (lead_time_nonai_h - lead_time_ai_h) "
-                 "/ NULLIF(lead_time_nonai_h, 0), 0) AS \"Lead Δ%\", "
+                 "/ NULLIF(lead_time_nonai_h, 0), 0) AS \"Lead Time Faster %\", "
                  "round(pr_size_ai, 0) AS \"PR size AI\", "
                  "round(pr_size_nonai, 0) AS \"PR size non-AI\", "
                  "n_ai_pr AS \"n(AI PR)\" "
                  f"{latest} ORDER BY project"),
          "unit": "none", "w": 24, "h": 6,
-         "desc": ("AI vs non-AI, as pre-computed deltas with sample size. A "
-                  "slower AI lead time is a legitimate finding (verification "
-                  "overhead), not an error: read it with the quality columns. "
-                  "n(AI PR) is the sample behind the AI figures.")},
+         "desc": ("AI vs non-AI, as pre-computed deltas with sample size. "
+                  "Lead Time Faster % is positive when AI is faster, negative "
+                  "when AI is slower — a negative value is a legitimate finding "
+                  "(verification overhead), not an error: read it with the "
+                  "quality columns. n(AI PR) is the sample behind the AI "
+                  "figures.")},
     ]
 
     direction = [
@@ -846,25 +848,6 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
          "desc": "Portfolio tool mix: informs license decisions."},
     ]
 
-    verdict_sql = (
-        "WITH lv AS (" + _levels_latest_all() + "), "
-        "agg AS (SELECT min(lvl_c) mc, min(lvl_e) me, min(overall) mo, "
-        "count(*) n FROM lv) "
-        "SELECT CASE "
-        "WHEN me <= 1 OR mc <= 1 THEN "
-        "'Action required: a quality or governance gate is at Level 1. Remediate before expanding AI use.' "
-        "WHEN mo >= 3 THEN "
-        "'On track: every project is at Level 3 or higher. Maintain current investment.' "
-        "ELSE 'Baseline established. Maturity levels are still forming across the portfolio.' "
-        "END AS verdict FROM agg")
-    verdict = [
-        {"kind": "stat", "title": "Verdict", "sql": verdict_sql,
-         "format": "table", "unit": "none", "w": 24, "h": 4,
-         "text_stat": True, "custom": {}, "color": DEEMPH,
-         "desc": ("Portfolio status from reporting.v_levels: flags a Level-1 "
-                  "C-Quality or E-Governance gate, confirms when every project "
-                  "reaches Level 3, otherwise reports the baseline is forming.")},
-    ]
     heatmap = [
         {"kind": "table", "title": "Portfolio Maturity (A–E)",
          "sql": (f"SELECT project AS \"Project\", lvl_a AS \"A\", lvl_b AS \"B\", "
@@ -879,7 +862,6 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
                   "OVERALL = MIN(E, C, round(avg)).")},
     ]
     sections = [
-        ("Summary", verdict),
         ("Return on Investment", pulse),
         ("Project Scorecard (latest sprint)", scorecard),
         ("AI vs Non-AI Comparison", evidence),
