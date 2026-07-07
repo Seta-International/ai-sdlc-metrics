@@ -173,6 +173,23 @@ def test_v_level_distribution_counts(pg_url):
     assert total is not None and int(total) >= 2
 
 
+def test_v_penetration_breadth(pg_url):
+    import psycopg2
+    from datetime import date
+    from collector.db import upsert_counts
+    # Unique period key: pg_url is session-scoped, and other tests already put
+    # month/total_prs data in 2026-06, which would pollute this aggregate view.
+    upsert_counts(pg_url, "P-Pen-AI", "month", "2026-09", date(2026, 9, 1), date(2026, 9, 30),
+                  {"total_prs": 10, "ai_prs": 4})
+    upsert_counts(pg_url, "P-Pen-None", "month", "2026-09", date(2026, 9, 1), date(2026, 9, 30),
+                  {"total_prs": 8, "ai_prs": 0})
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT n_projects_ai, n_projects_total FROM reporting.v_penetration "
+                    "WHERE period_type='month' AND period_key='2026-09'")
+        ai, total = cur.fetchone()
+    assert int(ai) == 1 and int(total) == 2
+
+
 def test_views_sql_is_reappliable(pg_url):
     """views.sql must re-apply cleanly to an already-migrated DB (deploy re-runs it)."""
     import os

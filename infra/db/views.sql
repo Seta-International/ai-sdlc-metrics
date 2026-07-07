@@ -3,6 +3,7 @@
 --   psql "$REPORTING_DB_URL" -f infra/db/views.sql
 -- Drop first: CREATE OR REPLACE cannot add/reorder view columns.
 
+DROP VIEW IF EXISTS reporting.v_penetration;
 DROP VIEW IF EXISTS reporting.v_level_distribution;
 DROP VIEW IF EXISTS reporting.v_portfolio_roi;
 DROP VIEW IF EXISTS reporting.metrics_ratios;
@@ -275,3 +276,12 @@ SELECT quarter, dimension, level, count(*)::int AS n_projects
 FROM unpivot
 WHERE level IS NOT NULL
 GROUP BY quarter, dimension, level;
+
+CREATE VIEW reporting.v_penetration AS
+SELECT period_type, period_key, min(period_start) AS period_start,
+       count(*) FILTER (WHERE COALESCE(ai_prs, 0) > 0
+                           OR COALESCE(ai_tasks, 0) > 0)::int AS n_projects_ai,
+       count(*) FILTER (WHERE COALESCE(total_prs, 0) > 0
+                           OR COALESCE(total_tasks, 0) > 0)::int AS n_projects_total
+FROM reporting.metrics_wide
+GROUP BY period_type, period_key;
