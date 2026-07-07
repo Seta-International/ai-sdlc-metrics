@@ -120,6 +120,28 @@ def test_board_benchmark_thresholds_present(pg_url):
     assert all(note for _, _, note in rows), "every benchmark row must document its basis"
 
 
+def test_v_portfolio_roi_cumulative(pg_url):
+    import psycopg2
+    from datetime import date
+    from collector.db import upsert_counts, upsert_manual_input
+    upsert_counts(pg_url, "P-Roi", "month", "2026-05", date(2026, 5, 1), date(2026, 5, 31),
+                  {"ai_time_saved_h": 10.0})
+    upsert_counts(pg_url, "P-Roi", "month", "2026-06", date(2026, 6, 1), date(2026, 6, 30),
+                  {"ai_time_saved_h": 30.0})
+    upsert_manual_input(pg_url, "P-Roi", "2026-05", "ai_tool_cost_monthly", "100", "seed")
+    upsert_manual_input(pg_url, "P-Roi", "2026-06", "ai_tool_cost_monthly", "100", "seed")
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT period_key, hours_saved, tool_cost, cum_hours_saved, cum_tool_cost "
+                    "FROM reporting.v_portfolio_roi WHERE project='P-Roi' ORDER BY period_start")
+        rows = [[float(x) if x is not None else None for x in r[1:]] for r in cur.fetchall()]
+        # order preserved separately:
+        cur.execute("SELECT period_key FROM reporting.v_portfolio_roi "
+                    "WHERE project='P-Roi' ORDER BY period_start")
+        keys = [r[0] for r in cur.fetchall()]
+    assert keys == ["2026-05", "2026-06"]
+    assert rows == [[10.0, 100.0, 10.0, 100.0], [30.0, 100.0, 40.0, 200.0]]
+
+
 def test_views_sql_is_reappliable(pg_url):
     """views.sql must re-apply cleanly to an already-migrated DB (deploy re-runs it)."""
     import os

@@ -3,6 +3,7 @@
 --   psql "$REPORTING_DB_URL" -f infra/db/views.sql
 -- Drop first: CREATE OR REPLACE cannot add/reorder view columns.
 
+DROP VIEW IF EXISTS reporting.v_portfolio_roi;
 DROP VIEW IF EXISTS reporting.metrics_ratios;
 DROP VIEW IF EXISTS reporting.v_levels;
 DROP VIEW IF EXISTS reporting.v_quarter_metrics;
@@ -98,6 +99,24 @@ LEFT JOIN LATERAL (
 
 -- Backward-compat alias so existing consumers keep working during the migration.
 CREATE VIEW reporting.metrics_ratios AS SELECT * FROM reporting.v_metrics;
+
+CREATE VIEW reporting.v_portfolio_roi AS
+WITH m AS (
+  SELECT w.project, w.period_key, w.period_start,
+         w.ai_time_saved_h AS hours_saved,
+         mi.value::numeric  AS tool_cost
+  FROM reporting.metrics_wide w
+  LEFT JOIN reporting.manual_inputs mi
+    ON mi.project = w.project AND mi.period_key = w.period_key
+   AND mi.field = 'ai_tool_cost_monthly'
+  WHERE w.period_type = 'month'
+)
+SELECT project, period_key, period_start, hours_saved, tool_cost,
+       sum(COALESCE(hours_saved, 0)) OVER w AS cum_hours_saved,
+       sum(COALESCE(tool_cost, 0))   OVER w AS cum_tool_cost
+FROM m
+WINDOW w AS (PARTITION BY project ORDER BY period_start
+             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW);
 
 CREATE VIEW reporting.v_quarter_metrics AS
 WITH months AS (
