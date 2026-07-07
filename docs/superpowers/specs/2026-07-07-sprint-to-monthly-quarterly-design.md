@@ -134,6 +134,32 @@ underlying collection code are all removed.
   `local-first-testing` — every guard branch needs to be visible in seed data,
   not just the happy path.
 
+## Exporter changes (`exporter/`)
+
+Discovered during planning — not a mechanical URL rename. `exporter/workbook.py`
+has a whole extra "Sprint data" sheet (finer-grained ratio columns than sheet
+3's raw counts) and `exporter/app.py`'s `/export.xlsx` takes a `?sprints=S1:S6`
+range filter that expands to the months it overlaps
+(`months_overlapped`) to also bound the "3. Monthly" sheet.
+
+**Decision (approved):** rename the sheet to **"Monthly detail"**, reading the
+same ratio columns (`SPRINT_SHEET_COLS` minus `sprint_committed`,
+`sprint_completed`, `predictability_pct`) from **month** rows instead of
+sprint rows. The URL filter becomes `?months=2026-01:2026-06` (a month-key
+range, string-comparable since `YYYY-MM` sorts lexicographically). Concretely:
+- `exporter/workbook.py`: `parse_sprint_range`/`sprint_in_range` →
+  `parse_month_range`/`month_in_range` (compare `"YYYY-MM"` strings directly,
+  no index parsing needed, unlike sprint's `S<n>`). `months_overlapped` is
+  deleted — with sprint gone there's only one row-set (month rows) and no
+  "expand sprint window to overlapping months" step needed. `fill_workbook`
+  takes one `month_rows` param instead of `sprint_rows` + `month_rows`.
+- `exporter/app.py`: `export(project, sprints=...)` → `export(project,
+  months=...)`; drop the `months_overlapped` bridging step; filename becomes
+  `ai-sdlc-maturity_{project}_{months or 'all'}.xlsx`.
+- Every BOD/project dashboard "Download Excel" link
+  (`export.xlsx?project=...&sprints=${sprint}`) updates to
+  `...&months=${month}` (project dashboards) or drops the param (BOD "all").
+
 ## Docs
 
 - `CLAUDE.md`: remove the "Sprint N starts at `SPRINT_ANCHOR + (N-1) *
