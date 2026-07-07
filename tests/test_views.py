@@ -37,12 +37,12 @@ def test_usage_pct_null_when_team_size_zero(pg_url):
 
 
 def test_n_columns_are_raw_counts(pg_url):
-    upsert_counts(pg_url, "P-N", "sprint", "S1", date(2026, 6, 29), date(2026, 7, 13),
+    upsert_counts(pg_url, "P-N", "month", "2026-07", date(2026, 6, 29), date(2026, 7, 13),
                   {"total_prs": 40, "ai_prs": 16, "agent_prs_total": 6, "deploys": 6,
                    "total_tasks": 50})
     with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
         cur.execute("SELECT n_pr, n_ai_pr, n_agent_pr, n_deploys, n_tasks "
-                    "FROM reporting.v_metrics WHERE project='P-N' AND period_key='S1'")
+                    "FROM reporting.v_metrics WHERE project='P-N' AND period_key='2026-07'")
         assert [float(v) for v in cur.fetchone()] == [40, 16, 6, 6, 50]
 
 
@@ -59,7 +59,7 @@ def test_metrics_wide_null_for_missing_metrics(pg_url):
 
 
 def test_new_story_ratios(pg_url):
-    upsert_counts(pg_url, "P-Story", "sprint", "S1", date(2026, 6, 29), date(2026, 7, 13), {
+    upsert_counts(pg_url, "P-Story", "month", "2026-07", date(2026, 6, 29), date(2026, 7, 13), {
         "total_prs": 10, "ai_prs": 4, "agent_prs_total": 2, "total_tasks": 24,
         "engineers_active": 6, "lead_time_ai_h": 12.0, "lead_time_nonai_h": 24.0,
         "rework_prs": 4, "rework_from_ai_prs": 1,
@@ -71,7 +71,7 @@ def test_new_story_ratios(pg_url):
             SELECT agent_pr_pct, throughput_per_engineer, lead_time_ai_delta_pct,
                    ai_pr_test_pct, rework_from_ai_pct, ai_time_saved_h, pr_size_ai
             FROM reporting.metrics_ratios
-            WHERE project = 'P-Story' AND period_key = 'S1'
+            WHERE project = 'P-Story' AND period_key = '2026-07'
         """)
         row = cur.fetchone()
     assert [round(float(v), 2) for v in row] == \
@@ -79,7 +79,7 @@ def test_new_story_ratios(pg_url):
 
 
 def test_new_ratios_null_safe(pg_url):
-    upsert_counts(pg_url, "P-Story2", "sprint", "S1", date(2026, 6, 29), date(2026, 7, 13),
+    upsert_counts(pg_url, "P-Story2", "month", "2026-07", date(2026, 6, 29), date(2026, 7, 13),
                   {"total_prs": 5})
     with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
         cur.execute("""
@@ -98,6 +98,27 @@ def test_v_metrics_survives_non_numeric_team_size(pg_url):
         cur.execute("SELECT team_size, usage_pct FROM reporting.v_metrics "
                     "WHERE project='P-BadTeam' AND period_key='2026-02'")
         assert cur.fetchone() == (None, None)   # must not raise; bad value ignored
+
+
+def test_v_metrics_q_is_volume_weighted_not_averaged(pg_url):
+    # June: 10/20 AI PRs (50%). July: 40/400 AI PRs (10%). Naive avg = 30%;
+    # volume-weighted = 50/420 = 11.90%. Both months in the same quarter (Q3).
+    upsert_counts(pg_url, "P-Weighted", "month", "2026-07",
+                  date(2026, 7, 1), date(2026, 7, 31),
+                  {"ai_prs": 10, "total_prs": 20})
+    upsert_counts(pg_url, "P-Weighted", "month", "2026-08",
+                  date(2026, 8, 1), date(2026, 8, 31),
+                  {"ai_prs": 40, "total_prs": 400})
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("""
+            SELECT period_type, period_key, round(ai_pr_pct, 2)
+            FROM reporting.v_metrics_q
+            WHERE project = 'P-Weighted'
+        """)
+        period_type, period_key, ai_pr_pct = cur.fetchone()
+    assert period_type == "quarter"
+    assert period_key == "2026-Q3"
+    assert float(ai_pr_pct) == 11.90   # NOT 30.0 (the naive average)
 
 
 def test_views_sql_is_reappliable(pg_url):

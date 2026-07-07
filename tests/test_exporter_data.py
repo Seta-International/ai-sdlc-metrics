@@ -4,7 +4,7 @@ from exporter.data import fetch_projects, fetch_period_rows, fetch_manual
 
 
 def _seed(pg_url):
-    upsert_counts(pg_url, "P-Exp", "sprint", "S1", date(2026, 6, 29), date(2026, 7, 13),
+    upsert_counts(pg_url, "P-Exp", "month", "2026-07", date(2026, 6, 29), date(2026, 7, 13),
                   {"ai_prs": 3, "total_prs": 10})
     upsert_counts(pg_url, "P-Exp", "month", "2026-06", date(2026, 6, 1), date(2026, 6, 30),
                   {"deploys": 4, "weeks": 4.3})
@@ -18,10 +18,10 @@ def test_fetch_projects(pg_url):
 
 def test_fetch_period_rows(pg_url):
     _seed(pg_url)
-    rows = fetch_period_rows(pg_url, ["P-Exp"], "sprint")
-    assert rows[0]["period_key"] == "S1"
-    assert float(rows[0]["ai_pr_pct"]) == 30.0
-    assert rows[0]["lead_time_h"] is None
+    rows = fetch_period_rows(pg_url, ["P-Exp"], "month")
+    row = next(r for r in rows if r["period_key"] == "2026-07")
+    assert float(row["ai_pr_pct"]) == 30.0
+    assert row["lead_time_h"] is None
 
 
 def test_fetch_manual(pg_url):

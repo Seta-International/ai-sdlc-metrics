@@ -6,6 +6,7 @@
 DROP VIEW IF EXISTS reporting.metrics_ratios;
 DROP VIEW IF EXISTS reporting.v_levels;
 DROP VIEW IF EXISTS reporting.v_quarter_metrics;
+DROP VIEW IF EXISTS reporting.v_metrics_q;
 DROP VIEW IF EXISTS reporting.v_metrics;
 DROP VIEW IF EXISTS reporting.metrics_wide;
 
@@ -95,6 +96,99 @@ LEFT JOIN LATERAL (
   ORDER BY mi.period_key DESC
   LIMIT 1
 ) ts ON true;
+
+-- Volume-weighted quarter rollup of v_metrics month rows: sums the raw
+-- numerator/denominator counts across the quarter's months before dividing,
+-- so a high-volume month isn't diluted by averaging it with a quiet one.
+-- Column set matches reporting.v_metrics so dashboards can UNION ALL the two
+-- and filter on period_type = 'month' | 'quarter' via one $granularity var.
+CREATE VIEW reporting.v_metrics_q AS
+WITH months AS (
+  SELECT
+    project,
+    to_char(period_start, 'YYYY') || '-Q' ||
+      ceil(extract(month FROM period_start) / 3.0)::int AS quarter,
+    min(period_start) AS q_start, max(period_end) AS q_end,
+    ai_users_weekly_avg, engineers_active, team_size, ai_prs, total_prs,
+    agent_tasks, ai_tasks, total_tasks, lead_time_h, deploys, weeks,
+    incidents, mttr_h, rework_prs, ai_prs_reviewed, security_alerts,
+    agent_prs_total, agent_prs_merged, agent_prs_human_fixed,
+    agent_prs_autonomous, agent_cycle_h, lead_time_ai_h, lead_time_nonai_h,
+    rework_from_ai_prs, ai_time_saved_h, ai_prs_with_tests, pr_size_ai,
+    pr_size_nonai, first_review_ai_h, first_review_nonai_h,
+    review_rounds_ai, review_rounds_nonai
+  FROM reporting.v_metrics
+  WHERE period_type = 'month'
+  GROUP BY project, period_start, ai_users_weekly_avg, engineers_active,
+    team_size, ai_prs, total_prs, agent_tasks, ai_tasks, total_tasks,
+    lead_time_h, deploys, weeks, incidents, mttr_h, rework_prs,
+    ai_prs_reviewed, security_alerts, agent_prs_total, agent_prs_merged,
+    agent_prs_human_fixed, agent_prs_autonomous, agent_cycle_h,
+    lead_time_ai_h, lead_time_nonai_h, rework_from_ai_prs, ai_time_saved_h,
+    ai_prs_with_tests, pr_size_ai, pr_size_nonai, first_review_ai_h,
+    first_review_nonai_h, review_rounds_ai, review_rounds_nonai
+),
+agg AS (
+  SELECT
+    project, quarter,
+    min(q_start) AS period_start, max(q_end) AS period_end,
+    avg(team_size) AS team_size,
+    sum(ai_users_weekly_avg) / NULLIF(count(*), 0) AS ai_users_weekly_avg,
+    sum(engineers_active) AS engineers_active,
+    sum(ai_prs) AS ai_prs, sum(total_prs) AS total_prs,
+    sum(agent_tasks) AS agent_tasks, sum(ai_tasks) AS ai_tasks,
+    sum(total_tasks) AS total_tasks,
+    sum(lead_time_h * total_prs) / NULLIF(sum(total_prs), 0) AS lead_time_h,
+    sum(deploys) AS deploys, sum(weeks) AS weeks, sum(incidents) AS incidents,
+    sum(mttr_h * incidents) / NULLIF(sum(incidents), 0) AS mttr_h,
+    sum(rework_prs) AS rework_prs, sum(ai_prs_reviewed) AS ai_prs_reviewed,
+    sum(security_alerts) AS security_alerts,
+    sum(agent_prs_total) AS agent_prs_total,
+    sum(agent_prs_merged) AS agent_prs_merged,
+    sum(agent_prs_human_fixed) AS agent_prs_human_fixed,
+    sum(agent_prs_autonomous) AS agent_prs_autonomous,
+    sum(agent_cycle_h * agent_prs_total) / NULLIF(sum(agent_prs_total), 0) AS agent_cycle_h,
+    sum(lead_time_ai_h * ai_prs) / NULLIF(sum(ai_prs), 0) AS lead_time_ai_h,
+    sum(lead_time_nonai_h * (total_prs - ai_prs)) / NULLIF(sum(total_prs - ai_prs), 0) AS lead_time_nonai_h,
+    sum(rework_from_ai_prs) AS rework_from_ai_prs,
+    sum(ai_time_saved_h) AS ai_time_saved_h,
+    sum(ai_prs_with_tests) AS ai_prs_with_tests,
+    sum(pr_size_ai * ai_prs) / NULLIF(sum(ai_prs), 0) AS pr_size_ai,
+    sum(pr_size_nonai * (total_prs - ai_prs)) / NULLIF(sum(total_prs - ai_prs), 0) AS pr_size_nonai,
+    sum(first_review_ai_h * ai_prs) / NULLIF(sum(ai_prs), 0) AS first_review_ai_h,
+    sum(first_review_nonai_h * (total_prs - ai_prs)) / NULLIF(sum(total_prs - ai_prs), 0) AS first_review_nonai_h,
+    sum(review_rounds_ai * ai_prs) / NULLIF(sum(ai_prs), 0) AS review_rounds_ai,
+    sum(review_rounds_nonai * (total_prs - ai_prs)) / NULLIF(sum(total_prs - ai_prs), 0) AS review_rounds_nonai
+  FROM months
+  GROUP BY project, quarter
+)
+SELECT
+  project, 'quarter'::text AS period_type, quarter AS period_key,
+  period_start, period_end, team_size,
+  100.0 * ai_prs / NULLIF(total_prs, 0) AS ai_pr_pct,
+  CASE WHEN ai_users_weekly_avg IS NULL OR team_size IS NULL OR team_size = 0 THEN NULL
+       ELSE LEAST(100.0 * ai_users_weekly_avg / NULLIF(team_size, 0), 100.0) END AS usage_pct,
+  100.0 * ai_users_weekly_avg / NULLIF(engineers_active, 0) AS usage_rate_pct,
+  100.0 * agent_tasks / NULLIF(total_tasks, 0) AS agent_task_pct,
+  100.0 * ai_tasks / NULLIF(total_tasks, 0) AS ai_task_pct,
+  deploys / NULLIF(weeks, 0) AS deploys_per_week,
+  100.0 * incidents / NULLIF(deploys, 0) AS cfr_pct,
+  100.0 * rework_prs / NULLIF(total_prs, 0) AS rework_pct,
+  100.0 * ai_prs_reviewed / NULLIF(ai_prs, 0) AS ai_pr_review_pct,
+  100.0 * agent_prs_merged / NULLIF(agent_prs_total, 0) AS agent_completion_pct,
+  100.0 * agent_prs_human_fixed / NULLIF(agent_prs_total, 0) AS human_intervention_pct,
+  100.0 * agent_prs_autonomous / NULLIF(agent_prs_total, 0) AS autonomy_pct,
+  100.0 * agent_prs_total / NULLIF(total_prs, 0) AS agent_pr_pct,
+  total_tasks::numeric / NULLIF(engineers_active, 0) AS throughput_per_engineer,
+  100.0 * (lead_time_nonai_h - lead_time_ai_h) / NULLIF(lead_time_nonai_h, 0) AS lead_time_ai_delta_pct,
+  100.0 * ai_prs_with_tests / NULLIF(ai_prs, 0) AS ai_pr_test_pct,
+  100.0 * rework_from_ai_prs / NULLIF(rework_prs, 0) AS rework_from_ai_pct,
+  total_prs AS n_pr, ai_prs AS n_ai_pr, agent_prs_total AS n_agent_pr,
+  deploys AS n_deploys, total_tasks AS n_tasks,
+  lead_time_h, deploys AS raw_deploys, weeks, incidents, mttr_h,
+  lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai,
+  first_review_ai_h, first_review_nonai_h, review_rounds_ai, review_rounds_nonai
+FROM agg;
 
 -- Backward-compat alias so existing consumers keep working during the migration.
 CREATE VIEW reporting.metrics_ratios AS SELECT * FROM reporting.v_metrics;
