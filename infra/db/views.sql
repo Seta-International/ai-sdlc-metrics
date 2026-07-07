@@ -3,6 +3,7 @@
 --   psql "$REPORTING_DB_URL" -f infra/db/views.sql
 -- Drop first: CREATE OR REPLACE cannot add/reorder view columns.
 
+DROP VIEW IF EXISTS reporting.v_level_distribution;
 DROP VIEW IF EXISTS reporting.v_portfolio_roi;
 DROP VIEW IF EXISTS reporting.metrics_ratios;
 DROP VIEW IF EXISTS reporting.v_levels;
@@ -255,3 +256,22 @@ lv AS (
 SELECT project, quarter, lvl_a, lvl_b, lvl_c, lvl_d, lvl_e,
   LEAST(lvl_e, lvl_c, round((lvl_a + lvl_b + lvl_c + lvl_d + lvl_e) / 5.0))::int AS overall
 FROM lv;
+
+CREATE VIEW reporting.v_level_distribution AS
+WITH latest AS (
+  SELECT DISTINCT ON (project) project, quarter, lvl_a, lvl_b, lvl_c, lvl_d, lvl_e, overall
+  FROM reporting.v_levels
+  ORDER BY project, quarter DESC
+),
+unpivot AS (
+  SELECT quarter, 'A' AS dimension, lvl_a AS level FROM latest
+  UNION ALL SELECT quarter, 'B', lvl_b FROM latest
+  UNION ALL SELECT quarter, 'C', lvl_c FROM latest
+  UNION ALL SELECT quarter, 'D', lvl_d FROM latest
+  UNION ALL SELECT quarter, 'E', lvl_e FROM latest
+  UNION ALL SELECT quarter, 'OVERALL', overall FROM latest
+)
+SELECT quarter, dimension, level, count(*)::int AS n_projects
+FROM unpivot
+WHERE level IS NOT NULL
+GROUP BY quarter, dimension, level;

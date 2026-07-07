@@ -142,6 +142,37 @@ def test_v_portfolio_roi_cumulative(pg_url):
     assert rows == [[10.0, 100.0, 10.0, 100.0], [30.0, 100.0, 40.0, 200.0]]
 
 
+def _seed_quarter_levels(pg_url, project, quarter, flags):
+    # v_quarter_metrics' agg CTE needs >=1 monthly metric_counts row to produce a
+    # row at all (see test_levels.py); seed a minimal one for the quarter's first
+    # month, then the quarterly manual flags (dict of field->'Yes').
+    from datetime import date
+    from collector.db import upsert_counts, upsert_manual_input
+    year, q_num = quarter.split("-Q")
+    year = int(year)
+    month = (int(q_num) - 1) * 3 + 1
+    period_key = f"{year}-{month:02d}"
+    upsert_counts(pg_url, project, "month", period_key, date(year, month, 1), date(year, month, 28),
+                  {"total_prs": 1})
+    for field, val in flags.items():
+        upsert_manual_input(pg_url, project, quarter, field, val, "seed")
+
+
+def test_v_level_distribution_counts(pg_url):
+    import psycopg2
+    # Two projects, same quarter: both end at some A level. We assert the
+    # distribution sums to the number of projects for dimension 'A'.
+    _seed_quarter_levels(pg_url, "P-Dist1", "2026-Q2", {"g2_ai_policy": "Yes"})
+    _seed_quarter_levels(pg_url, "P-Dist2", "2026-Q2", {"g2_ai_policy": "Yes"})
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT sum(n_projects) FROM reporting.v_level_distribution "
+                    "WHERE quarter='2026-Q2' AND dimension='A' "
+                    "AND quarter IN (SELECT DISTINCT quarter FROM reporting.v_levels "
+                    "                WHERE project IN ('P-Dist1','P-Dist2'))")
+        total = cur.fetchone()[0]
+    assert total is not None and int(total) >= 2
+
+
 def test_views_sql_is_reappliable(pg_url):
     """views.sql must re-apply cleanly to an already-migrated DB (deploy re-runs it)."""
     import os
