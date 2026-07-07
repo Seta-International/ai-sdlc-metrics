@@ -272,6 +272,15 @@ def test_bod_section2_risk(tmp_path):
     assert "g2_ai_policy" in raw or "g3_required_review" in raw
 
 
+def test_bod_section3_paired(tmp_path):
+    out = _generate(tmp_path)
+    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
+    titles = [p["title"] for p in bod["panels"]]
+    assert any("Lead Time" in t for t in titles)
+    assert any("Change-Fail" in t or "CFR" in t or "Rework" in t for t in titles)
+    assert any("AI vs Non-AI" in t for t in titles)
+
+
 def test_bod_has_evidence_delta(tmp_path):
     out = _generate(tmp_path)
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())

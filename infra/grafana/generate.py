@@ -799,87 +799,31 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
                  "single-point-of-failure risk."},
     ]
 
-    def _score_table(title: str, cols: list[str], overrides: list[dict],
-                     desc: str) -> dict:
-        # Project + Sprint are pinned first; each themed table stays narrow
-        # enough (~5-7 cols) to fit w:24 with no horizontal scroll, so a long
-        # list of project rows reads top-to-bottom instead of sideways.
-        sql = ("SELECT project AS \"Project\", period_key AS \"Sprint\", "
-               + ", ".join(cols) + f" {latest} ORDER BY project")
-        return {"kind": "table", "title": title, "sql": sql, "unit": "none",
-                "w": 24, "h": 6, "overrides": overrides, "desc": desc}
-
-    # Themes mirror workbook «3. Monthly» raw-input groups (A/B/C/D) so the
-    # dashboard and the Excel line up column-for-column.
-    scorecard = [
-        _score_table(
-            "A. Adoption: Latest Sprint",
-            ["total_tasks AS \"Tasks\"", "total_prs AS \"PRs\"",
-             "round(ai_pr_pct, 1) AS \"AI PR %\"",
-             "round(agent_task_pct, 1) AS \"Agent Task %\"",
-             "round(usage_pct, 0) AS \"Usage %\"",
-             "round(ai_task_pct, 1) AS \"AI Task %\"",
-             "round(throughput_per_engineer, 1) AS \"Throughput/Eng\""],
-            [_score_col("AI PR %", TH["ai_share"]),
-             _score_col("AI Task %", TH["ai_share"]),
-             _score_col("Usage %", TH["usage"])],
-            "How broadly AI is used: PR share, agent task share, engineer "
-            "usage rate (target ≥80%), and throughput per engineer."),
-        _score_table(
-            "B. Delivery (DORA): Latest Sprint",
-            ["round(lead_time_h, 1) AS \"Lead Time h\"",
-             "round(deploys_per_week, 2) AS \"Deploys/wk\"",
-             "round(cfr_pct, 1) AS \"CFR %\"",
-             "round(mttr_h, 1) AS \"MTTR h\"",
-             "round(predictability_pct, 0) AS \"Predictability %\""],
-            [_score_col("Lead Time h", TH["lead"]),
-             _score_col("Deploys/wk", TH["deploy_freq"]),
-             _score_col("CFR %", TH["cfr"]),
-             _score_col("MTTR h", TH["mttr"]),
-             _score_col("Predictability %", TH["predictability"])],
-            "DORA throughput + stability plus sprint predictability. "
-            "Green = on target, yellow = watch, red = act."),
-        _score_table(
-            "C. Quality: Latest Sprint",
-            ["round(ai_pr_review_pct, 1) AS \"Review %\"",
-             "round(rework_pct, 1) AS \"Rework %\"",
-             "round(ai_pr_test_pct, 1) AS \"AI PR Test %\"",
-             "round(rework_from_ai_pct, 1) AS \"Rework from AI %\"",
-             "security_alerts AS \"Alerts\""],
-            [_score_col("Review %", TH["review"]),
-             _score_col("Rework %", TH["rework"]),
-             _score_col("Alerts", TH["alerts"])],
-            "Verification quality: human review coverage, rework rate, AI PRs "
-            "touching tests, share of rework traced to AI PRs, and open "
-            "security alerts."),
-        _score_table(
-            "D. Agent: Latest Sprint",
-            ["round(agent_pr_pct, 1) AS \"Agent PR %\"",
-             "round(autonomy_pct, 1) AS \"Autonomy %\"",
-             "round(agent_completion_pct, 1) AS \"Completion %\"",
-             "round(human_intervention_pct, 1) AS \"Human-fix %\"",
-             "round(agent_cycle_h, 1) AS \"Agent Cycle h\""],
-            [_score_col("Autonomy %", TH["autonomy"])],
-            "Agent maturity: agent PR share, autonomy (merged with zero human "
-            "commits), completion vs human-fix rate, and cycle time."),
-    ]
-
-    evidence = [
-        {"kind": "table", "title": "Evidence: AI vs Non-AI (latest sprint)",
-         "sql": ("SELECT project AS \"Project\", "
-                 "round(lead_time_ai_h, 1) AS \"Lead AI h\", "
-                 "round(lead_time_nonai_h, 1) AS \"Lead non-AI h\", "
-                 "round(100 * (lead_time_nonai_h - lead_time_ai_h) "
-                 "/ NULLIF(lead_time_nonai_h, 0), 0) AS \"Lead Δ%\", "
-                 "round(pr_size_ai, 0) AS \"PR size AI\", "
-                 "round(pr_size_nonai, 0) AS \"PR size non-AI\", "
-                 "n_ai_pr AS \"n(AI PR)\" "
-                 f"{latest} ORDER BY project"),
-         "unit": "none", "w": 24, "h": 6,
-         "desc": ("AI vs non-AI, as pre-computed deltas with sample size. A "
-                  "slower AI lead time is a legitimate finding (verification "
-                  "overhead), not an error: read it with the quality columns. "
-                  "n(AI PR) is the sample behind the AI figures.")},
+    honest = [
+        _bod_stat("Lead Time", "lead_time_h", "round(avg(r.lead_time_h),1)", "h",
+                  th=TH["lead"], w=6,
+                  desc="Portfolio lead time. Read next to Change-Fail/Rework — a "
+                       "slower-but-safer AI lead time is legitimate, not a failure."),
+        _bod_stat("Change-Fail %", "cfr_pct", "round(avg(r.cfr_pct),1)", "percent",
+                  th=TH["cfr"], w=6,
+                  desc="Stability counter-metric to velocity (DORA 2025: AI can erode "
+                       "stability). Never read Lead Time without this."),
+        _bod_stat("Rework %", "rework_pct", "round(avg(r.rework_pct),1)", "percent",
+                  th=TH["rework"], w=6,
+                  desc="Share of PRs reworked — the quality counterweight."),
+        _bod_stat("AI PR % (context)", "ai_pr_pct", "round(avg(r.ai_pr_pct),1)", "percent",
+                  th=TH["ai_share"], w=6,
+                  desc="Adoption is context, not success (DX): a lens for reading the "
+                       "outcome metrics, never a headline win on its own."),
+        {"kind": "table", "title": "Evidence: AI vs Non-AI (portfolio)", "w": 24, "h": 5,
+         "sql": (f"SELECT round(avg(r.lead_time_ai_h),1) AS \"Lead AI h\", "
+                 f"round(avg(r.lead_time_nonai_h),1) AS \"Lead non-AI h\", "
+                 f"round(avg(r.lead_time_ai_delta_pct),0) AS \"Lead Δ%\", "
+                 f"sum(r.n_ai_pr) AS \"n(AI PR)\" FROM {_bod_src()} "
+                 f"AND {_proj('r.project')} AND {_tf('r.period_start')}"),
+         "desc": "Aggregated AI vs non-AI with sample size. A slower AI lead time is a "
+                 "legitimate verification-overhead finding; read with the quality "
+                 "columns and with n(AI PR) in mind (small samples are noisy)."},
     ]
 
     direction = [
@@ -985,8 +929,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
         ("Verdict & Decisions", verdict + decisions + attention),
         ("Is it paying off?", paying),
         ("Is it safe?", safe),
-        ("Project Scorecard (latest sprint)", scorecard),
-        ("AI vs Non-AI Comparison", evidence),
+        ("Is it working, honestly?", honest),
     ]
     if len(cfgs) >= 2:
         sections.append(("Portfolio Maturity", heatmap))
