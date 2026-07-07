@@ -878,17 +878,6 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
                   "gates (marked *). Click a project to open its dashboard. "
                   "OVERALL = MIN(E, C, round(avg)).")},
     ]
-    ask = [
-        {"kind": "text", "title": "Decisions for the board this quarter",
-         "sql": "SELECT 1", "unit": "none", "w": 24, "h": 4,
-         "desc": "Board decisions requested this quarter. Edit before each meeting.",
-         "content": ("### Decisions requested\n"
-                     "- Approve or defer expanding AI to a new project\n"
-                     "- Renew or adjust tool licences based on the tool-mix panel\n"
-                     "- Fund the governance gap shown in the maturity table\n\n"
-                     "_Update before each board meeting._")},
-    ]
-
     sections = [
         ("Summary", verdict),
         ("Return on Investment", pulse),
@@ -900,7 +889,6 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
     sections += [
         ("Delivery Health", direction),
         ("Where to Invest", value),
-        ("Decisions Requested", ask),
     ]
     links = [{"type": "link", "title": "Download Excel (all projects)", "icon": "doc",
               "targetBlank": True, "url": f"{exporter_url}/export.xlsx?project=all"}]

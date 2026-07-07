@@ -2027,52 +2027,6 @@
         }
       ],
       "description": "Portfolio tool mix: informs license decisions."
-    },
-    {
-      "type": "row",
-      "title": "Decisions Requested",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 73,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "type": "text",
-      "title": "Decisions for the board this quarter",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 74,
-        "w": 24,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "mode": "markdown",
-        "content": "### Decisions requested\n- Approve or defer expanding AI to a new project\n- Renew or adjust tool licences based on the tool-mix panel\n- Fund the governance gap shown in the maturity table\n\n_Update before each board meeting._"
-      },
-      "description": "Board decisions requested this quarter. Edit before each meeting."
     }
   ]
 }
