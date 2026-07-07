@@ -1,47 +1,40 @@
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 import pytest
 from collector.windows import Window, resolve_window
 
-ANCHOR = date(2026, 6, 29)
-NOW = datetime(2026, 7, 20, 12, 0, tzinfo=timezone.utc)  # inside sprint S2
-
-
-def test_current_sprint_resolved_from_now():
-    w = resolve_window(None, None, ANCHOR, 14, now=NOW)
-    assert (w.period_type, w.period_key) == ("sprint", "S2")
-    assert w.since == datetime(2026, 7, 13, tzinfo=timezone.utc)
-    assert w.until == NOW  # current sprint: collect up to now
-
-
-def test_past_sprint_is_capped_at_sprint_end():
-    w = resolve_window("S1", None, ANCHOR, 14, now=NOW)
-    assert w.since == datetime(2026, 6, 29, tzinfo=timezone.utc)
-    assert w.until == datetime(2026, 7, 13, tzinfo=timezone.utc)  # not NOW
+NOW = datetime(2026, 7, 20, 12, 0, tzinfo=timezone.utc)
 
 
 def test_month_window():
-    w = resolve_window(None, "2026-06", ANCHOR, 14, now=NOW)
+    w = resolve_window("2026-06", now=NOW)
     assert (w.period_type, w.period_key) == ("month", "2026-06")
     assert w.since == datetime(2026, 6, 1, tzinfo=timezone.utc)
     assert w.until == datetime(2026, 7, 1, tzinfo=timezone.utc)
 
 
-def test_current_month_capped_at_now():
-    w = resolve_window(None, "2026-07", ANCHOR, 14, now=NOW)
-    assert w.until == NOW
+def test_current_month_resolved_from_now():
+    w = resolve_window(None, now=NOW)
+    assert (w.period_type, w.period_key) == ("month", "2026-07")
+    assert w.until == NOW  # current month: collect up to now, not month-end
+
+
+def test_past_month_capped_at_month_end_not_now():
+    w = resolve_window("2026-06", now=NOW)
+    assert w.until == datetime(2026, 7, 1, tzinfo=timezone.utc)  # not NOW
+
+
+def test_december_rolls_over_to_next_year():
+    w = resolve_window("2026-12", now=datetime(2027, 2, 1, tzinfo=timezone.utc))
+    assert w.since == datetime(2026, 12, 1, tzinfo=timezone.utc)
+    assert w.until == datetime(2027, 1, 1, tzinfo=timezone.utc)
 
 
 def test_weeks_property():
-    w = resolve_window("S1", None, ANCHOR, 14, now=NOW)
-    assert w.weeks == pytest.approx(2.0)
+    w = resolve_window("2026-06", now=NOW)  # June has 30 days
+    assert w.weeks == pytest.approx(30 / 7)
 
 
-@pytest.mark.parametrize("sprint,month", [("S1", "2026-06"), ("X9", None), (None, "2026-13"), (None, "junk"), ("S0", None)])
-def test_invalid_inputs_raise(sprint, month):
+@pytest.mark.parametrize("month", ["2026-13", "junk", "2026-6", "26-06", "2026-00"])
+def test_invalid_month_raises(month):
     with pytest.raises(ValueError):
-        resolve_window(sprint, month, ANCHOR, 14, now=NOW)
-
-
-def test_anchor_in_future_raises():
-    with pytest.raises(ValueError):
-        resolve_window(None, None, date(2027, 1, 1), 14, now=NOW)
+        resolve_window(month, now=NOW)
