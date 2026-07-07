@@ -298,6 +298,15 @@ INSERT INTO reporting.manual_inputs (project, period_key, field, value, entered_
   ('Future','2026-Q3','b4_dora_improving','Yes','auto-check')
 ON CONFLICT (project, period_key, field) DO NOTHING;
 
+-- Monthly AI tool cost so the BOD "Is it paying off?" section (net $, spend
+-- vs return) draws a real cost line instead of implicitly treating it as $0.
+INSERT INTO reporting.manual_inputs (project, period_key, field, value, entered_by) VALUES
+  ('Future','2026-06','ai_tool_cost_monthly','220','seed'),
+  ('Future','2026-07','ai_tool_cost_monthly','220','seed'),
+  ('TeacherZone','2026-06','ai_tool_cost_monthly','150','seed'),
+  ('TeacherZone','2026-07','ai_tool_cost_monthly','150','seed')
+ON CONFLICT (project, period_key, field) DO UPDATE SET value = EXCLUDED.value;
+
 -- A practice-change annotation for the trend charts.
 INSERT INTO reporting.events (ts, project, title, tag) VALUES
   (TIMESTAMPTZ '2026-07-01 09:00+00', 'Future', 'Enabled branch protection', 'practice-change');

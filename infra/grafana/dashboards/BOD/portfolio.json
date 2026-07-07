@@ -10,7 +10,46 @@
     "to": "now+7d"
   },
   "templating": {
-    "list": []
+    "list": [
+      {
+        "name": "granularity",
+        "type": "custom",
+        "label": "Granularity",
+        "query": "month,quarter",
+        "current": {
+          "text": "quarter",
+          "value": "quarter"
+        },
+        "options": [
+          {
+            "text": "month",
+            "value": "month",
+            "selected": false
+          },
+          {
+            "text": "quarter",
+            "value": "quarter",
+            "selected": true
+          }
+        ]
+      },
+      {
+        "name": "project",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "reporting-postgres"
+        },
+        "label": "Project",
+        "multi": true,
+        "includeAll": true,
+        "refresh": 2,
+        "sort": 1,
+        "query": "SELECT DISTINCT project FROM reporting.v_metrics ORDER BY project",
+        "current": {},
+        "options": []
+      }
+    ]
   },
   "links": [
     {
@@ -24,7 +63,7 @@
   "panels": [
     {
       "type": "row",
-      "title": "Summary",
+      "title": "Verdict & Decisions",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -45,7 +84,7 @@
         "x": 0,
         "y": 1,
         "w": 24,
-        "h": 4
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -88,35 +127,23 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH lv AS (SELECT DISTINCT ON (project) project, quarter, lvl_a, lvl_b, lvl_c, lvl_d, lvl_e, overall FROM reporting.v_levels ORDER BY project, quarter DESC), agg AS (SELECT min(lvl_c) mc, min(lvl_e) me, min(overall) mo, count(*) n FROM lv) SELECT CASE WHEN me <= 1 OR mc <= 1 THEN 'Action required: a quality or governance gate is at Level 1. Remediate before expanding AI use.' WHEN mo >= 3 THEN 'On track: every project is at Level 3 or higher. Maintain current investment.' ELSE 'Baseline established. Maturity levels are still forming across the portfolio.' END AS verdict FROM agg",
+          "rawSql": "WITH lv AS (SELECT * FROM (SELECT DISTINCT ON (project) project, quarter, lvl_a, lvl_b, lvl_c, lvl_d, lvl_e, overall FROM reporting.v_levels ORDER BY project, quarter DESC) z WHERE project IN ($project)), agg AS (SELECT min(lvl_c) mc, min(lvl_e) me, min(overall) mo FROM lv) SELECT CASE WHEN me <= 1 OR mc <= 1 THEN 'Action required: a quality or governance gate is at Level 1. Remediate before expanding AI use.' WHEN mo >= 3 THEN 'On track: every selected project is at Level 3 or higher. Maintain current investment.' ELSE 'Baseline established. Maturity levels are still forming.' END AS verdict FROM agg",
           "refId": "A"
         }
       ],
-      "description": "Portfolio status from reporting.v_levels: flags a Level-1 C-Quality or E-Governance gate, confirms when every project reaches Level 3, otherwise reports the baseline is forming."
+      "description": "Portfolio status from reporting.v_levels for the selected projects: flags a Level-1 quality (C) or governance (E) gate."
     },
     {
-      "type": "row",
-      "title": "Return on Investment",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 5,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "type": "stat",
-      "title": "Projects Tracked",
+      "type": "table",
+      "title": "Needs a decision this period",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
       },
       "gridPos": {
         "x": 0,
-        "y": 6,
-        "w": 8,
+        "y": 4,
+        "w": 24,
         "h": 4
       },
       "fieldConfig": {
@@ -130,22 +157,16 @@
                 "value": null
               }
             ]
+          },
+          "custom": {
+            "filterable": true
           }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "graphMode": "none",
-        "colorMode": "value",
-        "justifyMode": "auto",
-        "textMode": "auto"
+        "showHeader": true,
+        "cellHeight": "sm"
       },
       "targets": [
         {
@@ -155,22 +176,102 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(DISTINCT project) FROM reporting.v_metrics WHERE period_type = 'sprint'",
+          "rawSql": "SELECT reason AS \"Item\", count(*) AS \"Projects\" FROM reporting.v_attention WHERE project IN ($project) AND severity >= 2 GROUP BY reason ORDER BY max(severity) DESC, 2 DESC LIMIT 3",
           "refId": "A"
         }
       ],
-      "description": "Distinct projects with at least one collected sprint."
+      "description": "Auto-generated from reporting.v_attention: the highest-severity board items (gate at Level 1, overall Level 1). Empty = no action required this period."
     },
     {
-      "type": "stat",
-      "title": "AI Net $ (portfolio, latest month)",
+      "type": "table",
+      "title": "Projects to act on",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 8,
-        "y": 6,
+        "x": 0,
+        "y": 8,
+        "w": 24,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Project"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open project board",
+                    "targetBlank": false,
+                    "url": "/d/ai-sdlc-${__data.fields.Project}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT project AS \"Project\", severity AS \"Severity\", reason AS \"Why\" FROM reporting.v_attention WHERE project IN ($project) ORDER BY severity DESC, project",
+          "refId": "A"
+        }
+      ],
+      "description": "The only per-project detail on this board. Click a project to drill into its operational dashboard."
+    },
+    {
+      "type": "row",
+      "title": "Is it paying off?",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Cumulative AI Net $ (to date)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 15,
         "w": 8,
         "h": 4
       },
@@ -217,47 +318,36 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT sum(w.ai_time_saved_h * CASE w.project WHEN 'Future' THEN 12 WHEN 'TeacherZone' THEN 12 ELSE 0 END) - sum(COALESCE(t.value::numeric, 0)) FROM (SELECT DISTINCT ON (project) * FROM reporting.metrics_wide WHERE period_type = 'month' AND ai_time_saved_h IS NOT NULL ORDER BY project, period_key DESC) w LEFT JOIN reporting.manual_inputs t ON t.project = w.project AND t.period_key = w.period_key AND t.field = 'ai_tool_cost_monthly'",
+          "rawSql": "SELECT sum(cum_hours_saved * rate - cum_tool_cost) FROM (SELECT DISTINCT ON (v.project) v.*, CASE v.project WHEN 'Future' THEN 12 WHEN 'TeacherZone' THEN 12 ELSE 0 END AS rate FROM reporting.v_portfolio_roi v WHERE v.project IN ($project) AND $__timeFilter(v.period_start) ORDER BY v.project, v.period_start DESC) x",
           "refId": "A"
         }
       ],
-      "description": "Sum across projects of (AI hours saved \u00d7 that project's blended rate) \u2212 monthly AI tool cost. Green when net-positive."
+      "description": "\u03a3 over selected projects of (cumulative AI hours saved \u00d7 blended rate) \u2212 cumulative AI tool cost. Green once net-positive (payback)."
     },
     {
       "type": "stat",
-      "title": "AI PR % (portfolio)",
+      "title": "Capacity unlocked (engineer-equiv)",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 16,
-        "y": 6,
+        "x": 8,
+        "y": 15,
         "w": 8,
         "h": 4
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
+          "unit": "none",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "#ec835a",
+                "color": "text",
                 "value": null
-              },
-              {
-                "color": "#fab219",
-                "value": 30
-              },
-              {
-                "color": "#0ca30c",
-                "value": 50
               }
             ]
-          },
-          "color": {
-            "mode": "thresholds"
           }
         },
         "overrides": []
@@ -283,28 +373,105 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT round(avg(ai_pr_pct), 1) FROM reporting.v_metrics r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.v_metrics r2 WHERE r2.project = r.project AND r2.period_type = 'sprint')",
+          "rawSql": "SELECT round(sum(cum_hours_saved) / (40.0 * 4 * GREATEST(count(DISTINCT date_trunc('month', period_start)),1)), 1) FROM (SELECT v.* FROM reporting.v_portfolio_roi v WHERE v.project IN ($project) AND $__timeFilter(v.period_start)) v",
           "refId": "A"
         }
       ],
-      "description": "Average AI-labeled PR share across projects, latest sprint each."
+      "description": "Cumulative hours saved expressed as full-time engineers of extra capacity (\u2248160 h/engineer-month), no headcount added."
+    },
+    {
+      "type": "timeseries",
+      "title": "Spend vs Return ($, cumulative)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 15,
+        "w": 8,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "showPoints": "always",
+            "pointSize": 6,
+            "lineWidth": 2,
+            "fillOpacity": 14,
+            "gradientMode": "opacity",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT v.period_start AS time, sum(v.cum_hours_saved * CASE v.project WHEN 'Future' THEN 12 WHEN 'TeacherZone' THEN 12 ELSE 0 END) AS \"Value\", sum(v.cum_tool_cost) AS \"Cost\" FROM reporting.v_portfolio_roi v WHERE v.project IN ($project) AND $__timeFilter(v.period_start) GROUP BY v.period_start ORDER BY v.period_start",
+          "refId": "A"
+        }
+      ],
+      "description": "Cumulative value vs cumulative cost; the gap is running net ROI."
+    },
+    {
+      "type": "row",
+      "title": "Is it safe?",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
     },
     {
       "type": "stat",
-      "title": "Lead Time (portfolio)",
+      "title": "Open Security Alerts (portfolio)",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
       },
       "gridPos": {
         "x": 0,
-        "y": 10,
+        "y": 20,
         "w": 8,
         "h": 4
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "h",
+          "unit": "none",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -314,11 +481,11 @@
               },
               {
                 "color": "#fab219",
-                "value": 48
+                "value": 1
               },
               {
                 "color": "#d03b3b",
-                "value": 120
+                "value": 4
               }
             ]
           },
@@ -349,788 +516,27 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT round(avg(lead_time_h), 1) FROM reporting.v_metrics r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.v_metrics r2 WHERE r2.project = r.project AND r2.period_type = 'sprint')",
+          "rawSql": "SELECT sum(r.security_alerts) FROM (SELECT * FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT * FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project)",
           "refId": "A"
         }
       ],
-      "description": "Average lead time across projects (latest sprint each). Lower is faster delivery."
+      "description": "Open code-scanning alerts across selected projects. AI code carries elevated vuln risk; >=1 critical is a board-level flag."
     },
     {
-      "type": "stat",
-      "title": "Agent Autonomy (portfolio)",
+      "type": "table",
+      "title": "Governance gates (projects meeting each)",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
       },
       "gridPos": {
         "x": 8,
-        "y": 10,
-        "w": 8,
+        "y": 20,
+        "w": 16,
         "h": 4
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              },
-              {
-                "color": "#86b6ef",
-                "value": 30
-              },
-              {
-                "color": "#3987e5",
-                "value": 60
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "graphMode": "none",
-        "colorMode": "value",
-        "justifyMode": "auto",
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT round(avg(autonomy_pct), 1) FROM reporting.v_metrics r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.v_metrics r2 WHERE r2.project = r.project AND r2.period_type = 'sprint')",
-          "refId": "A"
-        }
-      ],
-      "description": "Average share of agent PRs merged with zero human commits, across projects. Blue marks maturity level, not health."
-    },
-    {
-      "type": "stat",
-      "title": "Cost Improvement (portfolio)",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 10,
-        "w": 8,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "graphMode": "none",
-        "colorMode": "value",
-        "justifyMode": "auto",
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT round(avg(100 * (b.v - a.v) / NULLIF(b.v, 0)), 0) FROM (SELECT project, period_key, value::numeric v FROM reporting.manual_inputs WHERE field = 'cost_baseline') b JOIN (SELECT project, period_key, value::numeric v FROM reporting.manual_inputs WHERE field = 'cost_actual') a USING (project, period_key) JOIN (SELECT project, max(period_key) mk FROM reporting.manual_inputs WHERE field = 'cost_actual' GROUP BY project) m ON m.project = b.project AND m.mk = b.period_key",
-          "refId": "A"
-        }
-      ],
-      "description": "Baseline vs actual cost per unit (latest manual input per project). Empty until cost_baseline/cost_actual are entered."
-    },
-    {
-      "type": "row",
-      "title": "Project Scorecard (latest sprint)",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 14,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "type": "table",
-      "title": "A. Adoption: Latest Sprint",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 15,
-        "w": 24,
-        "h": 6
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "custom": {
-            "filterable": true
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "AI PR %"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "#ec835a",
-                      "value": null
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 30
-                    },
-                    {
-                      "color": "#0ca30c",
-                      "value": 50
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "AI Task %"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "#ec835a",
-                      "value": null
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 30
-                    },
-                    {
-                      "color": "#0ca30c",
-                      "value": 50
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Usage %"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "#ec835a",
-                      "value": null
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 50
-                    },
-                    {
-                      "color": "#0ca30c",
-                      "value": 80
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT project AS \"Project\", period_key AS \"Sprint\", total_tasks AS \"Tasks\", total_prs AS \"PRs\", round(ai_pr_pct, 1) AS \"AI PR %\", round(agent_task_pct, 1) AS \"Agent Task %\", round(usage_pct, 0) AS \"Usage %\", round(ai_task_pct, 1) AS \"AI Task %\", round(throughput_per_engineer, 1) AS \"Throughput/Eng\" FROM reporting.v_metrics r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.v_metrics r2 WHERE r2.project = r.project AND r2.period_type = 'sprint') ORDER BY project",
-          "refId": "A"
-        }
-      ],
-      "description": "How broadly AI is used: PR share, agent task share, engineer usage rate (target \u226580%), and throughput per engineer."
-    },
-    {
-      "type": "table",
-      "title": "B. Delivery (DORA): Latest Sprint",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 21,
-        "w": 24,
-        "h": 6
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "custom": {
-            "filterable": true
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Lead Time h"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "#0ca30c",
-                      "value": null
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 48
-                    },
-                    {
-                      "color": "#d03b3b",
-                      "value": 120
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Deploys/wk"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "#fab219",
-                      "value": null
-                    },
-                    {
-                      "color": "#0ca30c",
-                      "value": 1
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "CFR %"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "#0ca30c",
-                      "value": null
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 15
-                    },
-                    {
-                      "color": "#d03b3b",
-                      "value": 30
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "MTTR h"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "#0ca30c",
-                      "value": null
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 8
-                    },
-                    {
-                      "color": "#d03b3b",
-                      "value": 24
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Predictability %"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "#ec835a",
-                      "value": null
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 60
-                    },
-                    {
-                      "color": "#0ca30c",
-                      "value": 80
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT project AS \"Project\", period_key AS \"Sprint\", round(lead_time_h, 1) AS \"Lead Time h\", round(deploys_per_week, 2) AS \"Deploys/wk\", round(cfr_pct, 1) AS \"CFR %\", round(mttr_h, 1) AS \"MTTR h\", round(predictability_pct, 0) AS \"Predictability %\" FROM reporting.v_metrics r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.v_metrics r2 WHERE r2.project = r.project AND r2.period_type = 'sprint') ORDER BY project",
-          "refId": "A"
-        }
-      ],
-      "description": "DORA throughput + stability plus sprint predictability. Green = on target, yellow = watch, red = act."
-    },
-    {
-      "type": "table",
-      "title": "C. Quality: Latest Sprint",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 27,
-        "w": 24,
-        "h": 6
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "custom": {
-            "filterable": true
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Review %"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "#d03b3b",
-                      "value": null
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 80
-                    },
-                    {
-                      "color": "#0ca30c",
-                      "value": 99.5
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Rework %"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "#0ca30c",
-                      "value": null
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 10
-                    },
-                    {
-                      "color": "#d03b3b",
-                      "value": 20
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Alerts"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "#0ca30c",
-                      "value": null
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 1
-                    },
-                    {
-                      "color": "#d03b3b",
-                      "value": 4
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT project AS \"Project\", period_key AS \"Sprint\", round(ai_pr_review_pct, 1) AS \"Review %\", round(rework_pct, 1) AS \"Rework %\", round(ai_pr_test_pct, 1) AS \"AI PR Test %\", round(rework_from_ai_pct, 1) AS \"Rework from AI %\", security_alerts AS \"Alerts\" FROM reporting.v_metrics r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.v_metrics r2 WHERE r2.project = r.project AND r2.period_type = 'sprint') ORDER BY project",
-          "refId": "A"
-        }
-      ],
-      "description": "Verification quality: human review coverage, rework rate, AI PRs touching tests, share of rework traced to AI PRs, and open security alerts."
-    },
-    {
-      "type": "table",
-      "title": "D. Agent: Latest Sprint",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 33,
-        "w": 24,
-        "h": 6
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "custom": {
-            "filterable": true
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Autonomy %"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "text",
-                      "value": null
-                    },
-                    {
-                      "color": "#86b6ef",
-                      "value": 30
-                    },
-                    {
-                      "color": "#3987e5",
-                      "value": 60
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT project AS \"Project\", period_key AS \"Sprint\", round(agent_pr_pct, 1) AS \"Agent PR %\", round(autonomy_pct, 1) AS \"Autonomy %\", round(agent_completion_pct, 1) AS \"Completion %\", round(human_intervention_pct, 1) AS \"Human-fix %\", round(agent_cycle_h, 1) AS \"Agent Cycle h\" FROM reporting.v_metrics r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.v_metrics r2 WHERE r2.project = r.project AND r2.period_type = 'sprint') ORDER BY project",
-          "refId": "A"
-        }
-      ],
-      "description": "Agent maturity: agent PR share, autonomy (merged with zero human commits), completion vs human-fix rate, and cycle time."
-    },
-    {
-      "type": "row",
-      "title": "AI vs Non-AI Comparison",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 39,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "type": "table",
-      "title": "Evidence: AI vs Non-AI (latest sprint)",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 40,
-        "w": 24,
-        "h": 6
-      },
-      "fieldConfig": {
-        "defaults": {
           "unit": "none",
           "thresholds": {
             "mode": "absolute",
@@ -1159,332 +565,24 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT project AS \"Project\", round(lead_time_ai_h, 1) AS \"Lead AI h\", round(lead_time_nonai_h, 1) AS \"Lead non-AI h\", round(100 * (lead_time_nonai_h - lead_time_ai_h) / NULLIF(lead_time_nonai_h, 0), 0) AS \"Lead \u0394%\", round(pr_size_ai, 0) AS \"PR size AI\", round(pr_size_nonai, 0) AS \"PR size non-AI\", n_ai_pr AS \"n(AI PR)\" FROM reporting.v_metrics r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.v_metrics r2 WHERE r2.project = r.project AND r2.period_type = 'sprint') ORDER BY project",
+          "rawSql": "SELECT g.label AS \"Gate\", count(*) FILTER (WHERE mi.value='Yes') AS \"Met\", count(*) AS \"Projects\" FROM (SELECT DISTINCT ON (project) project, period_key FROM reporting.manual_inputs WHERE period_key LIKE '%-Q%' ORDER BY project, period_key DESC) q JOIN reporting.manual_inputs mi USING (project, period_key) JOIN (VALUES ('g2_ai_policy','AI policy'),('g3_required_review','Required human review'),('g6_security_controls','Security controls'),('g7_traceability','Traceability/audit'),('g8_model_governance','Model governance')) g(field,label) ON g.field = mi.field WHERE mi.project IN ($project) GROUP BY g.label ORDER BY 2",
           "refId": "A"
         }
       ],
-      "description": "AI vs non-AI, as pre-computed deltas with sample size. A slower AI lead time is a legitimate finding (verification overhead), not an error: read it with the quality columns. n(AI PR) is the sample behind the AI figures."
-    },
-    {
-      "type": "row",
-      "title": "Portfolio Maturity",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 46,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "type": "table",
-      "title": "Portfolio Maturity (A\u2013E)",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 47,
-        "w": 24,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "custom": {
-            "filterable": true
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "A"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "#d03b3b",
-                      "value": null
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 2
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 3
-                    },
-                    {
-                      "color": "#0ca30c",
-                      "value": 4
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "B"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "#d03b3b",
-                      "value": null
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 2
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 3
-                    },
-                    {
-                      "color": "#0ca30c",
-                      "value": 4
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "C*"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "#d03b3b",
-                      "value": null
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 2
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 3
-                    },
-                    {
-                      "color": "#0ca30c",
-                      "value": 4
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "D"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "#d03b3b",
-                      "value": null
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 2
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 3
-                    },
-                    {
-                      "color": "#0ca30c",
-                      "value": 4
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "E*"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "#d03b3b",
-                      "value": null
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 2
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 3
-                    },
-                    {
-                      "color": "#0ca30c",
-                      "value": 4
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "OVERALL"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "#d03b3b",
-                      "value": null
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 2
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 3
-                    },
-                    {
-                      "color": "#0ca30c",
-                      "value": 4
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT project AS \"Project\", lvl_a AS \"A\", lvl_b AS \"B\", lvl_c AS \"C*\", lvl_d AS \"D\", lvl_e AS \"E*\", overall AS \"OVERALL\" FROM (SELECT DISTINCT ON (project) project, quarter, lvl_a, lvl_b, lvl_c, lvl_d, lvl_e, overall FROM reporting.v_levels ORDER BY project, quarter DESC) x ORDER BY overall, project",
-          "refId": "A"
-        }
-      ],
-      "description": "Each project's A-E levels for its latest quarter. C and E are gates (marked *). Click a project to open its dashboard. OVERALL = MIN(E, C, round(avg))."
-    },
-    {
-      "type": "row",
-      "title": "Delivery Health",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 55,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
+      "description": "Governance posture from quarterly flags: how many selected projects meet each gate. Gaps are risk-oversight items."
     },
     {
       "type": "timeseries",
-      "title": "AI PR % by Sprint",
+      "title": "Quality-erosion watch (rework % vs AI PR %)",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
       },
       "gridPos": {
         "x": 0,
-        "y": 56,
-        "w": 8,
-        "h": 8
+        "y": 24,
+        "w": 12,
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -1507,38 +605,7 @@
             "spanNulls": true
           }
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Future"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#3987e5"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "TeacherZone"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#199e70"
-                }
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "options": {
         "legend": {
@@ -1563,398 +630,24 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, project, ai_pr_pct FROM reporting.v_metrics WHERE period_type = 'sprint' ORDER BY period_start",
+          "rawSql": "SELECT r.period_start AS time, round(avg(r.rework_pct),1) AS \"Rework %\", round(avg(r.ai_pr_pct),1) AS \"AI PR %\" FROM (SELECT * FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT * FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project) AND $__timeFilter(r.period_start) GROUP BY r.period_start ORDER BY r.period_start",
           "refId": "A"
         }
       ],
-      "description": "AI-labeled PR share per sprint, one line per project. Adoption trajectory across the portfolio."
-    },
-    {
-      "type": "timeseries",
-      "title": "Lead Time by Sprint",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 56,
-        "w": 8,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "h",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "custom": {
-            "showPoints": "always",
-            "pointSize": 6,
-            "lineWidth": 2,
-            "fillOpacity": 14,
-            "gradientMode": "opacity",
-            "spanNulls": true
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Future"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#3987e5"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "TeacherZone"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#199e70"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, project, lead_time_h FROM reporting.v_metrics WHERE period_type = 'sprint' ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
-      "description": "Lead time (hours) per sprint, one line per project. Lower/flatter is better."
-    },
-    {
-      "type": "timeseries",
-      "title": "Agent Autonomy % by Sprint",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 56,
-        "w": 8,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "custom": {
-            "showPoints": "always",
-            "pointSize": 6,
-            "lineWidth": 2,
-            "fillOpacity": 14,
-            "gradientMode": "opacity",
-            "spanNulls": true
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Future"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#3987e5"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "TeacherZone"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#199e70"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, project, autonomy_pct FROM reporting.v_metrics WHERE period_type = 'sprint' ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
-      "description": "Share of agent PRs merged with no human commits, per sprint and project. Rising = growing agent autonomy."
-    },
-    {
-      "type": "row",
-      "title": "Where to Invest",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 64,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
+      "description": "DORA 2025 warning made visible: watch rework climb as AI adoption climbs. Diverging lines (rework up with adoption) = investigate."
     },
     {
       "type": "barchart",
-      "title": "Cost Improvement % by Project (latest)",
+      "title": "Tool concentration (portfolio)",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 0,
-        "y": 65,
-        "w": 8,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#3987e5"
-          },
-          "custom": {
-            "lineWidth": 1,
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "axisPlacement": "auto",
-            "axisColorMode": "text",
-            "axisBorderShow": false,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "axisCenteredZero": false,
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "orientation": "horizontal",
-        "xField": "Project",
-        "showValue": "always",
-        "stacking": "none",
-        "groupWidth": 0.7,
-        "barWidth": 0.9,
-        "fullHighlight": false,
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "legend": {
-          "showLegend": false,
-          "displayMode": "hidden",
-          "placement": "bottom",
-          "calcs": []
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT b.project AS \"Project\", round(100 * (b.v - a.v) / NULLIF(b.v, 0), 0)::float8 AS \"Cost Improvement %\" FROM (SELECT project, period_key, value::numeric v FROM reporting.manual_inputs WHERE field = 'cost_baseline') b JOIN (SELECT project, period_key, value::numeric v FROM reporting.manual_inputs WHERE field = 'cost_actual') a USING (project, period_key) JOIN (SELECT project, max(period_key) mk FROM reporting.manual_inputs WHERE field = 'cost_actual' GROUP BY project) m ON m.project = b.project AND m.mk = b.period_key ORDER BY 2 DESC",
-          "refId": "A"
-        }
-      ],
-      "description": "From monthly manual inputs (cost baseline vs actual per unit)."
-    },
-    {
-      "type": "barchart",
-      "title": "Engineer Usage Rate by Project (latest month)",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 65,
-        "w": 8,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#199e70"
-          },
-          "custom": {
-            "lineWidth": 1,
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "axisPlacement": "auto",
-            "axisColorMode": "text",
-            "axisBorderShow": false,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "axisCenteredZero": false,
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "orientation": "horizontal",
-        "xField": "Project",
-        "showValue": "always",
-        "stacking": "none",
-        "groupWidth": 0.7,
-        "barWidth": 0.9,
-        "fullHighlight": false,
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "legend": {
-          "showLegend": false,
-          "displayMode": "hidden",
-          "placement": "bottom",
-          "calcs": []
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT DISTINCT ON (w.project) w.project AS \"Project\", round(w.usage_pct, 0)::float8 AS \"Usage %\" FROM reporting.v_metrics w WHERE w.period_type = 'month' ORDER BY w.project, w.period_key DESC",
-          "refId": "A"
-        }
-      ],
-      "description": "AI engineers \u00f7 team size (manual input, falls back to active PR contributors). Framework target \u226580%."
-    },
-    {
-      "type": "barchart",
-      "title": "AI Tasks by Tool (portfolio, all sprints)",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 65,
-        "w": 8,
-        "h": 8
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -2022,11 +715,575 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT replace(metric_key, 'ai_tasks_tool_', '') AS \"Tool\", sum(value)::float8 AS \"Tasks\" FROM reporting.metric_counts WHERE period_type = 'sprint' AND metric_key LIKE 'ai_tasks_tool_%' GROUP BY 1 ORDER BY 2 DESC",
+          "rawSql": "SELECT replace(metric_key,'ai_tasks_tool_','') AS \"Tool\", sum(value)::float8 AS \"Tasks\" FROM reporting.metric_counts WHERE metric_key LIKE 'ai_tasks_tool_%' AND project IN ($project) GROUP BY 1 ORDER BY 2 DESC",
           "refId": "A"
         }
       ],
-      "description": "Portfolio tool mix: informs license decisions."
+      "description": "Vendor concentration: one dominant tool = price / lock-in / single-point-of-failure risk."
+    },
+    {
+      "type": "row",
+      "title": "Is it working, honestly?",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Lead Time",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#0ca30c",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 48
+              },
+              {
+                "color": "#d03b3b",
+                "value": 120
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "showPercentChange": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT r.period_start AS time, round(avg(r.lead_time_h),1) AS \"Lead Time\" FROM (SELECT * FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT * FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project) AND $__timeFilter(r.period_start) GROUP BY r.period_start ORDER BY r.period_start",
+          "refId": "A"
+        }
+      ],
+      "description": "Portfolio lead time. Read next to Change-Fail/Rework \u2014 a slower-but-safer AI lead time is legitimate, not a failure."
+    },
+    {
+      "type": "stat",
+      "title": "Change-Fail %",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 31,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#0ca30c",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 15
+              },
+              {
+                "color": "#d03b3b",
+                "value": 30
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "showPercentChange": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT r.period_start AS time, round(avg(r.cfr_pct),1) AS \"Change-Fail %\" FROM (SELECT * FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT * FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project) AND $__timeFilter(r.period_start) GROUP BY r.period_start ORDER BY r.period_start",
+          "refId": "A"
+        }
+      ],
+      "description": "Stability counter-metric to velocity (DORA 2025: AI can erode stability). Never read Lead Time without this."
+    },
+    {
+      "type": "stat",
+      "title": "Rework %",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 31,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#0ca30c",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 10
+              },
+              {
+                "color": "#d03b3b",
+                "value": 20
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "showPercentChange": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT r.period_start AS time, round(avg(r.rework_pct),1) AS \"Rework %\" FROM (SELECT * FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT * FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project) AND $__timeFilter(r.period_start) GROUP BY r.period_start ORDER BY r.period_start",
+          "refId": "A"
+        }
+      ],
+      "description": "Share of PRs reworked \u2014 the quality counterweight."
+    },
+    {
+      "type": "stat",
+      "title": "AI PR % (context)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 31,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#ec835a",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 30
+              },
+              {
+                "color": "#0ca30c",
+                "value": 50
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "showPercentChange": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT r.period_start AS time, round(avg(r.ai_pr_pct),1) AS \"AI PR % (context)\" FROM (SELECT * FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT * FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project) AND $__timeFilter(r.period_start) GROUP BY r.period_start ORDER BY r.period_start",
+          "refId": "A"
+        }
+      ],
+      "description": "Adoption is context, not success (DX): a lens for reading the outcome metrics, never a headline win on its own."
+    },
+    {
+      "type": "table",
+      "title": "Evidence: AI vs Non-AI (portfolio)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 35,
+        "w": 24,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT round(avg(r.lead_time_ai_h),1) AS \"Lead AI h\", round(avg(r.lead_time_nonai_h),1) AS \"Lead non-AI h\", round(avg(r.lead_time_ai_delta_pct),0) AS \"Lead \u0394%\", sum(r.n_ai_pr) AS \"n(AI PR)\" FROM (SELECT * FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT * FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project) AND $__timeFilter(r.period_start)",
+          "refId": "A"
+        }
+      ],
+      "description": "Aggregated AI vs non-AI with sample size. A slower AI lead time is a legitimate verification-overhead finding; read with the quality columns and with n(AI PR) in mind (small samples are noisy)."
+    },
+    {
+      "type": "row",
+      "title": "Are we maturing?",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "barchart",
+      "title": "Maturity distribution (projects per level)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "axisPlacement": "auto",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "axisCenteredZero": false,
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "xField": "Level",
+        "showValue": "always",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.9,
+        "fullHighlight": false,
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "legend": {
+          "showLegend": false,
+          "displayMode": "hidden",
+          "placement": "bottom",
+          "calcs": []
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT ('L' || level) AS \"Level\", sum(n_projects)::float8 AS \"Projects\" FROM reporting.v_level_distribution WHERE dimension = 'OVERALL' GROUP BY level ORDER BY level",
+          "refId": "A"
+        }
+      ],
+      "description": "Portfolio shape: how many projects sit at each overall maturity level this quarter. Scales to N projects (no per-project rows)."
+    },
+    {
+      "type": "timeseries",
+      "title": "Adoption breadth (penetration)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 41,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "showPoints": "always",
+            "pointSize": 6,
+            "lineWidth": 2,
+            "fillOpacity": 14,
+            "gradientMode": "opacity",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, n_projects_ai AS \"On AI program\", n_projects_total AS \"Total active\" FROM reporting.v_penetration WHERE period_type = 'month' AND $__timeFilter(period_start) ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "description": "How many projects are on the AI program over time vs total active \u2014 the org-wide adoption S-curve, distinct from intensity."
+    },
+    {
+      "type": "timeseries",
+      "title": "Agent Autonomy % (gated by verification)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 48,
+        "w": 24,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "showPoints": "always",
+            "pointSize": 6,
+            "lineWidth": 2,
+            "fillOpacity": 14,
+            "gradientMode": "opacity",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT r.period_start AS time, round(avg(r.autonomy_pct),1) AS \"Autonomy %\", round(avg(r.ai_pr_review_pct),1) AS \"Review % (gate)\" FROM (SELECT * FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT * FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project) AND $__timeFilter(r.period_start) GROUP BY r.period_start ORDER BY r.period_start",
+          "refId": "A"
+        }
+      ],
+      "description": "Autonomy shown with its verification gate (review coverage). Earned autonomy only \u2014 do not credit a level the review evidence can't support."
     }
   ]
 }

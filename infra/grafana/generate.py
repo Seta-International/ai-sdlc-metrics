@@ -846,17 +846,23 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
     maturing = [
         {"kind": "barchart", "title": "Maturity distribution (projects per level)", "w": 12, "h": 7,
          "xfield": "Level", "unit": "none", "color": BLUE_MID,
+         # v_level_distribution's quarter is each project's OWN latest quarter, not a
+         # shared portfolio period — filtering to a single max(quarter) would silently
+         # drop any project whose latest data is an older quarter than others'. Every
+         # project already contributes exactly one row per dimension, so sum across
+         # all quarters instead.
          "sql": ("SELECT ('L' || level) AS \"Level\", "
                  "sum(n_projects)::float8 AS \"Projects\" FROM reporting.v_level_distribution "
-                 "WHERE dimension = 'OVERALL' AND quarter = (SELECT max(quarter) "
-                 "FROM reporting.v_level_distribution) GROUP BY level ORDER BY level"),
+                 "WHERE dimension = 'OVERALL' GROUP BY level ORDER BY level"),
          "desc": "Portfolio shape: how many projects sit at each overall maturity "
                  "level this quarter. Scales to N projects (no per-project rows)."},
         {"kind": "timeseries", "title": "Adoption breadth (penetration)", "w": 12, "h": 7,
          "format": "time_series", "unit": "none",
+         # v_penetration only has month/sprint grain (no quarter rollup exists),
+         # so this is pinned to 'month' rather than following $granularity.
          "sql": ("SELECT period_start AS time, n_projects_ai AS \"On AI program\", "
                  "n_projects_total AS \"Total active\" FROM reporting.v_penetration "
-                 f"WHERE period_type = '$granularity' AND {_tf('period_start')} "
+                 f"WHERE period_type = 'month' AND {_tf('period_start')} "
                  "ORDER BY period_start"),
          "desc": "How many projects are on the AI program over time vs total active — "
                  "the org-wide adoption S-curve, distinct from intensity."},
