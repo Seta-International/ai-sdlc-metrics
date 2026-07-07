@@ -291,6 +291,23 @@ def test_bod_section4_maturity(tmp_path):
     assert any("Penetration" in t or "Adoption breadth" in t for t in titles)
 
 
+def test_bod_is_decision_first_and_has_no_project_rows(tmp_path):
+    out = _generate(tmp_path)
+    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
+    rows = [p["title"] for p in bod["panels"] if p.get("type") == "row"]
+    assert rows == ["Verdict & Decisions", "Is it paying off?", "Is it safe?",
+                    "Is it working, honestly?", "Are we maturing?"]
+    raw = json.dumps(bod)
+    # legacy sections gone
+    for gone in ("Project Scorecard", "Where to Invest", "Decisions Requested"):
+        assert gone not in raw
+    # no per-project row table: the old A/B/C/D scorecard pinned "Project"+"Sprint";
+    # only the attention list may carry a per-project column now.
+    proj_tables = [p for p in bod["panels"]
+                   if p.get("type") == "table" and '"Sprint"' in json.dumps(p)]
+    assert proj_tables == []
+
+
 def test_bod_has_evidence_delta(tmp_path):
     out = _generate(tmp_path)
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())
