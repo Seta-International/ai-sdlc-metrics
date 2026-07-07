@@ -303,7 +303,7 @@
       "gridPos": {
         "x": 16,
         "y": 1,
-        "w": 8,
+        "w": 4,
         "h": 4
       },
       "fieldConfig": {
@@ -332,7 +332,10 @@
         "graphMode": "none",
         "colorMode": "value",
         "justifyMode": "auto",
-        "textMode": "auto"
+        "textMode": "auto",
+        "text": {
+          "valueSize": 20
+        }
       },
       "targets": [
         {
@@ -2645,7 +2648,7 @@
     },
     {
       "type": "row",
-      "title": "A\u2013E Level Summary",
+      "title": "Level Summary",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -2657,7 +2660,7 @@
     },
     {
       "type": "table",
-      "title": "A\u2013E Levels (latest quarter)",
+      "title": "Maturity Levels (latest quarter)",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -2688,7 +2691,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "A Adoption"
+              "options": "Adoption"
             },
             "properties": [
               {
@@ -2727,7 +2730,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "B Delivery"
+              "options": "Delivery"
             },
             "properties": [
               {
@@ -2766,7 +2769,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "C Quality*"
+              "options": "Quality*"
             },
             "properties": [
               {
@@ -2805,7 +2808,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "D Agent"
+              "options": "Agent"
             },
             "properties": [
               {
@@ -2844,7 +2847,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "E Governance*"
+              "options": "Governance*"
             },
             "properties": [
               {
@@ -2933,11 +2936,11 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT quarter AS \"Quarter\", lvl_a AS \"A Adoption\", lvl_b AS \"B Delivery\", lvl_c AS \"C Quality*\", lvl_d AS \"D Agent\", lvl_e AS \"E Governance*\", overall AS \"OVERALL\" FROM reporting.v_levels WHERE project = 'Future' ORDER BY quarter DESC LIMIT 1",
+          "rawSql": "SELECT quarter AS \"Quarter\", lvl_a AS \"Adoption\", lvl_b AS \"Delivery\", lvl_c AS \"Quality*\", lvl_d AS \"Agent\", lvl_e AS \"Governance*\", overall AS \"OVERALL\" FROM reporting.v_levels WHERE project = 'Future' ORDER BY quarter DESC LIMIT 1",
           "refId": "A"
         }
       ],
-      "description": "OVERALL = MIN(E-Governance, C-Quality, round(avg(A..E))). C and E are gates (marked *): a low governance or quality level caps the whole score. Source: reporting.v_levels (Excel workbook)."
+      "description": "OVERALL = MIN(Governance, Quality, round(avg(all levels))). Quality and Governance are gates (marked *): a low governance or quality level caps the whole score. Source: reporting.v_levels (Excel workbook)."
     }
   ]
 }

@@ -126,11 +126,17 @@ def _options(kind: str, spec: dict) -> dict:
         # so the default fields:"" (numeric only) reduces to nothing → "No data".
         # Point the reducer at all fields and render the string value.
         text_stat = spec.get("text_stat", False)
-        return {"reduceOptions": {"calcs": [spec.get("reduce", "lastNotNull")],
+        opts = {"reduceOptions": {"calcs": [spec.get("reduce", "lastNotNull")],
                                   "fields": "/.*/" if text_stat else "", "values": False},
                 "graphMode": "none" if text_stat else spec.get("graph", "area"),
                 "colorMode": "value", "justifyMode": "auto",
                 "textMode": "value" if text_stat else "auto"}
+        # Metadata stats (e.g. Data Freshness's "5 minutes ago") are prose, not
+        # a KPI headline — cap the font instead of letting Grafana auto-scale
+        # it to fill the tile.
+        if "value_size" in spec:
+            opts["text"] = {"valueSize": spec["value_size"]}
+        return opts
     if kind == "timeseries":
         # Table legend with Mean/Max/Last per series — doubles as the
         # non-color table view and gives each trend a numeric summary.
@@ -225,14 +231,21 @@ def _layout(sections: list[tuple[str, list[dict]]]) -> list[dict]:
 
 
 def _dashboard(uid: str, title: str, panels: list[dict],
-               templating: list[dict], links: list[dict]) -> dict:
+               templating: list[dict], links: list[dict],
+               time_range: dict | None = None) -> dict:
     return {
         "uid": uid, "title": title, "schemaVersion": 39, "version": 1,
         "editable": True, "timezone": "Asia/Ho_Chi_Minh",  # UTC+7 (Vietnam)
         # Default to a focused recent window (~1 month) with a little forward
         # headroom so the current month's start point sits inside the range;
-        # users can zoom out for older history.
-        "time": {"from": "now-30d", "to": "now+7d"},
+        # users can zoom out for older history. This is Grafana's own time
+        # axis, unrelated to our $granularity/$month/$project variables: our
+        # queries never use $__timeFilter, so it doesn't change which rows get
+        # fetched, but it DOES clip trend/timeseries panels' visible X-axis —
+        # callers with multi-month/quarter trend charts (the BOD dashboard)
+        # should pass a wider time_range so older periods aren't silently cut
+        # off the chart while still showing correctly in tables/stats.
+        "time": time_range or {"from": "now-30d", "to": "now+7d"},
         "templating": {"list": templating},
         "links": links,
         "panels": panels,
@@ -537,7 +550,8 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
                    "raises a data-quality alert instead of rendering."),
         {"kind": "stat", "title": "Data Freshness",
          "sql": (f"SELECT extract(epoch FROM max(collected_at)) * 1000 FROM {COUNTS} WHERE {p}"),
-         "format": "table", "unit": "dateTimeFromNow", "w": 8, "graph": "none",
+         "format": "table", "unit": "dateTimeFromNow", "w": 4, "graph": "none",
+         "value_size": 20,
          "desc": "When the collector last wrote data for this project."},
     ]
 
@@ -554,21 +568,22 @@ def build_project_dashboard(cfg: dict, exporter_url: str) -> dict:
     sections.append(("Monthly Record", monthly))
 
     level_summary = [
-        {"kind": "table", "title": "A–E Levels (latest quarter)",
-         "sql": (f"SELECT quarter AS \"Quarter\", lvl_a AS \"A Adoption\", "
-                 "lvl_b AS \"B Delivery\", lvl_c AS \"C Quality*\", "
-                 "lvl_d AS \"D Agent\", lvl_e AS \"E Governance*\", "
+        {"kind": "table", "title": "Maturity Levels (latest quarter)",
+         "sql": (f"SELECT quarter AS \"Quarter\", lvl_a AS \"Adoption\", "
+                 "lvl_b AS \"Delivery\", lvl_c AS \"Quality*\", "
+                 "lvl_d AS \"Agent\", lvl_e AS \"Governance*\", "
                  f"overall AS \"OVERALL\" FROM {LEVELS} WHERE project = '{project}' "
                  "ORDER BY quarter DESC LIMIT 1"),
          "unit": "none", "w": 24, "h": 4,
          "overrides": [_score_col(c, _th(CRIT, (2, WARN), (3, WARN), (4, GOOD)))
-                       for c in ("A Adoption", "B Delivery", "C Quality*",
-                                 "D Agent", "E Governance*", "OVERALL")],
-         "desc": ("OVERALL = MIN(E-Governance, C-Quality, round(avg(A..E))). "
-                  "C and E are gates (marked *): a low governance or quality level "
-                  "caps the whole score. Source: reporting.v_levels (Excel workbook).")},
+                       for c in ("Adoption", "Delivery", "Quality*",
+                                 "Agent", "Governance*", "OVERALL")],
+         "desc": ("OVERALL = MIN(Governance, Quality, round(avg(all levels))). "
+                  "Quality and Governance are gates (marked *): a low governance or "
+                  "quality level caps the whole score. Source: reporting.v_levels "
+                  "(Excel workbook).")},
     ]
-    sections.append(("A–E Level Summary", level_summary))
+    sections.append(("Level Summary", level_summary))
 
     links = [
         {"type": "link", "title": "Raw Data", "icon": "doc", "targetBlank": False,
@@ -770,7 +785,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
     # dashboard and the Excel line up column-for-column.
     scorecard = [
         _score_table(
-            "A. Adoption: Latest Period",
+            "Adoption: Latest Period",
             ["n_tasks AS \"Tasks\"", "n_pr AS \"PRs\"",
              "round(ai_pr_pct, 1) AS \"AI PR %\"",
              "round(agent_task_pct, 1) AS \"Agent Task %\"",
@@ -783,7 +798,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
             "How broadly AI is used: PR share, agent task share, engineer "
             "usage rate (target ≥80%), and throughput per engineer."),
         _score_table(
-            "B. Delivery (DORA): Latest Period",
+            "Delivery (DORA): Latest Period",
             ["round(lead_time_h, 1) AS \"Lead Time h\"",
              "round(deploys_per_week, 2) AS \"Deploys/wk\"",
              "round(cfr_pct, 1) AS \"CFR %\"",
@@ -795,7 +810,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
             "DORA throughput + stability. Green = on target, yellow = watch, "
             "red = act."),
         _score_table(
-            "C. Quality: Latest Period",
+            "Quality: Latest Period",
             ["round(ai_pr_review_pct, 1) AS \"Review %\"",
              "round(rework_pct, 1) AS \"Rework %\"",
              "round(ai_pr_test_pct, 1) AS \"AI PR Test %\"",
@@ -808,7 +823,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
             "touching tests, share of rework traced to AI PRs, and open "
             "security alerts."),
         _score_table(
-            "D. Agent: Latest Period",
+            "Agent: Latest Period",
             ["round(agent_pr_pct, 1) AS \"Agent PR %\"",
              "round(autonomy_pct, 1) AS \"Autonomy %\"",
              "round(agent_completion_pct, 1) AS \"Completion %\"",
@@ -889,17 +904,19 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
     ]
 
     heatmap = [
-        {"kind": "table", "title": "Portfolio Maturity (A–E)",
-         "sql": (f"SELECT project AS \"Project\", lvl_a AS \"A\", lvl_b AS \"B\", "
-                 "lvl_c AS \"C*\", lvl_d AS \"D\", lvl_e AS \"E*\", "
+        {"kind": "table", "title": "Portfolio Maturity",
+         "sql": (f"SELECT project AS \"Project\", lvl_a AS \"Adoption\", "
+                 "lvl_b AS \"Delivery\", lvl_c AS \"Quality*\", "
+                 "lvl_d AS \"Agent\", lvl_e AS \"Governance*\", "
                  "overall AS \"OVERALL\" FROM (" + _levels_latest_all() + ") x "
                  f"WHERE {_proj('project')} ORDER BY overall, project"),
          "unit": "none", "w": 24, "h": 8,
          "overrides": [_score_col(c, _th(CRIT, (2, WARN), (3, WARN), (4, GOOD)))
-                       for c in ("A", "B", "C*", "D", "E*", "OVERALL")],
-         "desc": ("Each project's A-E levels for its latest quarter. C and E are "
-                  "gates (marked *). Click a project to open its dashboard. "
-                  "OVERALL = MIN(E, C, round(avg)).")},
+                       for c in ("Adoption", "Delivery", "Quality*",
+                                 "Agent", "Governance*", "OVERALL")],
+         "desc": ("Each project's maturity levels for its latest quarter. Quality "
+                  "and Governance are gates (marked *). Click a project to open "
+                  "its dashboard. OVERALL = MIN(Governance, Quality, round(avg)).")},
     ]
     sections = [
         ("Return on Investment", pulse),
@@ -915,7 +932,11 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
     links = [{"type": "link", "title": "Download Excel (all projects)", "icon": "doc",
               "targetBlank": True, "url": f"{exporter_url}/export.xlsx?project=all"}]
     return _dashboard("ai-sdlc-bod", "AI SDLC: Portfolio (BOD)",
-                      _layout(sections), _bod_vars(), links)
+                      _layout(sections), _bod_vars(), links,
+                      # Wider than the per-project default: this dashboard's
+                      # trend charts span the portfolio's full month/quarter
+                      # history, not one project's recent steering window.
+                      time_range={"from": "now-1y", "to": "now+90d"})
 
 
 def main() -> None:

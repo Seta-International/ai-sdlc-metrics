@@ -6,8 +6,8 @@
   "editable": true,
   "timezone": "Asia/Ho_Chi_Minh",
   "time": {
-    "from": "now-30d",
-    "to": "now+7d"
+    "from": "now-1y",
+    "to": "now+90d"
   },
   "templating": {
     "list": [
@@ -462,7 +462,7 @@
     },
     {
       "type": "table",
-      "title": "A. Adoption: Latest Period",
+      "title": "Adoption: Latest Period",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -617,7 +617,7 @@
     },
     {
       "type": "table",
-      "title": "B. Delivery (DORA): Latest Period",
+      "title": "Delivery (DORA): Latest Period",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -803,7 +803,7 @@
     },
     {
       "type": "table",
-      "title": "C. Quality: Latest Period",
+      "title": "Quality: Latest Period",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -958,7 +958,7 @@
     },
     {
       "type": "table",
-      "title": "D. Agent: Latest Period",
+      "title": "Agent: Latest Period",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -1116,7 +1116,7 @@
     },
     {
       "type": "table",
-      "title": "Portfolio Maturity (A\u2013E)",
+      "title": "Portfolio Maturity",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -1147,7 +1147,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "A"
+              "options": "Adoption"
             },
             "properties": [
               {
@@ -1186,7 +1186,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "B"
+              "options": "Delivery"
             },
             "properties": [
               {
@@ -1225,7 +1225,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "C*"
+              "options": "Quality*"
             },
             "properties": [
               {
@@ -1264,7 +1264,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "D"
+              "options": "Agent"
             },
             "properties": [
               {
@@ -1303,7 +1303,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "E*"
+              "options": "Governance*"
             },
             "properties": [
               {
@@ -1392,11 +1392,11 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT project AS \"Project\", lvl_a AS \"A\", lvl_b AS \"B\", lvl_c AS \"C*\", lvl_d AS \"D\", lvl_e AS \"E*\", overall AS \"OVERALL\" FROM (SELECT DISTINCT ON (project) project, quarter, lvl_a, lvl_b, lvl_c, lvl_d, lvl_e, overall FROM reporting.v_levels ORDER BY project, quarter DESC) x WHERE project IN ($project) ORDER BY overall, project",
+          "rawSql": "SELECT project AS \"Project\", lvl_a AS \"Adoption\", lvl_b AS \"Delivery\", lvl_c AS \"Quality*\", lvl_d AS \"Agent\", lvl_e AS \"Governance*\", overall AS \"OVERALL\" FROM (SELECT DISTINCT ON (project) project, quarter, lvl_a, lvl_b, lvl_c, lvl_d, lvl_e, overall FROM reporting.v_levels ORDER BY project, quarter DESC) x WHERE project IN ($project) ORDER BY overall, project",
           "refId": "A"
         }
       ],
-      "description": "Each project's A-E levels for its latest quarter. C and E are gates (marked *). Click a project to open its dashboard. OVERALL = MIN(E, C, round(avg))."
+      "description": "Each project's maturity levels for its latest quarter. Quality and Governance are gates (marked *). Click a project to open its dashboard. OVERALL = MIN(Governance, Quality, round(avg))."
     },
     {
       "type": "row",
