@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import subprocess
 import sys
@@ -14,6 +15,17 @@ def _generate(tmp_path):
         check=True, cwd=ROOT,
     )
     return tmp_path
+
+
+def _load_generate_module():
+    """Import generate.py directly (no package __init__.py) so tests can call
+    its builder functions with synthetic configs not present in the real,
+    live projects.json - e.g. a no-production-environment project, which no
+    current real project represents."""
+    spec = importlib.util.spec_from_file_location("generate", GRAFANA / "generate.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_generates_project_and_bod_dashboards(tmp_path):
@@ -62,13 +74,16 @@ def test_dashboards_have_download_links(tmp_path):
     assert any("project=all" in l["url"] for l in bod["links"])
 
 
-def test_future_has_no_production_panels(tmp_path):
+def test_future_now_has_production_panels(tmp_path):
+    # Future gained a real prod GitHub Environment; its has_production
+    # override was removed from projects.json (falls back to the true
+    # default), so it now renders the same DORA panels as TeacherZone.
     out = _generate(tmp_path)
     future = json.loads((out / "Future" / "project.json").read_text())
     titles = [p.get("title", "") for p in future["panels"]]
-    assert "Change Failure Rate" not in titles
-    assert "Deploys / Week" not in titles
-    assert any("Merge Lead Time" in t for t in titles)
+    assert "Change Failure Rate" in titles
+    assert "Deploys / Week" in titles
+    assert not any("Merge Lead Time" in t for t in titles)
 
 
 def test_teacherzone_keeps_production_panels(tmp_path):
@@ -76,6 +91,19 @@ def test_teacherzone_keeps_production_panels(tmp_path):
     tz = json.loads((out / "TeacherZone" / "project.json").read_text())
     titles = [p.get("title", "") for p in tz["panels"]]
     assert "Change Failure Rate" in titles
+
+
+def test_no_production_project_hides_deploy_panels_and_relabels_lead_time():
+    # No current real project has has_production=False, so this exercises
+    # that code path directly against a synthetic config instead of relying
+    # on projects.json to happen to contain one.
+    generate = _load_generate_module()
+    cfg = generate._merge(generate.DEFAULTS, {"name": "NoProdCo", "has_production": False})
+    dash = generate.build_project_dashboard(cfg, "http://exporter.example")
+    titles = [p.get("title", "") for p in dash["panels"]]
+    assert "Change Failure Rate" not in titles
+    assert "Deploys / Week" not in titles
+    assert any("Merge Lead Time" in t for t in titles)
 
 
 def test_maturity_reads_v_levels_not_computed(tmp_path):

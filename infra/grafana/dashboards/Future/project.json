@@ -365,7 +365,7 @@
     },
     {
       "type": "stat",
-      "title": "Merge Lead Time (no prod env)",
+      "title": "Lead Time",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -427,7 +427,7 @@
           "refId": "A"
         }
       ],
-      "description": "Median hours from PR open to merge (no production env yet). Lower is faster delivery."
+      "description": "Median hours from PR merge to next production deploy."
     },
     {
       "type": "stat",
@@ -1520,7 +1520,7 @@
     },
     {
       "type": "stat",
-      "title": "Merge Lead Time (no prod env)",
+      "title": "Lead Time",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -1528,7 +1528,7 @@
       "gridPos": {
         "x": 0,
         "y": 38,
-        "w": 12,
+        "w": 6,
         "h": 4
       },
       "fieldConfig": {
@@ -1582,7 +1582,135 @@
           "refId": "A"
         }
       ],
-      "description": "Median PR open\u2192merge; no production env yet."
+      "description": "Median hours from PR merge to next production deploy."
+    },
+    {
+      "type": "stat",
+      "title": "Deploys / Week",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 38,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#fab219",
+                "value": null
+              },
+              {
+                "color": "#0ca30c",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, deploys_per_week AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "description": "Production deploys \u00f7 weeks in the window. DORA throughput signal; higher is better."
+    },
+    {
+      "type": "stat",
+      "title": "Change Failure Rate",
+      "datasource": {
+        "type": "postgres",
+        "uid": "reporting-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 38,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#0ca30c",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 15
+              },
+              {
+                "color": "#d03b3b",
+                "value": 30
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "reporting-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT period_start AS time, cfr_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
+          "refId": "A"
+        }
+      ],
+      "description": "Incidents per deploy (proxy). Target \u226415%."
     },
     {
       "type": "stat",
@@ -1592,9 +1720,9 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 12,
+        "x": 18,
         "y": 38,
-        "w": 12,
+        "w": 6,
         "h": 4
       },
       "fieldConfig": {
