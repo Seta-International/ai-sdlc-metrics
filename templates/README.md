@@ -1,9 +1,8 @@
 # Onboarding a project to AI SDLC metrics
 
 1. Copy `ai-metrics-caller.yml` to `<your-repo>/.github/workflows/ai-sdlc-metrics.yml`
-   and fill the `<PLACEHOLDERS>` (project name, Jira key + site URL, sprint
-   anchor, deploy environments/strategy; the Jira board is auto-detected —
-   `jira-board-id` is only an override).
+   and fill the `<PLACEHOLDERS>` (project name, Jira key + site URL, deploy
+   environments/strategy).
 2. Add repo secrets: `JIRA_EMAIL`, `JIRA_TOKEN`, `JIRA_AI_USAGE_FIELD`,
    `REPORTING_DB_URL`.
 3. Adopt the labeling conventions: `ai-assisted` / `ai-agent` PR labels and the

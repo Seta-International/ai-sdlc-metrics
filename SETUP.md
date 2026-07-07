@@ -154,8 +154,6 @@ this repo is edited to onboard a project:
 | GitHub repo | `gh-repo` input (always `${{ github.repository }}`) |
 | Jira Cloud site | `jira-base` input (+ that site's own `JIRA_*` secrets) |
 | Jira project key | `jira-project` input |
-| Jira board | auto-detected from `jira-project`; `jira-board-id` only as override |
-| Sprint calendar | `sprint-anchor` + `sprint-length-days` inputs |
 | CI/CD style | `deploy-strategy` (`deployments` \| `releases` \| `tags:<pat>` \| `workflow_runs:<file>`) + `prod-env` |
 
 1. **Workflow must live in the project's own repo**, not here — GitHub only

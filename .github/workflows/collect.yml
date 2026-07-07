@@ -7,13 +7,9 @@ on:
       gh-repo:            {required: true,  type: string}
       jira-project:       {required: true,  type: string}
       jira-base:          {required: false, type: string, default: 'https://all-it.atlassian.net', description: 'Jira Cloud site URL — set when the project lives on a different site'}
-      sprint-anchor:      {required: true,  type: string, description: 'First sprint start, ISO date'}
-      sprint-length-days: {required: false, type: string, default: '14'}
       prod-env:           {required: false, type: string, default: 'production'}
       deploy-strategy:    {required: false, type: string, default: 'deployments'}
-      jira-board-id:      {required: false, type: string, default: ''}
-      sprint:             {required: false, type: string, default: '', description: 'Explicit sprint label, e.g. S3'}
-      mode:               {required: false, type: string, default: 'sprint', description: 'sprint | previous-month'}
+      month:              {required: false, type: string, default: '', description: "Calendar month 'YYYY-MM', or 'previous' for the prior calendar month; blank = current month"}
     secrets:
       jira-email:          {required: true}
       jira-token:          {required: true}
@@ -57,19 +53,16 @@ jobs:
           JIRA_BASE: ${{ inputs.jira-base }}
           JIRA_PROJECT: ${{ inputs.jira-project }}
           PROJECT_LABEL: ${{ inputs.project }}
-          SPRINT_ANCHOR: ${{ inputs.sprint-anchor }}
-          SPRINT_LENGTH_DAYS: ${{ inputs.sprint-length-days }}
           GH_PROD_ENV: ${{ inputs.prod-env }}
           DEPLOY_COUNT_STRATEGY: ${{ inputs.deploy-strategy }}
-          JIRA_BOARD_ID: ${{ inputs.jira-board-id }}
         run: |
           set -euo pipefail
           ARGS=(--project "${{ inputs.project }}" --repo "${{ inputs.gh-repo }}" \
                 --jira-project "${{ inputs.jira-project }}")
-          if [ "${{ inputs.mode }}" = "previous-month" ]; then
-            MONTH=$(date -u -d "$(date -u +%Y-%m-01) - 1 day" +%Y-%m)
-            ARGS+=(--month "$MONTH")
-          elif [ -n "${{ inputs.sprint }}" ]; then
-            ARGS+=(--sprint "${{ inputs.sprint }}")
-          fi
+          case "${{ inputs.month }}" in
+            '') ;;  # blank -> current month (collect.py's own default)
+            previous) MONTH=$(date -u -d "$(date -u +%Y-%m-01) - 1 day" +%Y-%m)
+                      ARGS+=(--month "$MONTH") ;;
+            *) ARGS+=(--month "${{ inputs.month }}") ;;
+          esac
           python -m collector.collect "${ARGS[@]}"
