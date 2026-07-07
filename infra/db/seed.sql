@@ -2,176 +2,135 @@
 -- Loaded automatically by the local Postgres after init.sql + views.sql.
 -- Never run this against a real reporting database.
 
--- Three sprints for Future with an improving trend, so stat panels, gauges,
--- and the sprint trend timeseries all have data to draw.
+-- Four months for Future: 2026-06 (Q2 tail, for trend history across a
+-- quarter boundary) plus a full 2026-Q3 (07/08/09), so the BOD dashboard's
+-- $granularity=quarter option has real, complete-quarter data to roll up.
 WITH periods(period_key, period_start, period_end) AS (VALUES
-  ('S1', DATE '2026-06-29', DATE '2026-07-13'),
-  ('S2', DATE '2026-07-13', DATE '2026-07-27'),
-  ('S3', DATE '2026-07-27', DATE '2026-08-10')
+  ('2026-06', DATE '2026-06-01', DATE '2026-06-30'),
+  ('2026-07', DATE '2026-07-01', DATE '2026-07-31'),
+  ('2026-08', DATE '2026-08-01', DATE '2026-08-31'),
+  ('2026-09', DATE '2026-09-01', DATE '2026-09-30')
 ),
 vals(period_key, metric_key, value) AS (VALUES
   -- adoption
-  ('S1','ai_users_weekly_avg',6.0), ('S2','ai_users_weekly_avg',8.0), ('S3','ai_users_weekly_avg',10.0),
-  ('S1','engineers_active',12), ('S2','engineers_active',13), ('S3','engineers_active',14),
-  ('S1','ai_prs',16),  ('S2','ai_prs',22),  ('S3','ai_prs',30),
-  ('S1','total_prs',40),('S2','total_prs',44),('S3','total_prs',48),
-  ('S1','agent_tasks',8), ('S2','agent_tasks',12),('S3','agent_tasks',18),
-  ('S1','ai_tasks',30),  ('S2','ai_tasks',34),  ('S3','ai_tasks',40),
-  ('S1','total_tasks',50),('S2','total_tasks',52),('S3','total_tasks',55),
+  ('2026-06','ai_users_weekly_avg',7.5), ('2026-07','ai_users_weekly_avg',10.0),
+  ('2026-08','ai_users_weekly_avg',11.0), ('2026-09','ai_users_weekly_avg',12.0),
+  ('2026-06','engineers_active',16), ('2026-07','engineers_active',17),
+  ('2026-08','engineers_active',18), ('2026-09','engineers_active',18),
+  ('2026-06','ai_prs',34),  ('2026-07','ai_prs',50),  ('2026-08','ai_prs',58),  ('2026-09','ai_prs',64),
+  ('2026-06','total_prs',85),('2026-07','total_prs',92),('2026-08','total_prs',96),('2026-09','total_prs',100),
+  ('2026-06','agent_tasks',16), ('2026-07','agent_tasks',24),
+  ('2026-08','agent_tasks',30), ('2026-09','agent_tasks',36),
+  ('2026-06','ai_tasks',60),  ('2026-07','ai_tasks',68),  ('2026-08','ai_tasks',74),  ('2026-09','ai_tasks',80),
+  ('2026-06','total_tasks',105),('2026-07','total_tasks',112),('2026-08','total_tasks',116),('2026-09','total_tasks',120),
   -- delivery / DORA
-  ('S1','lead_time_h',60),('S2','lead_time_h',48),('S3','lead_time_h',36),
-  ('S1','deploys',6),  ('S2','deploys',8),  ('S3','deploys',10),
-  ('S1','weeks',2.0),  ('S2','weeks',2.0),  ('S3','weeks',2.0),
-  ('S1','incidents',2),('S2','incidents',1),('S3','incidents',1),
-  ('S1','mttr_h',8),   ('S2','mttr_h',6),   ('S3','mttr_h',5),
+  ('2026-06','lead_time_h',58),('2026-07','lead_time_h',40),('2026-08','lead_time_h',34),('2026-09','lead_time_h',28),
+  ('2026-06','deploys',12),  ('2026-07','deploys',18),  ('2026-08','deploys',20),  ('2026-09','deploys',22),
+  ('2026-06','weeks',4.3),   ('2026-07','weeks',4.3),   ('2026-08','weeks',4.3),   ('2026-09','weeks',4.3),
+  ('2026-06','incidents',3), ('2026-07','incidents',2), ('2026-08','incidents',2), ('2026-09','incidents',1),
+  ('2026-06','mttr_h',8),    ('2026-07','mttr_h',5),    ('2026-08','mttr_h',5),    ('2026-09','mttr_h',4),
   -- quality / security
-  ('S1','rework_prs',4),('S2','rework_prs',3),('S3','rework_prs',2),
-  ('S1','ai_prs_reviewed',12),('S2','ai_prs_reviewed',18),('S3','ai_prs_reviewed',27),
-  ('S1','security_alerts',3),('S2','security_alerts',2),('S3','security_alerts',1),
+  ('2026-06','rework_prs',8),('2026-07','rework_prs',6),('2026-08','rework_prs',5),('2026-09','rework_prs',4),
+  ('2026-06','ai_prs_reviewed',24),('2026-07','ai_prs_reviewed',36),
+  ('2026-08','ai_prs_reviewed',44),('2026-09','ai_prs_reviewed',50),
+  ('2026-06','security_alerts',4),('2026-07','security_alerts',3),
+  ('2026-08','security_alerts',2),('2026-09','security_alerts',1),
   -- agent maturity
-  -- S1 stays under the 20 sample-size floor (shows the guard greying it); S2/S3 cross it.
-  ('S1','agent_prs_total',12), ('S2','agent_prs_total',20), ('S3','agent_prs_total',26),
-  ('S1','agent_prs_merged',10),('S2','agent_prs_merged',18),('S3','agent_prs_merged',24),
-  ('S1','agent_prs_human_fixed',5),('S2','agent_prs_human_fixed',7),('S3','agent_prs_human_fixed',8),
-  ('S1','agent_prs_autonomous',7),('S2','agent_prs_autonomous',13),('S3','agent_prs_autonomous',18),
-  ('S1','agent_cycle_h',10),('S2','agent_cycle_h',8),('S3','agent_cycle_h',6),
-  -- predictability
-  ('S1','sprint_committed',20),('S2','sprint_committed',22),('S3','sprint_committed',24),
-  ('S1','sprint_completed',15),('S2','sprint_completed',19),('S3','sprint_completed',22)
-)
-INSERT INTO reporting.metric_counts
-  (project, period_type, period_key, period_start, period_end, metric_key, value)
-SELECT 'Future', 'sprint', v.period_key, p.period_start, p.period_end, v.metric_key, v.value
-FROM vals v JOIN periods p USING (period_key);
-
--- Two month windows (used by the monthly view rows and the quarterly auto-check).
-WITH periods(period_key, period_start, period_end) AS (VALUES
-  ('2026-06', DATE '2026-06-01', DATE '2026-06-30'),
-  ('2026-07', DATE '2026-07-01', DATE '2026-07-31')
-),
-vals(period_key, metric_key, value) AS (VALUES
-  ('2026-06','lead_time_h',58),('2026-07','lead_time_h',40),
-  ('2026-06','mttr_h',8),      ('2026-07','mttr_h',5),
-  ('2026-06','deploys',12),    ('2026-07','deploys',18),
-  ('2026-06','weeks',4.3),     ('2026-07','weeks',4.3),
-  ('2026-06','incidents',3),   ('2026-07','incidents',2),
+  -- 2026-06 stays under the 20 sample-size floor (shows the guard greying it); later months cross it.
+  ('2026-06','agent_prs_total',18), ('2026-07','agent_prs_total',28),
+  ('2026-08','agent_prs_total',36), ('2026-09','agent_prs_total',44),
+  ('2026-06','agent_prs_merged',15),('2026-07','agent_prs_merged',24),
+  ('2026-08','agent_prs_merged',32),('2026-09','agent_prs_merged',40),
+  ('2026-06','agent_prs_human_fixed',7),('2026-07','agent_prs_human_fixed',9),
+  ('2026-08','agent_prs_human_fixed',10),('2026-09','agent_prs_human_fixed',11),
+  ('2026-06','agent_prs_autonomous',12),('2026-07','agent_prs_autonomous',20),
+  ('2026-08','agent_prs_autonomous',27),('2026-09','agent_prs_autonomous',33),
   ('2026-06','agent_cycle_h',10),('2026-07','agent_cycle_h',6),
-  ('2026-06','total_prs',85),  ('2026-07','total_prs',92),
-  ('2026-06','ai_prs',34),     ('2026-07','ai_prs',50),
-  ('2026-06','ai_users_weekly_avg',7.5),('2026-07','ai_users_weekly_avg',10.0),
-  ('2026-06','engineers_active',16),('2026-07','engineers_active',17),
-  ('2026-06','total_tasks',105),('2026-07','total_tasks',112)
+  ('2026-08','agent_cycle_h',5),('2026-09','agent_cycle_h',4)
 )
 INSERT INTO reporting.metric_counts
   (project, period_type, period_key, period_start, period_end, metric_key, value)
 SELECT 'Future', 'month', v.period_key, p.period_start, p.period_end, v.metric_key, v.value
 FROM vals v JOIN periods p USING (period_key);
 
--- A second project (TeacherZone) so the BOD portfolio dashboard shows real
--- cross-project comparison. Same sprint windows as Future, lower-but-improving
--- adoption. (Not in projects.json — that's the production onboarding switch.)
-WITH periods(period_key, period_start, period_end) AS (VALUES
-  ('S1', DATE '2026-06-29', DATE '2026-07-13'),
-  ('S2', DATE '2026-07-13', DATE '2026-07-27'),
-  ('S3', DATE '2026-07-27', DATE '2026-08-10')
-),
-vals(period_key, metric_key, value) AS (VALUES
-  ('S1','ai_users_weekly_avg',4.0), ('S2','ai_users_weekly_avg',5.0), ('S3','ai_users_weekly_avg',7.0),
-  ('S1','engineers_active',9), ('S2','engineers_active',10), ('S3','engineers_active',11),
-  ('S1','ai_prs',10), ('S2','ai_prs',16), ('S3','ai_prs',24),
-  ('S1','total_prs',50),('S2','total_prs',52),('S3','total_prs',55),
-  ('S1','agent_tasks',4), ('S2','agent_tasks',7), ('S3','agent_tasks',11),
-  ('S1','ai_tasks',16),  ('S2','ai_tasks',22),  ('S3','ai_tasks',30),
-  ('S1','total_tasks',40),('S2','total_tasks',44),('S3','total_tasks',48),
-  ('S1','lead_time_h',80),('S2','lead_time_h',70),('S3','lead_time_h',55),
-  ('S1','deploys',4),  ('S2','deploys',5),  ('S3','deploys',7),
-  ('S1','weeks',2.0),  ('S2','weeks',2.0),  ('S3','weeks',2.0),
-  ('S1','incidents',3),('S2','incidents',2),('S3','incidents',1),
-  ('S1','mttr_h',12),  ('S2','mttr_h',9),   ('S3','mttr_h',7),
-  ('S1','rework_prs',6),('S2','rework_prs',5),('S3','rework_prs',3),
-  ('S1','ai_prs_reviewed',6),('S2','ai_prs_reviewed',12),('S3','ai_prs_reviewed',20),
-  ('S1','security_alerts',5),('S2','security_alerts',4),('S3','security_alerts',2),
-  -- Only S3 crosses the 20 sample-size floor here; S1/S2 stay greyed by the guard.
-  ('S1','agent_prs_total',8), ('S2','agent_prs_total',14), ('S3','agent_prs_total',22),
-  ('S1','agent_prs_merged',6),('S2','agent_prs_merged',12),('S3','agent_prs_merged',20),
-  ('S1','agent_prs_human_fixed',3),('S2','agent_prs_human_fixed',5),('S3','agent_prs_human_fixed',8),
-  ('S1','agent_prs_autonomous',5),('S2','agent_prs_autonomous',9),('S3','agent_prs_autonomous',14),
-  ('S1','agent_cycle_h',14),('S2','agent_cycle_h',12),('S3','agent_cycle_h',9),
-  ('S1','sprint_committed',18),('S2','sprint_committed',20),('S3','sprint_committed',22),
-  ('S1','sprint_completed',12),('S2','sprint_completed',15),('S3','sprint_completed',19)
-)
-INSERT INTO reporting.metric_counts
-  (project, period_type, period_key, period_start, period_end, metric_key, value)
-SELECT 'TeacherZone', 'sprint', v.period_key, p.period_start, p.period_end, v.metric_key, v.value
-FROM vals v JOIN periods p USING (period_key);
-
--- TeacherZone month windows.
+-- TeacherZone: same four months, lower-but-improving adoption (second project
+-- so the BOD portfolio dashboard shows real cross-project comparison).
 WITH periods(period_key, period_start, period_end) AS (VALUES
   ('2026-06', DATE '2026-06-01', DATE '2026-06-30'),
-  ('2026-07', DATE '2026-07-01', DATE '2026-07-31')
+  ('2026-07', DATE '2026-07-01', DATE '2026-07-31'),
+  ('2026-08', DATE '2026-08-01', DATE '2026-08-31'),
+  ('2026-09', DATE '2026-09-01', DATE '2026-09-30')
 ),
 vals(period_key, metric_key, value) AS (VALUES
-  ('2026-06','lead_time_h',78),('2026-07','lead_time_h',60),
-  ('2026-06','mttr_h',11),     ('2026-07','mttr_h',7),
-  ('2026-06','deploys',8),     ('2026-07','deploys',12),
-  ('2026-06','weeks',4.3),     ('2026-07','weeks',4.3),
-  ('2026-06','incidents',5),   ('2026-07','incidents',3),
+  ('2026-06','ai_users_weekly_avg',4.5), ('2026-07','ai_users_weekly_avg',6.0),
+  ('2026-08','ai_users_weekly_avg',6.5), ('2026-09','ai_users_weekly_avg',7.0),
+  ('2026-06','engineers_active',11), ('2026-07','engineers_active',12),
+  ('2026-08','engineers_active',12), ('2026-09','engineers_active',13),
+  ('2026-06','ai_prs',24), ('2026-07','ai_prs',38), ('2026-08','ai_prs',44), ('2026-09','ai_prs',48),
+  ('2026-06','total_prs',95),('2026-07','total_prs',100),('2026-08','total_prs',104),('2026-09','total_prs',108),
+  ('2026-06','agent_tasks',8), ('2026-07','agent_tasks',14),
+  ('2026-08','agent_tasks',18), ('2026-09','agent_tasks',22),
+  ('2026-06','ai_tasks',40),  ('2026-07','ai_tasks',46),  ('2026-08','ai_tasks',50),  ('2026-09','ai_tasks',54),
+  ('2026-06','total_tasks',82),('2026-07','total_tasks',90),('2026-08','total_tasks',94),('2026-09','total_tasks',98),
+  ('2026-06','lead_time_h',78),('2026-07','lead_time_h',60),('2026-08','lead_time_h',52),('2026-09','lead_time_h',46),
+  ('2026-06','deploys',8),  ('2026-07','deploys',12),  ('2026-08','deploys',14),  ('2026-09','deploys',16),
+  ('2026-06','weeks',4.3),  ('2026-07','weeks',4.3),   ('2026-08','weeks',4.3),   ('2026-09','weeks',4.3),
+  ('2026-06','incidents',5),('2026-07','incidents',3), ('2026-08','incidents',3), ('2026-09','incidents',2),
+  ('2026-06','mttr_h',11),  ('2026-07','mttr_h',7),    ('2026-08','mttr_h',7),    ('2026-09','mttr_h',6),
+  ('2026-06','rework_prs',10),('2026-07','rework_prs',8),('2026-08','rework_prs',7),('2026-09','rework_prs',6),
+  ('2026-06','ai_prs_reviewed',12),('2026-07','ai_prs_reviewed',24),
+  ('2026-08','ai_prs_reviewed',30),('2026-09','ai_prs_reviewed',36),
+  ('2026-06','security_alerts',6),('2026-07','security_alerts',4),
+  ('2026-08','security_alerts',3),('2026-09','security_alerts',2),
+  -- 2026-06 stays under the 20 sample-size floor here too.
+  ('2026-06','agent_prs_total',14), ('2026-07','agent_prs_total',22),
+  ('2026-08','agent_prs_total',28), ('2026-09','agent_prs_total',34),
+  ('2026-06','agent_prs_merged',11),('2026-07','agent_prs_merged',18),
+  ('2026-08','agent_prs_merged',24),('2026-09','agent_prs_merged',29),
+  ('2026-06','agent_prs_human_fixed',6),('2026-07','agent_prs_human_fixed',8),
+  ('2026-08','agent_prs_human_fixed',9),('2026-09','agent_prs_human_fixed',10),
+  ('2026-06','agent_prs_autonomous',8),('2026-07','agent_prs_autonomous',14),
+  ('2026-08','agent_prs_autonomous',19),('2026-09','agent_prs_autonomous',23),
   ('2026-06','agent_cycle_h',13),('2026-07','agent_cycle_h',9),
-  ('2026-06','total_prs',95),  ('2026-07','total_prs',100),
-  ('2026-06','ai_prs',24),     ('2026-07','ai_prs',38),
-  ('2026-06','ai_users_weekly_avg',4.5),('2026-07','ai_users_weekly_avg',6.0),
-  ('2026-06','engineers_active',11),('2026-07','engineers_active',12),
-  ('2026-06','total_tasks',82),('2026-07','total_tasks',90)
+  ('2026-08','agent_cycle_h',8),('2026-09','agent_cycle_h',7)
 )
 INSERT INTO reporting.metric_counts
   (project, period_type, period_key, period_start, period_end, metric_key, value)
 SELECT 'TeacherZone', 'month', v.period_key, p.period_start, p.period_end, v.metric_key, v.value
 FROM vals v JOIN periods p USING (period_key);
 
--- Segmented AI-vs-non-AI metrics: these power the "delta not two numbers"
--- evidence panels (lead-time / PR-size / review-latency comparison), the ROI
--- panel (ai_time_saved_h), AI-PR test coverage, and AI rework. Without them
--- those panels correctly render "No data". AI PRs merge faster, smaller, with
--- fewer review rounds than non-AI PRs.
-WITH periods(period_key, period_start, period_end) AS (VALUES
-  ('S1', DATE '2026-06-29', DATE '2026-07-13'),
-  ('S2', DATE '2026-07-13', DATE '2026-07-27'),
-  ('S3', DATE '2026-07-27', DATE '2026-08-10')
-),
-vals(period_key, metric_key, value) AS (VALUES
-  ('S1','lead_time_ai_h',45),('S2','lead_time_ai_h',36),('S3','lead_time_ai_h',27),
-  ('S1','lead_time_nonai_h',72),('S2','lead_time_nonai_h',58),('S3','lead_time_nonai_h',44),
-  ('S1','pr_size_ai',180),('S2','pr_size_ai',165),('S3','pr_size_ai',150),
-  ('S1','pr_size_nonai',320),('S2','pr_size_nonai',300),('S3','pr_size_nonai',280),
-  ('S1','first_review_ai_h',4.0),('S2','first_review_ai_h',3.5),('S3','first_review_ai_h',3.0),
-  ('S1','first_review_nonai_h',8.0),('S2','first_review_nonai_h',7.0),('S3','first_review_nonai_h',6.0),
-  ('S1','review_rounds_ai',1.4),('S2','review_rounds_ai',1.3),('S3','review_rounds_ai',1.2),
-  ('S1','review_rounds_nonai',2.1),('S2','review_rounds_nonai',2.0),('S3','review_rounds_nonai',1.9),
-  ('S1','ai_time_saved_h',40),('S2','ai_time_saved_h',60),('S3','ai_time_saved_h',90),
-  ('S1','ai_prs_with_tests',12),('S2','ai_prs_with_tests',18),('S3','ai_prs_with_tests',26),
-  ('S1','rework_from_ai_prs',2),('S2','rework_from_ai_prs',2),('S3','rework_from_ai_prs',1)
-)
-INSERT INTO reporting.metric_counts
-  (project, period_type, period_key, period_start, period_end, metric_key, value)
-SELECT 'Future', 'sprint', v.period_key, p.period_start, p.period_end, v.metric_key, v.value
-FROM vals v JOIN periods p USING (period_key);
-
+-- Segmented AI-vs-non-AI metrics: power the "delta not two numbers" evidence
+-- panels, the ROI panel (ai_time_saved_h), AI-PR test coverage, and AI
+-- rework. AI PRs merge faster, smaller, with fewer review rounds than non-AI.
 WITH periods(period_key, period_start, period_end) AS (VALUES
   ('2026-06', DATE '2026-06-01', DATE '2026-06-30'),
-  ('2026-07', DATE '2026-07-01', DATE '2026-07-31')
+  ('2026-07', DATE '2026-07-01', DATE '2026-07-31'),
+  ('2026-08', DATE '2026-08-01', DATE '2026-08-31'),
+  ('2026-09', DATE '2026-09-01', DATE '2026-09-30')
 ),
 vals(period_key, metric_key, value) AS (VALUES
   ('2026-06','lead_time_ai_h',42),('2026-07','lead_time_ai_h',30),
+  ('2026-08','lead_time_ai_h',25),('2026-09','lead_time_ai_h',20),
   ('2026-06','lead_time_nonai_h',68),('2026-07','lead_time_nonai_h',50),
+  ('2026-08','lead_time_nonai_h',44),('2026-09','lead_time_nonai_h',38),
   ('2026-06','pr_size_ai',170),('2026-07','pr_size_ai',155),
+  ('2026-08','pr_size_ai',148),('2026-09','pr_size_ai',140),
   ('2026-06','pr_size_nonai',310),('2026-07','pr_size_nonai',290),
+  ('2026-08','pr_size_nonai',280),('2026-09','pr_size_nonai',270),
   ('2026-06','first_review_ai_h',3.8),('2026-07','first_review_ai_h',3.2),
+  ('2026-08','first_review_ai_h',2.8),('2026-09','first_review_ai_h',2.4),
   ('2026-06','first_review_nonai_h',7.5),('2026-07','first_review_nonai_h',6.5),
+  ('2026-08','first_review_nonai_h',6.0),('2026-09','first_review_nonai_h',5.5),
   ('2026-06','review_rounds_ai',1.3),('2026-07','review_rounds_ai',1.2),
+  ('2026-08','review_rounds_ai',1.1),('2026-09','review_rounds_ai',1.0),
   ('2026-06','review_rounds_nonai',2.0),('2026-07','review_rounds_nonai',1.9),
+  ('2026-08','review_rounds_nonai',1.8),('2026-09','review_rounds_nonai',1.7),
   ('2026-06','ai_time_saved_h',120),('2026-07','ai_time_saved_h',180),
+  ('2026-08','ai_time_saved_h',210),('2026-09','ai_time_saved_h',240),
   ('2026-06','ai_prs_with_tests',26),('2026-07','ai_prs_with_tests',42),
-  ('2026-06','rework_from_ai_prs',3),('2026-07','rework_from_ai_prs',2)
+  ('2026-08','ai_prs_with_tests',48),('2026-09','ai_prs_with_tests',54),
+  ('2026-06','rework_from_ai_prs',3),('2026-07','rework_from_ai_prs',2),
+  ('2026-08','rework_from_ai_prs',2),('2026-09','rework_from_ai_prs',1)
 )
 INSERT INTO reporting.metric_counts
   (project, period_type, period_key, period_start, period_end, metric_key, value)
@@ -179,44 +138,34 @@ SELECT 'Future', 'month', v.period_key, p.period_start, p.period_end, v.metric_k
 FROM vals v JOIN periods p USING (period_key);
 
 WITH periods(period_key, period_start, period_end) AS (VALUES
-  ('S1', DATE '2026-06-29', DATE '2026-07-13'),
-  ('S2', DATE '2026-07-13', DATE '2026-07-27'),
-  ('S3', DATE '2026-07-27', DATE '2026-08-10')
-),
-vals(period_key, metric_key, value) AS (VALUES
-  ('S1','lead_time_ai_h',65),('S2','lead_time_ai_h',55),('S3','lead_time_ai_h',42),
-  ('S1','lead_time_nonai_h',88),('S2','lead_time_nonai_h',78),('S3','lead_time_nonai_h',64),
-  ('S1','pr_size_ai',210),('S2','pr_size_ai',195),('S3','pr_size_ai',180),
-  ('S1','pr_size_nonai',340),('S2','pr_size_nonai',320),('S3','pr_size_nonai',300),
-  ('S1','first_review_ai_h',6.0),('S2','first_review_ai_h',5.0),('S3','first_review_ai_h',4.0),
-  ('S1','first_review_nonai_h',10.0),('S2','first_review_nonai_h',9.0),('S3','first_review_nonai_h',7.0),
-  ('S1','review_rounds_ai',1.6),('S2','review_rounds_ai',1.5),('S3','review_rounds_ai',1.4),
-  ('S1','review_rounds_nonai',2.3),('S2','review_rounds_nonai',2.2),('S3','review_rounds_nonai',2.0),
-  ('S1','ai_time_saved_h',20),('S2','ai_time_saved_h',35),('S3','ai_time_saved_h',55),
-  ('S1','ai_prs_with_tests',6),('S2','ai_prs_with_tests',11),('S3','ai_prs_with_tests',18),
-  ('S1','rework_from_ai_prs',3),('S2','rework_from_ai_prs',3),('S3','rework_from_ai_prs',2)
-)
-INSERT INTO reporting.metric_counts
-  (project, period_type, period_key, period_start, period_end, metric_key, value)
-SELECT 'TeacherZone', 'sprint', v.period_key, p.period_start, p.period_end, v.metric_key, v.value
-FROM vals v JOIN periods p USING (period_key);
-
-WITH periods(period_key, period_start, period_end) AS (VALUES
   ('2026-06', DATE '2026-06-01', DATE '2026-06-30'),
-  ('2026-07', DATE '2026-07-01', DATE '2026-07-31')
+  ('2026-07', DATE '2026-07-01', DATE '2026-07-31'),
+  ('2026-08', DATE '2026-08-01', DATE '2026-08-31'),
+  ('2026-09', DATE '2026-09-01', DATE '2026-09-30')
 ),
 vals(period_key, metric_key, value) AS (VALUES
   ('2026-06','lead_time_ai_h',62),('2026-07','lead_time_ai_h',48),
+  ('2026-08','lead_time_ai_h',42),('2026-09','lead_time_ai_h',36),
   ('2026-06','lead_time_nonai_h',86),('2026-07','lead_time_nonai_h',68),
+  ('2026-08','lead_time_nonai_h',60),('2026-09','lead_time_nonai_h',52),
   ('2026-06','pr_size_ai',200),('2026-07','pr_size_ai',185),
+  ('2026-08','pr_size_ai',178),('2026-09','pr_size_ai',170),
   ('2026-06','pr_size_nonai',330),('2026-07','pr_size_nonai',305),
+  ('2026-08','pr_size_nonai',295),('2026-09','pr_size_nonai',285),
   ('2026-06','first_review_ai_h',5.5),('2026-07','first_review_ai_h',4.5),
+  ('2026-08','first_review_ai_h',4.0),('2026-09','first_review_ai_h',3.5),
   ('2026-06','first_review_nonai_h',9.5),('2026-07','first_review_nonai_h',7.5),
+  ('2026-08','first_review_nonai_h',7.0),('2026-09','first_review_nonai_h',6.5),
   ('2026-06','review_rounds_ai',1.5),('2026-07','review_rounds_ai',1.4),
+  ('2026-08','review_rounds_ai',1.3),('2026-09','review_rounds_ai',1.2),
   ('2026-06','review_rounds_nonai',2.2),('2026-07','review_rounds_nonai',2.0),
+  ('2026-08','review_rounds_nonai',1.9),('2026-09','review_rounds_nonai',1.8),
   ('2026-06','ai_time_saved_h',70),('2026-07','ai_time_saved_h',110),
+  ('2026-08','ai_time_saved_h',130),('2026-09','ai_time_saved_h',150),
   ('2026-06','ai_prs_with_tests',18),('2026-07','ai_prs_with_tests',30),
-  ('2026-06','rework_from_ai_prs',4),('2026-07','rework_from_ai_prs',3)
+  ('2026-08','ai_prs_with_tests',34),('2026-09','ai_prs_with_tests',38),
+  ('2026-06','rework_from_ai_prs',4),('2026-07','rework_from_ai_prs',3),
+  ('2026-08','rework_from_ai_prs',3),('2026-09','rework_from_ai_prs',2)
 )
 INSERT INTO reporting.metric_counts
   (project, period_type, period_key, period_start, period_end, metric_key, value)
@@ -225,27 +174,26 @@ FROM vals v JOIN periods p USING (period_key);
 
 -- AI tasks split by tool (drives the "AI Tasks by Tool" bar chart). Keys look
 -- like ai_tasks_tool_<Tool>; the dashboard strips the prefix for the label.
--- Per sprint the tool counts sum to that sprint's ai_tasks.
 WITH periods(period_key, period_start, period_end) AS (VALUES
-  ('S1', DATE '2026-06-29', DATE '2026-07-13'),
-  ('S2', DATE '2026-07-13', DATE '2026-07-27'),
-  ('S3', DATE '2026-07-27', DATE '2026-08-10')
+  ('2026-07', DATE '2026-07-01', DATE '2026-07-31'),
+  ('2026-08', DATE '2026-08-01', DATE '2026-08-31'),
+  ('2026-09', DATE '2026-09-01', DATE '2026-09-30')
 ),
 vals(project, period_key, metric_key, value) AS (VALUES
-  ('Future','S1','ai_tasks_tool_Claude Code',20),('Future','S1','ai_tasks_tool_GitHub Copilot',8),('Future','S1','ai_tasks_tool_Cursor',2),
-  ('Future','S2','ai_tasks_tool_Claude Code',24),('Future','S2','ai_tasks_tool_GitHub Copilot',8),('Future','S2','ai_tasks_tool_Cursor',2),
-  ('Future','S3','ai_tasks_tool_Claude Code',30),('Future','S3','ai_tasks_tool_GitHub Copilot',8),('Future','S3','ai_tasks_tool_Cursor',2),
-  ('TeacherZone','S1','ai_tasks_tool_Claude Code',10),('TeacherZone','S1','ai_tasks_tool_GitHub Copilot',6),
-  ('TeacherZone','S2','ai_tasks_tool_Claude Code',15),('TeacherZone','S2','ai_tasks_tool_GitHub Copilot',7),
-  ('TeacherZone','S3','ai_tasks_tool_Claude Code',22),('TeacherZone','S3','ai_tasks_tool_GitHub Copilot',8)
+  ('Future','2026-07','ai_tasks_tool_Claude Code',24),('Future','2026-07','ai_tasks_tool_GitHub Copilot',8),('Future','2026-07','ai_tasks_tool_Cursor',2),
+  ('Future','2026-08','ai_tasks_tool_Claude Code',28),('Future','2026-08','ai_tasks_tool_GitHub Copilot',8),('Future','2026-08','ai_tasks_tool_Cursor',2),
+  ('Future','2026-09','ai_tasks_tool_Claude Code',32),('Future','2026-09','ai_tasks_tool_GitHub Copilot',8),('Future','2026-09','ai_tasks_tool_Cursor',2),
+  ('TeacherZone','2026-07','ai_tasks_tool_Claude Code',15),('TeacherZone','2026-07','ai_tasks_tool_GitHub Copilot',7),
+  ('TeacherZone','2026-08','ai_tasks_tool_Claude Code',18),('TeacherZone','2026-08','ai_tasks_tool_GitHub Copilot',8),
+  ('TeacherZone','2026-09','ai_tasks_tool_Claude Code',22),('TeacherZone','2026-09','ai_tasks_tool_GitHub Copilot',8)
 )
 INSERT INTO reporting.metric_counts
   (project, period_type, period_key, period_start, period_end, metric_key, value)
-SELECT v.project, 'sprint', v.period_key, p.period_start, p.period_end, v.metric_key, v.value
+SELECT v.project, 'month', v.period_key, p.period_start, p.period_end, v.metric_key, v.value
 FROM vals v JOIN periods p USING (period_key);
 
--- Manual inputs: monthly numbers (drive the Manual KPI panels) + a few
--- quarterly governance flags.
+-- Manual inputs: monthly numbers (drive the Manual KPI panels) + quarterly
+-- governance flags. 2026-Q3 is now a *complete* quarter (07/08/09 all seeded).
 INSERT INTO reporting.manual_inputs (project, period_key, field, value, entered_by) VALUES
   ('Future','2026-06','total_engineers','18','seed'),
   ('Future','2026-06','coverage_ai','0.55','seed'),
@@ -255,9 +203,20 @@ INSERT INTO reporting.manual_inputs (project, period_key, field, value, entered_
   ('Future','2026-07','coverage_ai','0.60','seed'),
   ('Future','2026-07','cost_baseline','45','seed'),
   ('Future','2026-07','cost_actual','30','seed'),
+  ('Future','2026-08','total_engineers','19','seed'),
+  ('Future','2026-08','coverage_ai','0.63','seed'),
+  ('Future','2026-08','cost_baseline','45','seed'),
+  ('Future','2026-08','cost_actual','28','seed'),
+  ('Future','2026-09','total_engineers','20','seed'),
+  ('Future','2026-09','coverage_ai','0.66','seed'),
+  ('Future','2026-09','cost_baseline','45','seed'),
+  ('Future','2026-09','cost_actual','26','seed'),
   ('Future','2026-Q3','g1_agents_md','Yes','auto-check'),
   ('Future','2026-Q3','a2_dashboard','Yes','auto-check'),
   ('Future','2026-Q3','g2_ai_policy','Yes','pm@seta'),
+  ('Future','2026-Q3','g3_required_review','Yes','auto-check'),
+  ('Future','2026-Q3','c3_scan_ci','Yes','auto-check'),
+  ('Future','2026-Q3','b4_dora_improving','Yes','auto-check'),
   ('TeacherZone','2026-06','total_engineers','12','seed'),
   ('TeacherZone','2026-06','coverage_ai','0.40','seed'),
   ('TeacherZone','2026-06','cost_baseline','30','seed'),
@@ -266,6 +225,14 @@ INSERT INTO reporting.manual_inputs (project, period_key, field, value, entered_
   ('TeacherZone','2026-07','coverage_ai','0.48','seed'),
   ('TeacherZone','2026-07','cost_baseline','30','seed'),
   ('TeacherZone','2026-07','cost_actual','24','seed'),
+  ('TeacherZone','2026-08','total_engineers','13','seed'),
+  ('TeacherZone','2026-08','coverage_ai','0.50','seed'),
+  ('TeacherZone','2026-08','cost_baseline','30','seed'),
+  ('TeacherZone','2026-08','cost_actual','23','seed'),
+  ('TeacherZone','2026-09','total_engineers','14','seed'),
+  ('TeacherZone','2026-09','coverage_ai','0.53','seed'),
+  ('TeacherZone','2026-09','cost_baseline','30','seed'),
+  ('TeacherZone','2026-09','cost_actual','21','seed'),
   ('TeacherZone','2026-Q3','g1_agents_md','No','auto-check'),
   ('TeacherZone','2026-Q3','a2_dashboard','Yes','auto-check');
 
@@ -287,16 +254,9 @@ INSERT INTO reporting.manual_inputs (project, period_key, field, value, entered_
 
 -- Tiny-Sample: n<20 so the presentation layer greys its percentages.
 INSERT INTO reporting.metric_counts (project, period_type, period_key, period_start, period_end, metric_key, value) VALUES
-  ('Tiny-Sample','sprint','S1',DATE '2026-06-29',DATE '2026-07-13','total_prs',8),
-  ('Tiny-Sample','sprint','S1',DATE '2026-06-29',DATE '2026-07-13','ai_prs',3),
-  ('Tiny-Sample','sprint','S1',DATE '2026-06-29',DATE '2026-07-13','agent_prs_total',2);
-
--- Future/TeacherZone quarterly flags so their levels render (Q3 in seed).
-INSERT INTO reporting.manual_inputs (project, period_key, field, value, entered_by) VALUES
-  ('Future','2026-Q3','g3_required_review','Yes','auto-check'),
-  ('Future','2026-Q3','c3_scan_ci','Yes','auto-check'),
-  ('Future','2026-Q3','b4_dora_improving','Yes','auto-check')
-ON CONFLICT (project, period_key, field) DO NOTHING;
+  ('Tiny-Sample','month','2026-07',DATE '2026-07-01',DATE '2026-07-31','total_prs',8),
+  ('Tiny-Sample','month','2026-07',DATE '2026-07-01',DATE '2026-07-31','ai_prs',3),
+  ('Tiny-Sample','month','2026-07',DATE '2026-07-01',DATE '2026-07-31','agent_prs_total',2);
 
 -- A practice-change annotation for the trend charts.
 INSERT INTO reporting.events (ts, project, title, tag) VALUES

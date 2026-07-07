@@ -12,7 +12,7 @@
   "templating": {
     "list": [
       {
-        "name": "sprint",
+        "name": "month",
         "type": "query",
         "datasource": {
           "type": "postgres",
@@ -20,7 +20,7 @@
         },
         "refresh": 2,
         "sort": 0,
-        "query": "SELECT period_key FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' ORDER BY period_start DESC",
+        "query": "SELECT period_key FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' ORDER BY period_start DESC",
         "current": {},
         "options": []
       }
@@ -36,17 +36,17 @@
     },
     {
       "type": "link",
-      "title": "Download Excel (all sprints)",
+      "title": "Download Excel (all months)",
       "icon": "doc",
       "targetBlank": true,
       "url": "https://ai-metrics.seta-international.com/export.xlsx?project=Future"
     },
     {
       "type": "link",
-      "title": "Download Excel (selected sprint)",
+      "title": "Download Excel (selected month)",
       "icon": "doc",
       "targetBlank": true,
-      "url": "https://ai-metrics.seta-international.com/export.xlsx?project=Future&sprints=${sprint}"
+      "url": "https://ai-metrics.seta-international.com/export.xlsx?project=Future&months=${month}"
     }
   ],
   "panels": [
@@ -111,11 +111,11 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, n_pr AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, n_pr AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
-      "description": "Merged PRs in the selected sprint: the sample size behind every PR-based %. Below 20, percentages are greyed."
+      "description": "Merged PRs in the selected month: the sample size behind every PR-based %. Below 20, percentages are greyed."
     },
     {
       "type": "stat",
@@ -166,11 +166,11 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, n_agent_pr AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, n_agent_pr AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
-      "description": "Count of agent PRs this sprint. Agent-section percentages stay hidden until this reaches the sample-size floor."
+      "description": "Count of agent PRs this month. Agent-section percentages stay hidden until this reaches the sample-size floor."
     },
     {
       "type": "stat",
@@ -287,7 +287,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, usage_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, usage_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -350,7 +350,7 @@
     },
     {
       "type": "row",
-      "title": "Sprint Steering ($sprint)",
+      "title": "Steering ($month)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -362,7 +362,7 @@
     },
     {
       "type": "stat",
-      "title": "Sprint Predictability",
+      "title": "Merge Lead Time (no prod env)",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -370,73 +370,7 @@
       "gridPos": {
         "x": 0,
         "y": 6,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#ec835a",
-                "value": null
-              },
-              {
-                "color": "#fab219",
-                "value": 60
-              },
-              {
-                "color": "#0ca30c",
-                "value": 80
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "graphMode": "area",
-        "colorMode": "value",
-        "justifyMode": "auto",
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, predictability_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
-      "description": "Completed \u00f7 committed issues in the Jira sprint."
-    },
-    {
-      "type": "stat",
-      "title": "Merge Lead Time (no prod env)",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 6,
-        "y": 6,
-        "w": 6,
+        "w": 12,
         "h": 4
       },
       "fieldConfig": {
@@ -486,7 +420,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, lead_time_h AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, lead_time_h AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -552,11 +486,11 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, incidents AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, incidents AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
-      "description": "Jira issues of type Incident created this sprint. Green 0, amber 1-2, red 3+."
+      "description": "Jira issues of type Incident created this month. Green 0, amber 1-2, red 3+."
     },
     {
       "type": "stat",
@@ -618,7 +552,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, mttr_h AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, mttr_h AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -684,7 +618,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, rework_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, rework_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -813,11 +747,11 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, ai_time_saved_h AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, ai_time_saved_h AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
-      "description": "Sum of per-ticket 'AI Time Saved' on issues done this sprint."
+      "description": "Sum of per-ticket 'AI Time Saved' on issues done this month."
     },
     {
       "type": "stat",
@@ -868,7 +802,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, throughput_per_engineer AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, throughput_per_engineer AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -941,7 +875,7 @@
     },
     {
       "type": "barchart",
-      "title": "AI Tasks by Tool ($sprint)",
+      "title": "AI Tasks by Tool ($month)",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -1018,7 +952,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT replace(metric_key, 'ai_tasks_tool_', '') AS \"Tool\", value::float8 AS \"Tasks\" FROM reporting.metric_counts WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint' AND metric_key LIKE 'ai_tasks_tool_%' ORDER BY value DESC",
+          "rawSql": "SELECT replace(metric_key, 'ai_tasks_tool_', '') AS \"Tool\", value::float8 AS \"Tasks\" FROM reporting.metric_counts WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month' AND metric_key LIKE 'ai_tasks_tool_%' ORDER BY value DESC",
           "refId": "A"
         }
       ],
@@ -1126,7 +1060,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, lead_time_ai_h AS \"AI PRs\", lead_time_nonai_h AS \"Non-AI PRs\" FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, lead_time_ai_h AS \"AI PRs\", lead_time_nonai_h AS \"Non-AI PRs\" FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -1222,7 +1156,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, first_review_ai_h AS \"AI PRs\", first_review_nonai_h AS \"Non-AI PRs\" FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, first_review_ai_h AS \"AI PRs\", first_review_nonai_h AS \"Non-AI PRs\" FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -1277,7 +1211,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, pr_size_ai AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, pr_size_ai AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -1332,7 +1266,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, pr_size_nonai AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, pr_size_nonai AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -1387,7 +1321,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, review_rounds_ai AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, review_rounds_ai AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -1442,7 +1376,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, rework_from_ai_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, rework_from_ai_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -1497,7 +1431,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, ai_pr_test_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, ai_pr_test_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -1563,7 +1497,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, CASE WHEN n_ai_pr < 20 THEN NULL ELSE ai_pr_review_pct END AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, CASE WHEN n_ai_pr < 20 THEN NULL ELSE ai_pr_review_pct END AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -1591,7 +1525,7 @@
       "gridPos": {
         "x": 0,
         "y": 38,
-        "w": 8,
+        "w": 12,
         "h": 4
       },
       "fieldConfig": {
@@ -1641,7 +1575,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, lead_time_h AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, lead_time_h AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -1655,9 +1589,9 @@
         "uid": "reporting-postgres"
       },
       "gridPos": {
-        "x": 8,
+        "x": 12,
         "y": 38,
-        "w": 8,
+        "w": 12,
         "h": 4
       },
       "fieldConfig": {
@@ -1707,77 +1641,11 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, mttr_h AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, mttr_h AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
       "description": "Mean hours from incident created to resolved. Lower is better."
-    },
-    {
-      "type": "stat",
-      "title": "Sprint Predictability",
-      "datasource": {
-        "type": "postgres",
-        "uid": "reporting-postgres"
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 38,
-        "w": 8,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#ec835a",
-                "value": null
-              },
-              {
-                "color": "#fab219",
-                "value": 60
-              },
-              {
-                "color": "#0ca30c",
-                "value": 80
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "graphMode": "area",
-        "colorMode": "value",
-        "justifyMode": "auto",
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "reporting-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, predictability_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
-          "refId": "A"
-        }
-      ],
-      "description": "Completed \u00f7 committed issues in the Jira sprint. Higher = more reliable delivery."
     },
     {
       "type": "row",
@@ -1863,7 +1731,7 @@
     },
     {
       "type": "timeseries",
-      "title": "Agent PRs by Sprint",
+      "title": "Agent PRs by Month",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -1955,7 +1823,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, agent_prs_autonomous AS \"Autonomous\", agent_prs_human_fixed AS \"Human-fixed\" FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, agent_prs_autonomous AS \"Autonomous\", agent_prs_human_fixed AS \"Human-fixed\" FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -2021,7 +1889,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, CASE WHEN n_agent_pr < 20 THEN NULL ELSE autonomy_pct END AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, CASE WHEN n_agent_pr < 20 THEN NULL ELSE autonomy_pct END AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -2076,7 +1944,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, agent_completion_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, agent_completion_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -2131,7 +1999,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, human_intervention_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, human_intervention_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -2186,7 +2054,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, agent_cycle_h AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, agent_cycle_h AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -2253,7 +2121,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, ai_users_weekly_avg AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, ai_users_weekly_avg AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -2308,11 +2176,11 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, engineers_active AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, engineers_active AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
-      "description": "Distinct engineers who merged a PR this sprint (bots excluded)."
+      "description": "Distinct engineers who merged a PR this month (bots excluded)."
     },
     {
       "type": "stat",
@@ -2374,7 +2242,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, usage_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, usage_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -2440,7 +2308,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, CASE WHEN n_pr < 20 THEN NULL ELSE ai_pr_pct END AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, CASE WHEN n_pr < 20 THEN NULL ELSE ai_pr_pct END AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -2506,7 +2374,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, ai_task_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, ai_task_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -2561,7 +2429,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, agent_task_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' AND period_key = '$sprint') ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, agent_task_pct AS value FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_start <= (SELECT period_start FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' AND period_key = '$month') ORDER BY period_start",
           "refId": "A"
         }
       ],
@@ -2672,7 +2540,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, ai_pr_pct AS \"AI PR %\", ai_task_pct AS \"AI Task %\", agent_task_pct AS \"Agent Task %\" FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'sprint' ORDER BY period_start",
+          "rawSql": "SELECT period_start AS time, ai_pr_pct AS \"AI PR %\", ai_task_pct AS \"AI Task %\", agent_task_pct AS \"Agent Task %\" FROM reporting.v_metrics WHERE project = 'Future' AND period_type = 'month' ORDER BY period_start",
           "refId": "A"
         }
       ],

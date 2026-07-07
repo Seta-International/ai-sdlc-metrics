@@ -10,7 +10,46 @@
     "to": "now+7d"
   },
   "templating": {
-    "list": []
+    "list": [
+      {
+        "name": "granularity",
+        "type": "custom",
+        "label": "Granularity",
+        "query": "month,quarter",
+        "current": {
+          "text": "month",
+          "value": "month"
+        },
+        "options": [
+          {
+            "text": "month",
+            "value": "month",
+            "selected": true
+          },
+          {
+            "text": "quarter",
+            "value": "quarter",
+            "selected": false
+          }
+        ]
+      },
+      {
+        "name": "project",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "reporting-postgres"
+        },
+        "label": "Project",
+        "multi": true,
+        "includeAll": true,
+        "refresh": 2,
+        "sort": 1,
+        "query": "SELECT DISTINCT project FROM reporting.v_metrics ORDER BY project",
+        "current": {},
+        "options": []
+      }
+    ]
   },
   "links": [
     {
@@ -83,11 +122,11 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(DISTINCT project) FROM reporting.v_metrics WHERE period_type = 'sprint'",
+          "rawSql": "SELECT count(DISTINCT r.project) (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project)",
           "refId": "A"
         }
       ],
-      "description": "Distinct projects with at least one collected sprint."
+      "description": "Distinct projects with at least one collected period, at the selected granularity."
     },
     {
       "type": "stat",
@@ -145,7 +184,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT sum(w.ai_time_saved_h * CASE w.project WHEN 'Future' THEN 12 WHEN 'TeacherZone' THEN 12 ELSE 0 END) - sum(COALESCE(t.value::numeric, 0)) FROM (SELECT DISTINCT ON (project) * FROM reporting.metrics_wide WHERE period_type = 'month' AND ai_time_saved_h IS NOT NULL ORDER BY project, period_key DESC) w LEFT JOIN reporting.manual_inputs t ON t.project = w.project AND t.period_key = w.period_key AND t.field = 'ai_tool_cost_monthly'",
+          "rawSql": "SELECT sum(w.ai_time_saved_h * CASE w.project WHEN 'Future' THEN 12 WHEN 'TeacherZone' THEN 12 ELSE 0 END) - sum(COALESCE(t.value::numeric, 0)) FROM (SELECT DISTINCT ON (project) * FROM reporting.metrics_wide WHERE period_type = 'month' AND ai_time_saved_h IS NOT NULL AND project IN ($project) ORDER BY project, period_key DESC) w LEFT JOIN reporting.manual_inputs t ON t.project = w.project AND t.period_key = w.period_key AND t.field = 'ai_tool_cost_monthly'",
           "refId": "A"
         }
       ],
@@ -211,11 +250,11 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT round(avg(ai_pr_pct), 1) FROM reporting.v_metrics r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.v_metrics r2 WHERE r2.project = r.project AND r2.period_type = 'sprint')",
+          "rawSql": "SELECT round(avg(ai_pr_pct), 1) FROM (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project) AND r.period_start = (SELECT max(period_start) FROM (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r2 WHERE r2.project = r.project AND r2.period_type = r.period_type)",
           "refId": "A"
         }
       ],
-      "description": "Average AI-labeled PR share across projects, latest sprint each."
+      "description": "Average AI-labeled PR share across projects, latest period each."
     },
     {
       "type": "stat",
@@ -277,11 +316,11 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT round(avg(lead_time_h), 1) FROM reporting.v_metrics r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.v_metrics r2 WHERE r2.project = r.project AND r2.period_type = 'sprint')",
+          "rawSql": "SELECT round(avg(lead_time_h), 1) FROM (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project) AND r.period_start = (SELECT max(period_start) FROM (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r2 WHERE r2.project = r.project AND r2.period_type = r.period_type)",
           "refId": "A"
         }
       ],
-      "description": "Average lead time across projects (latest sprint each). Lower is faster delivery."
+      "description": "Average lead time across projects (latest period each). Lower is faster delivery."
     },
     {
       "type": "stat",
@@ -343,7 +382,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT round(avg(autonomy_pct), 1) FROM reporting.v_metrics r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.v_metrics r2 WHERE r2.project = r.project AND r2.period_type = 'sprint')",
+          "rawSql": "SELECT round(avg(autonomy_pct), 1) FROM (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project) AND r.period_start = (SELECT max(period_start) FROM (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r2 WHERE r2.project = r.project AND r2.period_type = r.period_type)",
           "refId": "A"
         }
       ],
@@ -398,7 +437,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT round(avg(100 * (b.v - a.v) / NULLIF(b.v, 0)), 0) FROM (SELECT project, period_key, value::numeric v FROM reporting.manual_inputs WHERE field = 'cost_baseline') b JOIN (SELECT project, period_key, value::numeric v FROM reporting.manual_inputs WHERE field = 'cost_actual') a USING (project, period_key) JOIN (SELECT project, max(period_key) mk FROM reporting.manual_inputs WHERE field = 'cost_actual' GROUP BY project) m ON m.project = b.project AND m.mk = b.period_key",
+          "rawSql": "SELECT round(avg(100 * (b.v - a.v) / NULLIF(b.v, 0)), 0) FROM (SELECT project, period_key, value::numeric v FROM reporting.manual_inputs WHERE field = 'cost_baseline' AND project IN ($project)) b JOIN (SELECT project, period_key, value::numeric v FROM reporting.manual_inputs WHERE field = 'cost_actual') a USING (project, period_key) JOIN (SELECT project, max(period_key) mk FROM reporting.manual_inputs WHERE field = 'cost_actual' GROUP BY project) m ON m.project = b.project AND m.mk = b.period_key",
           "refId": "A"
         }
       ],
@@ -406,7 +445,7 @@
     },
     {
       "type": "row",
-      "title": "Project Scorecard (latest sprint)",
+      "title": "Project Scorecard (latest period)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -418,7 +457,7 @@
     },
     {
       "type": "table",
-      "title": "A. Adoption: Latest Sprint",
+      "title": "A. Adoption: Latest Period",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -565,7 +604,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT project AS \"Project\", period_key AS \"Sprint\", total_tasks AS \"Tasks\", total_prs AS \"PRs\", round(ai_pr_pct, 1) AS \"AI PR %\", round(agent_task_pct, 1) AS \"Agent Task %\", round(usage_pct, 0) AS \"Usage %\", round(ai_task_pct, 1) AS \"AI Task %\", round(throughput_per_engineer, 1) AS \"Throughput/Eng\" FROM reporting.v_metrics r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.v_metrics r2 WHERE r2.project = r.project AND r2.period_type = 'sprint') ORDER BY project",
+          "rawSql": "SELECT project AS \"Project\", period_key AS \"Period\", n_tasks AS \"Tasks\", n_pr AS \"PRs\", round(ai_pr_pct, 1) AS \"AI PR %\", round(agent_task_pct, 1) AS \"Agent Task %\", round(usage_pct, 0) AS \"Usage %\", round(ai_task_pct, 1) AS \"AI Task %\", round(throughput_per_engineer, 1) AS \"Throughput/Eng\" FROM (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project) AND r.period_start = (SELECT max(period_start) FROM (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r2 WHERE r2.project = r.project AND r2.period_type = r.period_type) ORDER BY project",
           "refId": "A"
         }
       ],
@@ -573,7 +612,7 @@
     },
     {
       "type": "table",
-      "title": "B. Delivery (DORA): Latest Sprint",
+      "title": "B. Delivery (DORA): Latest Period",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -736,41 +775,6 @@
                 }
               }
             ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Predictability %"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "#ec835a",
-                      "value": null
-                    },
-                    {
-                      "color": "#fab219",
-                      "value": 60
-                    },
-                    {
-                      "color": "#0ca30c",
-                      "value": 80
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              }
-            ]
           }
         ]
       },
@@ -786,15 +790,15 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT project AS \"Project\", period_key AS \"Sprint\", round(lead_time_h, 1) AS \"Lead Time h\", round(deploys_per_week, 2) AS \"Deploys/wk\", round(cfr_pct, 1) AS \"CFR %\", round(mttr_h, 1) AS \"MTTR h\", round(predictability_pct, 0) AS \"Predictability %\" FROM reporting.v_metrics r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.v_metrics r2 WHERE r2.project = r.project AND r2.period_type = 'sprint') ORDER BY project",
+          "rawSql": "SELECT project AS \"Project\", period_key AS \"Period\", round(lead_time_h, 1) AS \"Lead Time h\", round(deploys_per_week, 2) AS \"Deploys/wk\", round(cfr_pct, 1) AS \"CFR %\", round(mttr_h, 1) AS \"MTTR h\" FROM (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project) AND r.period_start = (SELECT max(period_start) FROM (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r2 WHERE r2.project = r.project AND r2.period_type = r.period_type) ORDER BY project",
           "refId": "A"
         }
       ],
-      "description": "DORA throughput + stability plus sprint predictability. Green = on target, yellow = watch, red = act."
+      "description": "DORA throughput + stability. Green = on target, yellow = watch, red = act."
     },
     {
       "type": "table",
-      "title": "C. Quality: Latest Sprint",
+      "title": "C. Quality: Latest Period",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -941,7 +945,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT project AS \"Project\", period_key AS \"Sprint\", round(ai_pr_review_pct, 1) AS \"Review %\", round(rework_pct, 1) AS \"Rework %\", round(ai_pr_test_pct, 1) AS \"AI PR Test %\", round(rework_from_ai_pct, 1) AS \"Rework from AI %\", security_alerts AS \"Alerts\" FROM reporting.v_metrics r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.v_metrics r2 WHERE r2.project = r.project AND r2.period_type = 'sprint') ORDER BY project",
+          "rawSql": "SELECT project AS \"Project\", period_key AS \"Period\", round(ai_pr_review_pct, 1) AS \"Review %\", round(rework_pct, 1) AS \"Rework %\", round(ai_pr_test_pct, 1) AS \"AI PR Test %\", round(rework_from_ai_pct, 1) AS \"Rework from AI %\", security_alerts AS \"Alerts\" FROM (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project) AND r.period_start = (SELECT max(period_start) FROM (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r2 WHERE r2.project = r.project AND r2.period_type = r.period_type) ORDER BY project",
           "refId": "A"
         }
       ],
@@ -949,7 +953,7 @@
     },
     {
       "type": "table",
-      "title": "D. Agent: Latest Sprint",
+      "title": "D. Agent: Latest Period",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -1026,7 +1030,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT project AS \"Project\", period_key AS \"Sprint\", round(agent_pr_pct, 1) AS \"Agent PR %\", round(autonomy_pct, 1) AS \"Autonomy %\", round(agent_completion_pct, 1) AS \"Completion %\", round(human_intervention_pct, 1) AS \"Human-fix %\", round(agent_cycle_h, 1) AS \"Agent Cycle h\" FROM reporting.v_metrics r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.v_metrics r2 WHERE r2.project = r.project AND r2.period_type = 'sprint') ORDER BY project",
+          "rawSql": "SELECT project AS \"Project\", period_key AS \"Period\", round(agent_pr_pct, 1) AS \"Agent PR %\", round(autonomy_pct, 1) AS \"Autonomy %\", round(agent_completion_pct, 1) AS \"Completion %\", round(human_intervention_pct, 1) AS \"Human-fix %\", round(agent_cycle_h, 1) AS \"Agent Cycle h\" FROM (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project) AND r.period_start = (SELECT max(period_start) FROM (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r2 WHERE r2.project = r.project AND r2.period_type = r.period_type) ORDER BY project",
           "refId": "A"
         }
       ],
@@ -1046,7 +1050,7 @@
     },
     {
       "type": "table",
-      "title": "Evidence: AI vs Non-AI (latest sprint)",
+      "title": "Evidence: AI vs Non-AI (latest period)",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -1087,7 +1091,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT project AS \"Project\", round(lead_time_ai_h, 1) AS \"Lead AI h\", round(lead_time_nonai_h, 1) AS \"Lead non-AI h\", round(100 * (lead_time_nonai_h - lead_time_ai_h) / NULLIF(lead_time_nonai_h, 0), 0) AS \"Lead Time Faster %\", round(pr_size_ai, 0) AS \"PR size AI\", round(pr_size_nonai, 0) AS \"PR size non-AI\", n_ai_pr AS \"n(AI PR)\" FROM reporting.v_metrics r WHERE period_type = 'sprint' AND period_start = (SELECT max(period_start) FROM reporting.v_metrics r2 WHERE r2.project = r.project AND r2.period_type = 'sprint') ORDER BY project",
+          "rawSql": "SELECT project AS \"Project\", round(lead_time_ai_h, 1) AS \"Lead AI h\", round(lead_time_nonai_h, 1) AS \"Lead non-AI h\", round(100 * (lead_time_nonai_h - lead_time_ai_h) / NULLIF(lead_time_nonai_h, 0), 0) AS \"Lead Time Faster %\", round(pr_size_ai, 0) AS \"PR size AI\", round(pr_size_nonai, 0) AS \"PR size non-AI\", n_ai_pr AS \"n(AI PR)\" FROM (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project) AND r.period_start = (SELECT max(period_start) FROM (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r2 WHERE r2.project = r.project AND r2.period_type = r.period_type) ORDER BY project",
           "refId": "A"
         }
       ],
@@ -1383,7 +1387,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT project AS \"Project\", lvl_a AS \"A\", lvl_b AS \"B\", lvl_c AS \"C*\", lvl_d AS \"D\", lvl_e AS \"E*\", overall AS \"OVERALL\" FROM (SELECT DISTINCT ON (project) project, quarter, lvl_a, lvl_b, lvl_c, lvl_d, lvl_e, overall FROM reporting.v_levels ORDER BY project, quarter DESC) x ORDER BY overall, project",
+          "rawSql": "SELECT project AS \"Project\", lvl_a AS \"A\", lvl_b AS \"B\", lvl_c AS \"C*\", lvl_d AS \"D\", lvl_e AS \"E*\", overall AS \"OVERALL\" FROM (SELECT DISTINCT ON (project) project, quarter, lvl_a, lvl_b, lvl_c, lvl_d, lvl_e, overall FROM reporting.v_levels ORDER BY project, quarter DESC) x WHERE project IN ($project) ORDER BY overall, project",
           "refId": "A"
         }
       ],
@@ -1403,7 +1407,7 @@
     },
     {
       "type": "timeseries",
-      "title": "AI PR % by Sprint",
+      "title": "AI PR % by Period",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -1491,15 +1495,15 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, project, ai_pr_pct FROM reporting.v_metrics WHERE period_type = 'sprint' ORDER BY period_start",
+          "rawSql": "SELECT r.period_start AS time, r.project, r.ai_pr_pct FROM (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project) ORDER BY r.period_start",
           "refId": "A"
         }
       ],
-      "description": "AI-labeled PR share per sprint, one line per project. Adoption trajectory across the portfolio."
+      "description": "AI-labeled PR share per period, one line per project. Adoption trajectory across the portfolio."
     },
     {
       "type": "timeseries",
-      "title": "Lead Time by Sprint",
+      "title": "Lead Time by Period",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -1587,15 +1591,15 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, project, lead_time_h FROM reporting.v_metrics WHERE period_type = 'sprint' ORDER BY period_start",
+          "rawSql": "SELECT r.period_start AS time, r.project, r.lead_time_h FROM (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project) ORDER BY r.period_start",
           "refId": "A"
         }
       ],
-      "description": "Lead time (hours) per sprint, one line per project. Lower/flatter is better."
+      "description": "Lead time (hours) per period, one line per project. Lower/flatter is better."
     },
     {
       "type": "timeseries",
-      "title": "Agent Autonomy % by Sprint",
+      "title": "Agent Autonomy % by Period",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -1683,11 +1687,11 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT period_start AS time, project, autonomy_pct FROM reporting.v_metrics WHERE period_type = 'sprint' ORDER BY period_start",
+          "rawSql": "SELECT r.period_start AS time, r.project, r.autonomy_pct FROM (SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics WHERE period_type='month' UNION ALL SELECT project, period_type, period_key, period_start, ai_pr_pct, usage_pct, agent_task_pct, ai_task_pct, lead_time_h, deploys_per_week, cfr_pct, mttr_h, rework_pct, ai_pr_review_pct, ai_pr_test_pct, rework_from_ai_pct, security_alerts, agent_pr_pct, autonomy_pct, agent_completion_pct, human_intervention_pct, agent_cycle_h, throughput_per_engineer, lead_time_ai_h, lead_time_nonai_h, pr_size_ai, pr_size_nonai, n_pr, n_ai_pr, n_tasks FROM reporting.v_metrics_q) r WHERE r.period_type = '$granularity' AND r.project IN ($project) ORDER BY r.period_start",
           "refId": "A"
         }
       ],
-      "description": "Share of agent PRs merged with no human commits, per sprint and project. Rising = growing agent autonomy."
+      "description": "Share of agent PRs merged with no human commits, per period and project. Rising = growing agent autonomy."
     },
     {
       "type": "row",
@@ -1780,7 +1784,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT b.project AS \"Project\", round(100 * (b.v - a.v) / NULLIF(b.v, 0), 0)::float8 AS \"Cost Improvement %\" FROM (SELECT project, period_key, value::numeric v FROM reporting.manual_inputs WHERE field = 'cost_baseline') b JOIN (SELECT project, period_key, value::numeric v FROM reporting.manual_inputs WHERE field = 'cost_actual') a USING (project, period_key) JOIN (SELECT project, max(period_key) mk FROM reporting.manual_inputs WHERE field = 'cost_actual' GROUP BY project) m ON m.project = b.project AND m.mk = b.period_key ORDER BY 2 DESC",
+          "rawSql": "SELECT b.project AS \"Project\", round(100 * (b.v - a.v) / NULLIF(b.v, 0), 0)::float8 AS \"Cost Improvement %\" FROM (SELECT project, period_key, value::numeric v FROM reporting.manual_inputs WHERE field = 'cost_baseline' AND project IN ($project)) b JOIN (SELECT project, period_key, value::numeric v FROM reporting.manual_inputs WHERE field = 'cost_actual') a USING (project, period_key) JOIN (SELECT project, max(period_key) mk FROM reporting.manual_inputs WHERE field = 'cost_actual' GROUP BY project) m ON m.project = b.project AND m.mk = b.period_key ORDER BY 2 DESC",
           "refId": "A"
         }
       ],
@@ -1865,7 +1869,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT DISTINCT ON (w.project) w.project AS \"Project\", round(w.usage_pct, 0)::float8 AS \"Usage %\" FROM reporting.v_metrics w WHERE w.period_type = 'month' ORDER BY w.project, w.period_key DESC",
+          "rawSql": "SELECT DISTINCT ON (w.project) w.project AS \"Project\", round(w.usage_pct, 0)::float8 AS \"Usage %\" FROM reporting.v_metrics w WHERE w.period_type = 'month' AND w.project IN ($project) ORDER BY w.project, w.period_key DESC",
           "refId": "A"
         }
       ],
@@ -1873,7 +1877,7 @@
     },
     {
       "type": "barchart",
-      "title": "AI Tasks by Tool (portfolio, all sprints)",
+      "title": "AI Tasks by Tool (portfolio, all months)",
       "datasource": {
         "type": "postgres",
         "uid": "reporting-postgres"
@@ -1950,7 +1954,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT replace(metric_key, 'ai_tasks_tool_', '') AS \"Tool\", sum(value)::float8 AS \"Tasks\" FROM reporting.metric_counts WHERE period_type = 'sprint' AND metric_key LIKE 'ai_tasks_tool_%' GROUP BY 1 ORDER BY 2 DESC",
+          "rawSql": "SELECT replace(metric_key, 'ai_tasks_tool_', '') AS \"Tool\", sum(value)::float8 AS \"Tasks\" FROM reporting.metric_counts WHERE period_type = 'month' AND metric_key LIKE 'ai_tasks_tool_%' AND project IN ($project) GROUP BY 1 ORDER BY 2 DESC",
           "refId": "A"
         }
       ],

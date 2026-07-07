@@ -22,7 +22,7 @@
     },
     {
       "type": "link",
-      "title": "Download Excel (all sprints)",
+      "title": "Download Excel (all months)",
       "icon": "doc",
       "targetBlank": true,
       "url": "https://ai-metrics.seta-international.com/export.xlsx?project=TeacherZone"
