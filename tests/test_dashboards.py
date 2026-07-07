@@ -204,15 +204,14 @@ def _all_panels(dash):
     return out
 
 
-def test_bod_has_verdict_and_heatmap(tmp_path):
+def test_bod_has_verdict_and_decisions(tmp_path):
     out = _generate(tmp_path)
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())
     titles = _all_titles(bod)
     assert any("Verdict" in t for t in titles)                # the verdict panel
-    assert any("Portfolio Maturity" in t for t in titles)     # heatmap (2 projects in config)
     body = json.dumps(bod)
     assert "reporting.v_levels" in body
-    assert any("Decisions" in t for t in titles)              # the "Ask" section, renamed
+    assert any("Decisions" in t for t in titles)              # the decision-first section
 
 
 def test_bod_has_granularity_and_project_vars(tmp_path):
@@ -279,6 +278,17 @@ def test_bod_section3_paired(tmp_path):
     assert any("Lead Time" in t for t in titles)
     assert any("Change-Fail" in t or "CFR" in t or "Rework" in t for t in titles)
     assert any("AI vs Non-AI" in t for t in titles)
+
+
+def test_bod_section4_maturity(tmp_path):
+    out = _generate(tmp_path)
+    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
+    raw = json.dumps(bod)
+    assert "reporting.v_level_distribution" in raw
+    assert "reporting.v_penetration" in raw
+    titles = [p["title"] for p in bod["panels"]]
+    assert any("Maturity" in t or "Level" in t for t in titles)
+    assert any("Penetration" in t or "Adoption breadth" in t for t in titles)
 
 
 def test_bod_has_evidence_delta(tmp_path):

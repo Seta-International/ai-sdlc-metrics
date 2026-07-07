@@ -696,14 +696,6 @@ def build_raw_dashboard(cfg: dict, exporter_url: str) -> dict:
 
 # -------------------------------------------------------------------- BOD ---
 
-def _project_colors(projects: list[str]) -> list[dict]:
-    return [{"matcher": {"id": "byName", "options": name},
-             "properties": [{"id": "color",
-                             "value": {"mode": "fixed",
-                                       "fixedColor": PALETTE[i % len(PALETTE)]}}]}
-            for i, name in enumerate(projects)]
-
-
 def _score_col(name: str, th: dict) -> dict:
     return {"matcher": {"id": "byName", "options": name},
             "properties": [{"id": "thresholds", "value": th},
@@ -712,20 +704,6 @@ def _score_col(name: str, th: dict) -> dict:
 
 
 def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
-    projects = [c["name"] for c in cfgs]
-    latest = (f"FROM {RATIOS} r WHERE period_type = 'sprint' AND period_start = "
-              f"(SELECT max(period_start) FROM {RATIOS} r2 WHERE r2.project = r.project "
-              "AND r2.period_type = 'sprint')")
-    trend = f"FROM {RATIOS} WHERE period_type = 'sprint' ORDER BY period_start"
-
-    cost_latest = (
-        f"FROM (SELECT project, period_key, value::numeric v FROM {MANUAL} "
-        "WHERE field = 'cost_baseline') b "
-        f"JOIN (SELECT project, period_key, value::numeric v FROM {MANUAL} "
-        "WHERE field = 'cost_actual') a USING (project, period_key) "
-        f"JOIN (SELECT project, max(period_key) mk FROM {MANUAL} "
-        "WHERE field = 'cost_actual' GROUP BY project) m "
-        "ON m.project = b.project AND m.mk = b.period_key")
     roi_rate = ("CASE v.project " +
                 " ".join(f"WHEN '{c['name']}' THEN {c['blended_hourly_rate']}"
                          for c in cfgs) + " ELSE 0 END")
@@ -826,53 +804,6 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
                  "columns and with n(AI PR) in mind (small samples are noisy)."},
     ]
 
-    direction = [
-        {"kind": "timeseries", "title": "AI PR % by Sprint",
-         "sql": f"SELECT period_start AS time, project, ai_pr_pct {trend}",
-         "format": "time_series", "unit": "percent", "w": 8, "h": 8,
-         "overrides": _project_colors(projects),
-         "desc": "AI-labeled PR share per sprint, one line per project. "
-                 "Adoption trajectory across the portfolio."},
-        {"kind": "timeseries", "title": "Lead Time by Sprint",
-         "sql": f"SELECT period_start AS time, project, lead_time_h {trend}",
-         "format": "time_series", "unit": "h", "w": 8, "h": 8,
-         "overrides": _project_colors(projects),
-         "desc": "Lead time (hours) per sprint, one line per project. "
-                 "Lower/flatter is better."},
-        {"kind": "timeseries", "title": "Agent Autonomy % by Sprint",
-         "sql": f"SELECT period_start AS time, project, autonomy_pct {trend}",
-         "format": "time_series", "unit": "percent", "w": 8, "h": 8,
-         "overrides": _project_colors(projects),
-         "desc": "Share of agent PRs merged with no human commits, per sprint "
-                 "and project. Rising = growing agent autonomy."},
-    ]
-
-    usage_by_project = (
-        "SELECT DISTINCT ON (w.project) w.project AS \"Project\", "
-        "round(w.usage_pct, 0)::float8 AS \"Usage %\" "
-        f"FROM {RATIOS} w "
-        "WHERE w.period_type = 'month' ORDER BY w.project, w.period_key DESC")
-    value = [
-        {"kind": "barchart", "title": "Cost Improvement % by Project (latest)",
-         "sql": (f"SELECT b.project AS \"Project\", "
-                 f"round(100 * (b.v - a.v) / NULLIF(b.v, 0), 0)::float8 AS \"Cost Improvement %\" "
-                 f"{cost_latest} ORDER BY 2 DESC"),
-         "xfield": "Project", "unit": "percent", "w": 8, "h": 8, "color": ACCENT,
-         "desc": "From monthly manual inputs (cost baseline vs actual per unit)."},
-        {"kind": "barchart", "title": "Engineer Usage Rate by Project (latest month)",
-         "sql": usage_by_project, "xfield": "Project", "unit": "percent", "w": 8, "h": 8,
-         "color": PALETTE[1],
-         "desc": ("AI engineers ÷ team size (manual input, falls back to "
-                  "active PR contributors). Framework target ≥80%.")},
-        {"kind": "barchart", "title": "AI Tasks by Tool (portfolio, all sprints)",
-         "sql": ("SELECT replace(metric_key, 'ai_tasks_tool_', '') AS \"Tool\", "
-                 "sum(value)::float8 AS \"Tasks\" FROM reporting.metric_counts "
-                 "WHERE period_type = 'sprint' AND metric_key LIKE 'ai_tasks_tool_%' "
-                 "GROUP BY 1 ORDER BY 2 DESC"),
-         "xfield": "Tool", "unit": "none", "w": 8, "h": 8, "color": PALETTE[2],
-         "desc": "Portfolio tool mix: informs license decisions."},
-    ]
-
     # Verdict: portfolio status, scoped to the selected projects.
     verdict_sql = (
         "WITH lv AS (SELECT * FROM (" + _levels_latest_all() + ") z WHERE "
@@ -912,30 +843,38 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
          "desc": "The only per-project detail on this board. Click a project to "
                  "drill into its operational dashboard."},
     ]
-    heatmap = [
-        {"kind": "table", "title": "Portfolio Maturity (A–E)",
-         "sql": (f"SELECT project AS \"Project\", lvl_a AS \"A\", lvl_b AS \"B\", "
-                 "lvl_c AS \"C*\", lvl_d AS \"D\", lvl_e AS \"E*\", "
-                 "overall AS \"OVERALL\" FROM (" + _levels_latest_all() + ") x "
-                 "ORDER BY overall, project"),
-         "unit": "none", "w": 24, "h": 8,
-         "overrides": [_score_col(c, _th(CRIT, (2, WARN), (3, WARN), (4, GOOD)))
-                       for c in ("A", "B", "C*", "D", "E*", "OVERALL")],
-         "desc": ("Each project's A-E levels for its latest quarter. C and E are "
-                  "gates (marked *). Click a project to open its dashboard. "
-                  "OVERALL = MIN(E, C, round(avg)).")},
+    maturing = [
+        {"kind": "barchart", "title": "Maturity distribution (projects per level)", "w": 12, "h": 7,
+         "xfield": "Level", "unit": "none", "color": BLUE_MID,
+         "sql": ("SELECT ('L' || level) AS \"Level\", "
+                 "sum(n_projects)::float8 AS \"Projects\" FROM reporting.v_level_distribution "
+                 "WHERE dimension = 'OVERALL' AND quarter = (SELECT max(quarter) "
+                 "FROM reporting.v_level_distribution) GROUP BY level ORDER BY level"),
+         "desc": "Portfolio shape: how many projects sit at each overall maturity "
+                 "level this quarter. Scales to N projects (no per-project rows)."},
+        {"kind": "timeseries", "title": "Adoption breadth (penetration)", "w": 12, "h": 7,
+         "format": "time_series", "unit": "none",
+         "sql": ("SELECT period_start AS time, n_projects_ai AS \"On AI program\", "
+                 "n_projects_total AS \"Total active\" FROM reporting.v_penetration "
+                 f"WHERE period_type = '$granularity' AND {_tf('period_start')} "
+                 "ORDER BY period_start"),
+         "desc": "How many projects are on the AI program over time vs total active — "
+                 "the org-wide adoption S-curve, distinct from intensity."},
+        {"kind": "timeseries", "title": "Agent Autonomy % (gated by verification)", "w": 24, "h": 6,
+         "format": "time_series", "unit": "percent",
+         "sql": (f"SELECT r.period_start AS time, round(avg(r.autonomy_pct),1) AS \"Autonomy %\", "
+                 f"round(avg(r.ai_pr_review_pct),1) AS \"Review % (gate)\" FROM {_bod_src()} "
+                 f"AND {_proj('r.project')} AND {_tf('r.period_start')} "
+                 "GROUP BY r.period_start ORDER BY r.period_start"),
+         "desc": "Autonomy shown with its verification gate (review coverage). Earned "
+                 "autonomy only — do not credit a level the review evidence can't support."},
     ]
     sections = [
         ("Verdict & Decisions", verdict + decisions + attention),
         ("Is it paying off?", paying),
         ("Is it safe?", safe),
         ("Is it working, honestly?", honest),
-    ]
-    if len(cfgs) >= 2:
-        sections.append(("Portfolio Maturity", heatmap))
-    sections += [
-        ("Delivery Health", direction),
-        ("Where to Invest", value),
+        ("Are we maturing?", maturing),
     ]
     links = [{"type": "link", "title": "Download Excel (all projects)", "icon": "doc",
               "targetBlank": True, "url": f"{exporter_url}/export.xlsx?project=all"}]
