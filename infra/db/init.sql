@@ -5,8 +5,8 @@ DROP TABLE IF EXISTS reporting.ai_sprint_metrics;
 
 CREATE TABLE IF NOT EXISTS reporting.metric_counts (
   project      text        NOT NULL,
-  period_type  text        NOT NULL CHECK (period_type IN ('sprint', 'month')),
-  period_key   text        NOT NULL,  -- 'S6' or '2026-06'
+  period_type  text        NOT NULL CHECK (period_type IN ('month')),
+  period_key   text        NOT NULL,  -- '2026-06'
   period_start date        NOT NULL,
   period_end   date        NOT NULL,
   metric_key   text        NOT NULL,  -- e.g. 'ai_prs', 'total_prs', 'lead_time_h'

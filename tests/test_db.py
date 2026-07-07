@@ -17,7 +17,7 @@ def _fetch_counts(pg_url, project):
 
 def test_upsert_counts_inserts_and_skips_none(pg_url):
     n = upsert_counts(
-        pg_url, "Future", "sprint", "S1", date(2026, 6, 29), date(2026, 7, 13),
+        pg_url, "Future", "month", "2026-07", date(2026, 6, 29), date(2026, 7, 13),
         {"ai_prs": 3, "total_prs": 10, "lead_time_h": None},
     )
     assert n == 2
@@ -34,8 +34,16 @@ def test_upsert_counts_is_idempotent_and_updates(pg_url):
 
 def test_upsert_counts_empty_returns_zero(pg_url):
     assert upsert_counts(
-        pg_url, "P-Empty", "sprint", "S1", date(2026, 1, 1), date(2026, 1, 14), {}
+        pg_url, "P-Empty", "month", "2026-01", date(2026, 1, 1), date(2026, 1, 14), {}
     ) == 0
+
+
+def test_period_type_rejects_sprint(pg_url):
+    with pytest.raises(psycopg2.errors.CheckViolation):
+        upsert_counts(
+            pg_url, "P-NoSprint", "sprint", "S1",
+            date(2026, 6, 29), date(2026, 7, 13), {"total_prs": 1},
+        )
 
 
 def test_upsert_manual_input_roundtrip_and_overwrite(pg_url):
