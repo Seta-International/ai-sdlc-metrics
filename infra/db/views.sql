@@ -3,6 +3,7 @@
 --   psql "$REPORTING_DB_URL" -f infra/db/views.sql
 -- Drop first: CREATE OR REPLACE cannot add/reorder view columns.
 
+DROP VIEW IF EXISTS reporting.v_attention;
 DROP VIEW IF EXISTS reporting.v_penetration;
 DROP VIEW IF EXISTS reporting.v_level_distribution;
 DROP VIEW IF EXISTS reporting.v_portfolio_roi;
@@ -285,3 +286,25 @@ SELECT period_type, period_key, min(period_start) AS period_start,
                            OR COALESCE(total_tasks, 0) > 0)::int AS n_projects_total
 FROM reporting.metrics_wide
 GROUP BY period_type, period_key;
+
+CREATE VIEW reporting.v_attention AS
+WITH latest AS (
+  SELECT DISTINCT ON (project) project, quarter, lvl_c, lvl_e, overall
+  FROM reporting.v_levels
+  ORDER BY project, quarter DESC
+)
+SELECT project, quarter,
+  CASE
+    WHEN lvl_c <= 1 OR lvl_e <= 1 THEN 3
+    WHEN overall <= 1 THEN 2
+    WHEN overall <= 2 THEN 1
+    ELSE 0 END AS severity,
+  CASE
+    WHEN lvl_c <= 1 AND lvl_e <= 1 THEN 'Quality (C) and governance (E) gates at Level 1'
+    WHEN lvl_c <= 1 THEN 'Quality (C) gate at Level 1'
+    WHEN lvl_e <= 1 THEN 'Governance (E) gate at Level 1'
+    WHEN overall <= 1 THEN 'Overall maturity at Level 1'
+    WHEN overall <= 2 THEN 'Overall maturity at Level 2'
+    ELSE '' END AS reason
+FROM latest
+WHERE (lvl_c <= 1 OR lvl_e <= 1 OR overall <= 2);

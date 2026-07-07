@@ -190,6 +190,20 @@ def test_v_penetration_breadth(pg_url):
     assert int(ai) == 1 and int(total) == 2
 
 
+def test_v_attention_flags_gate(pg_url):
+    import psycopg2
+    # A project with no quality/governance evidence lands at gate level 1 (C & E),
+    # which must surface as a severity-3 attention row.
+    _seed_quarter_levels(pg_url, "P-Attn", "2026-Q2", {"a4_near_universal": "No"})
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT severity, reason FROM reporting.v_attention "
+                    "WHERE project='P-Attn' AND quarter='2026-Q2'")
+        row = cur.fetchone()
+    assert row is not None
+    severity, reason = row
+    assert int(severity) == 3 and "gate" in reason.lower()
+
+
 def test_views_sql_is_reappliable(pg_url):
     """views.sql must re-apply cleanly to an already-migrated DB (deploy re-runs it)."""
     import os

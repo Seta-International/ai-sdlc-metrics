@@ -70,4 +70,4 @@ def test_thresholds_seeded(pg_url):
         cur.execute("SELECT value FROM reporting.thresholds WHERE key = 'usage_L2'")
         assert float(cur.fetchone()[0]) == 0.50
         cur.execute("SELECT count(*) FROM reporting.thresholds")
-        assert cur.fetchone()[0] == 11
+        assert cur.fetchone()[0] == 18
