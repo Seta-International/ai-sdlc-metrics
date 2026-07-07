@@ -10,6 +10,7 @@ DROP VIEW IF EXISTS reporting.v_portfolio_roi;
 DROP VIEW IF EXISTS reporting.metrics_ratios;
 DROP VIEW IF EXISTS reporting.v_levels;
 DROP VIEW IF EXISTS reporting.v_quarter_metrics;
+DROP VIEW IF EXISTS reporting.v_metrics_q;
 DROP VIEW IF EXISTS reporting.v_metrics;
 DROP VIEW IF EXISTS reporting.metrics_wide;
 
@@ -102,6 +103,87 @@ LEFT JOIN LATERAL (
 
 -- Backward-compat alias so existing consumers keep working during the migration.
 CREATE VIEW reporting.metrics_ratios AS SELECT * FROM reporting.v_metrics;
+
+-- Quarter-grain sibling of v_metrics, column-identical (name + order) so BOD's
+-- Month/Quarter toggle can UNION ALL the two by position. Counts are summed
+-- across the quarter's months (volume-weighted ratios); latency/size metrics
+-- are averaged (summing hours would be meaningless).
+CREATE VIEW reporting.v_metrics_q AS
+WITH qwide AS (
+  SELECT
+    project,
+    to_char(period_start, 'YYYY') || '-Q'
+      || ceil(extract(month FROM period_start) / 3.0)::int AS period_key,
+    min(period_start) AS period_start,
+    max(period_end)   AS period_end,
+    avg(ai_users_weekly_avg) AS ai_users_weekly_avg,
+    max(engineers_active)    AS engineers_active,
+    sum(ai_prs) AS ai_prs, sum(total_prs) AS total_prs,
+    sum(agent_tasks) AS agent_tasks, sum(ai_tasks) AS ai_tasks, sum(total_tasks) AS total_tasks,
+    avg(lead_time_h) AS lead_time_h,
+    sum(deploys) AS deploys, sum(weeks) AS weeks, sum(incidents) AS incidents,
+    avg(mttr_h) AS mttr_h,
+    sum(rework_prs) AS rework_prs, sum(ai_prs_reviewed) AS ai_prs_reviewed,
+    sum(security_alerts) AS security_alerts,
+    sum(agent_prs_total) AS agent_prs_total, sum(agent_prs_merged) AS agent_prs_merged,
+    sum(agent_prs_human_fixed) AS agent_prs_human_fixed,
+    sum(agent_prs_autonomous) AS agent_prs_autonomous,
+    avg(agent_cycle_h) AS agent_cycle_h,
+    sum(sprint_committed) AS sprint_committed, sum(sprint_completed) AS sprint_completed,
+    avg(lead_time_ai_h) AS lead_time_ai_h, avg(lead_time_nonai_h) AS lead_time_nonai_h,
+    sum(rework_from_ai_prs) AS rework_from_ai_prs,
+    sum(ai_time_saved_h) AS ai_time_saved_h, sum(ai_prs_with_tests) AS ai_prs_with_tests,
+    avg(pr_size_ai) AS pr_size_ai, avg(pr_size_nonai) AS pr_size_nonai,
+    avg(first_review_ai_h) AS first_review_ai_h, avg(first_review_nonai_h) AS first_review_nonai_h,
+    avg(review_rounds_ai) AS review_rounds_ai, avg(review_rounds_nonai) AS review_rounds_nonai
+  FROM reporting.metrics_wide
+  WHERE period_type = 'month'
+  GROUP BY project,
+    to_char(period_start, 'YYYY') || '-Q'
+      || ceil(extract(month FROM period_start) / 3.0)::int
+)
+SELECT
+  q.project, 'quarter'::text AS period_type, q.period_key, q.period_start, q.period_end,
+  q.ai_users_weekly_avg, q.engineers_active, q.ai_prs, q.total_prs, q.agent_tasks, q.ai_tasks,
+  q.total_tasks, q.lead_time_h, q.deploys, q.weeks, q.incidents, q.mttr_h, q.rework_prs,
+  q.ai_prs_reviewed, q.security_alerts, q.agent_prs_total, q.agent_prs_merged,
+  q.agent_prs_human_fixed, q.agent_prs_autonomous, q.agent_cycle_h, q.sprint_committed,
+  q.sprint_completed, q.lead_time_ai_h, q.lead_time_nonai_h, q.rework_from_ai_prs,
+  q.ai_time_saved_h, q.ai_prs_with_tests, q.pr_size_ai, q.pr_size_nonai,
+  q.first_review_ai_h, q.first_review_nonai_h, q.review_rounds_ai, q.review_rounds_nonai,
+  ts.team_size,
+  100.0 * q.ai_prs               / NULLIF(q.total_prs, 0)        AS ai_pr_pct,
+  CASE WHEN q.ai_users_weekly_avg IS NULL OR ts.team_size IS NULL OR ts.team_size = 0 THEN NULL
+       ELSE LEAST(100.0 * q.ai_users_weekly_avg / NULLIF(ts.team_size, 0), 100.0) END AS usage_pct,
+  100.0 * q.ai_users_weekly_avg  / NULLIF(q.engineers_active, 0) AS usage_rate_pct,
+  100.0 * q.agent_tasks          / NULLIF(q.total_tasks, 0)      AS agent_task_pct,
+  100.0 * q.ai_tasks             / NULLIF(q.total_tasks, 0)      AS ai_task_pct,
+  q.deploys                      / NULLIF(q.weeks, 0)            AS deploys_per_week,
+  100.0 * q.incidents            / NULLIF(q.deploys, 0)          AS cfr_pct,
+  100.0 * q.rework_prs           / NULLIF(q.total_prs, 0)        AS rework_pct,
+  100.0 * q.ai_prs_reviewed      / NULLIF(q.ai_prs, 0)           AS ai_pr_review_pct,
+  100.0 * q.agent_prs_merged     / NULLIF(q.agent_prs_total, 0)  AS agent_completion_pct,
+  100.0 * q.agent_prs_human_fixed / NULLIF(q.agent_prs_total, 0) AS human_intervention_pct,
+  100.0 * q.agent_prs_autonomous / NULLIF(q.agent_prs_total, 0)  AS autonomy_pct,
+  100.0 * q.sprint_completed     / NULLIF(q.sprint_committed, 0) AS predictability_pct,
+  100.0 * q.agent_prs_total      / NULLIF(q.total_prs, 0)        AS agent_pr_pct,
+  q.total_tasks::numeric         / NULLIF(q.engineers_active, 0) AS throughput_per_engineer,
+  100.0 * (q.lead_time_nonai_h - q.lead_time_ai_h)
+                               / NULLIF(q.lead_time_nonai_h, 0)  AS lead_time_ai_delta_pct,
+  100.0 * q.ai_prs_with_tests    / NULLIF(q.ai_prs, 0)           AS ai_pr_test_pct,
+  100.0 * q.rework_from_ai_prs   / NULLIF(q.rework_prs, 0)       AS rework_from_ai_pct,
+  q.total_prs AS n_pr, q.ai_prs AS n_ai_pr, q.agent_prs_total AS n_agent_pr,
+  q.deploys AS n_deploys, q.total_tasks AS n_tasks
+FROM qwide q
+LEFT JOIN LATERAL (
+  SELECT mi.value::numeric AS team_size
+  FROM reporting.manual_inputs mi
+  WHERE mi.project = q.project
+    AND mi.field = 'total_engineers'
+    AND mi.period_key <= to_char(q.period_end, 'YYYY-MM')
+    AND mi.value ~ '^[0-9]+(\.[0-9]+)?$'
+  ORDER BY mi.period_key DESC LIMIT 1
+) ts ON true;
 
 CREATE VIEW reporting.v_portfolio_roi AS
 WITH m AS (

@@ -204,6 +204,25 @@ def test_v_attention_flags_gate(pg_url):
     assert int(severity) == 3 and "gate" in reason.lower()
 
 
+def test_v_metrics_q_volume_weighted(pg_url):
+    import psycopg2
+    from datetime import date
+    from collector.db import upsert_counts, upsert_manual_input
+    # Two months in Q2 2026. Volume-weighted AI-PR% = (4+16)/(10+40) = 40%,
+    # NOT the average of the two monthly rates (40% and 40% here both 40 → 40).
+    upsert_counts(pg_url, "P-Q", "month", "2026-04", date(2026, 4, 1), date(2026, 4, 30),
+                  {"total_prs": 10, "ai_prs": 4, "total_tasks": 20, "engineers_active": 5})
+    upsert_counts(pg_url, "P-Q", "month", "2026-05", date(2026, 5, 1), date(2026, 5, 31),
+                  {"total_prs": 40, "ai_prs": 16, "total_tasks": 40, "engineers_active": 5})
+    upsert_manual_input(pg_url, "P-Q", "2026-05", "total_engineers", "5", "seed")
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT period_key, period_type, ai_pr_pct, n_pr, team_size "
+                    "FROM reporting.v_metrics_q WHERE project='P-Q'")
+        key, ptype, ai_pct, n_pr, team = cur.fetchone()
+    assert key == "2026-Q2" and ptype == "quarter"
+    assert round(float(ai_pct), 1) == 40.0 and float(n_pr) == 50 and float(team) == 5
+
+
 def test_views_sql_is_reappliable(pg_url):
     """views.sql must re-apply cleanly to an already-migrated DB (deploy re-runs it)."""
     import os
