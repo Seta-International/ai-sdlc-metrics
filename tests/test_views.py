@@ -223,6 +223,16 @@ def test_v_metrics_q_volume_weighted(pg_url):
     assert round(float(ai_pct), 1) == 40.0 and float(n_pr) == 50 and float(team) == 5
 
 
+def test_bod_src_union_columns_align(pg_url):
+    import psycopg2
+    with psycopg2.connect(pg_url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT * FROM reporting.v_metrics WHERE false")
+        a = [d.name for d in cur.description]
+        cur.execute("SELECT * FROM reporting.v_metrics_q WHERE false")
+        b = [d.name for d in cur.description]
+    assert a == b, f"v_metrics vs v_metrics_q column mismatch: {set(a) ^ set(b)}"
+
+
 def test_views_sql_is_reappliable(pg_url):
     """views.sql must re-apply cleanly to an already-migrated DB (deploy re-runs it)."""
     import os

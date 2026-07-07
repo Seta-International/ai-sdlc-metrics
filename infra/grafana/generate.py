@@ -242,6 +242,38 @@ def _dashboard(uid: str, title: str, panels: list[dict],
     }
 
 
+def _bod_vars() -> list[dict]:
+    granularity = {
+        "name": "granularity", "type": "custom", "label": "Granularity",
+        "query": "month,quarter", "current": {"text": "quarter", "value": "quarter"},
+        "options": [{"text": "month", "value": "month", "selected": False},
+                    {"text": "quarter", "value": "quarter", "selected": True}],
+    }
+    project = {
+        "name": "project", "type": "query", "datasource": DS, "label": "Project",
+        "multi": True, "includeAll": True, "refresh": 2, "sort": 1,
+        "query": "SELECT DISTINCT project FROM reporting.v_metrics ORDER BY project",
+        "current": {}, "options": [],
+    }
+    return [granularity, project]
+
+
+def _bod_src() -> str:
+    # Ratio source chosen by $granularity: monthly rows from v_metrics or
+    # quarter rows from v_metrics_q, unified then filtered to the selection.
+    return ("(SELECT * FROM reporting.v_metrics WHERE period_type='month' "
+            "UNION ALL SELECT * FROM reporting.v_metrics_q) r "
+            "WHERE r.period_type = '$granularity'")
+
+
+def _proj(col: str = "project") -> str:
+    return f"{col} IN ($project)"
+
+
+def _tf(col: str = "period_start") -> str:
+    return f"$__timeFilter({col})"
+
+
 def _sprint_var(project: str) -> dict:
     return {
         "name": "sprint", "type": "query", "datasource": DS,
@@ -686,7 +718,8 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
         "ON m.project = b.project AND m.mk = b.period_key")
     pulse = [
         {"kind": "stat", "title": "Projects Tracked",
-         "sql": f"SELECT count(DISTINCT project) FROM {RATIOS} WHERE period_type = 'sprint'",
+         "sql": (f"SELECT count(DISTINCT project) FROM {RATIOS} "
+                 f"WHERE period_type = 'sprint' AND {_proj()}"),
          "unit": "none", "w": 8, "graph": "none",
          "desc": "Distinct projects with at least one collected sprint."},
         {"kind": "stat", "title": "AI Net $ (portfolio, latest month)",
@@ -893,7 +926,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
     links = [{"type": "link", "title": "Download Excel (all projects)", "icon": "doc",
               "targetBlank": True, "url": f"{exporter_url}/export.xlsx?project=all"}]
     return _dashboard("ai-sdlc-bod", "AI SDLC: Portfolio (BOD)",
-                      _layout(sections), [], links)
+                      _layout(sections), _bod_vars(), links)
 
 
 def main() -> None:

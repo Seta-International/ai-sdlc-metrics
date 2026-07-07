@@ -225,6 +225,19 @@ def test_bod_ask_uses_real_newlines(tmp_path):
     assert "\\n" not in content   # not the literal backslash-n that renders as text
 
 
+def test_bod_has_granularity_and_project_vars(tmp_path):
+    out = _generate(tmp_path)
+    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
+    names = [v["name"] for v in bod["templating"]["list"]]
+    assert names == ["granularity", "project"]
+    gran = next(v for v in bod["templating"]["list"] if v["name"] == "granularity")
+    assert [o["value"] for o in gran["options"]] == ["month", "quarter"]
+    proj = next(v for v in bod["templating"]["list"] if v["name"] == "project")
+    assert proj["multi"] is True and proj["includeAll"] is True
+    raw = json.dumps(bod)
+    assert "IN ($project)" in raw            # scope filter wired
+
+
 def test_bod_has_evidence_delta(tmp_path):
     out = _generate(tmp_path)
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())
