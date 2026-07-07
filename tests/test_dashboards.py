@@ -261,6 +261,17 @@ def test_bod_section1_roi(tmp_path):
     assert "reporting.v_portfolio_roi" in raw
 
 
+def test_bod_section2_risk(tmp_path):
+    out = _generate(tmp_path)
+    bod = json.loads((out / "BOD" / "portfolio.json").read_text())
+    titles = [p["title"] for p in bod["panels"]]
+    assert any("Security" in t for t in titles)
+    assert any("Governance" in t for t in titles)
+    raw = json.dumps(bod)
+    assert "security_alerts" in raw
+    assert "g2_ai_policy" in raw or "g3_required_review" in raw
+
+
 def test_bod_has_evidence_delta(tmp_path):
     out = _generate(tmp_path)
     bod = json.loads((out / "BOD" / "portfolio.json").read_text())

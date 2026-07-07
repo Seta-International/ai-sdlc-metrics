@@ -759,6 +759,46 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
          "desc": "Cumulative value vs cumulative cost; the gap is running net ROI."},
     ]
 
+    # Governance/security flags live on the latest quarterly manual row per project.
+    gov_latest = (
+        "FROM (SELECT DISTINCT ON (project) project, period_key FROM reporting.manual_inputs "
+        "WHERE period_key LIKE '%-Q%' ORDER BY project, period_key DESC) q "
+        "JOIN reporting.manual_inputs mi USING (project, period_key)")
+    safe = [
+        {"kind": "stat", "title": "Open Security Alerts (portfolio)", "w": 8, "h": 4,
+         "unit": "none", "graph": "none", "th": TH["alerts"],
+         "sql": (f"SELECT sum(r.security_alerts) FROM {_bod_src()} "
+                 f"AND {_proj('r.project')}"),
+         "desc": "Open code-scanning alerts across selected projects. AI code carries "
+                 "elevated vuln risk; >=1 critical is a board-level flag."},
+        {"kind": "table", "title": "Governance gates (projects meeting each)", "w": 16, "h": 4,
+         "sql": ("SELECT g.label AS \"Gate\", "
+                 "count(*) FILTER (WHERE mi.value='Yes') AS \"Met\", count(*) AS \"Projects\" "
+                 + gov_latest + " JOIN (VALUES "
+                 "('g2_ai_policy','AI policy'),('g3_required_review','Required human review'),"
+                 "('g6_security_controls','Security controls'),('g7_traceability','Traceability/audit'),"
+                 "('g8_model_governance','Model governance')) g(field,label) ON g.field = mi.field "
+                 "WHERE " + _proj("mi.project") + " GROUP BY g.label ORDER BY 2"),
+         "desc": "Governance posture from quarterly flags: how many selected projects "
+                 "meet each gate. Gaps are risk-oversight items."},
+        {"kind": "timeseries", "title": "Quality-erosion watch (rework % vs AI PR %)", "w": 12, "h": 6,
+         "format": "time_series", "unit": "percent",
+         "sql": (f"SELECT r.period_start AS time, round(avg(r.rework_pct),1) AS \"Rework %\", "
+                 f"round(avg(r.ai_pr_pct),1) AS \"AI PR %\" FROM {_bod_src()} "
+                 f"AND {_proj('r.project')} AND {_tf('r.period_start')} "
+                 "GROUP BY r.period_start ORDER BY r.period_start"),
+         "desc": "DORA 2025 warning made visible: watch rework climb as AI adoption "
+                 "climbs. Diverging lines (rework up with adoption) = investigate."},
+        {"kind": "barchart", "title": "Tool concentration (portfolio)", "w": 12, "h": 6,
+         "xfield": "Tool", "unit": "none", "color": PALETTE[2],
+         "sql": ("SELECT replace(metric_key,'ai_tasks_tool_','') AS \"Tool\", "
+                 "sum(value)::float8 AS \"Tasks\" FROM reporting.metric_counts "
+                 "WHERE metric_key LIKE 'ai_tasks_tool_%' AND " + _proj()
+                 + " GROUP BY 1 ORDER BY 2 DESC"),
+         "desc": "Vendor concentration: one dominant tool = price / lock-in / "
+                 "single-point-of-failure risk."},
+    ]
+
     def _score_table(title: str, cols: list[str], overrides: list[dict],
                      desc: str) -> dict:
         # Project + Sprint are pinned first; each themed table stays narrow
@@ -944,6 +984,7 @@ def build_bod_dashboard(cfgs: list[dict], exporter_url: str) -> dict:
     sections = [
         ("Verdict & Decisions", verdict + decisions + attention),
         ("Is it paying off?", paying),
+        ("Is it safe?", safe),
         ("Project Scorecard (latest sprint)", scorecard),
         ("AI vs Non-AI Comparison", evidence),
     ]
