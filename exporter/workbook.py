@@ -24,7 +24,7 @@ SHEET4_FIELDS = [
     "d5_multi_agent", "evidence_a", "evidence_b", "evidence_c", "evidence_d",
     "evidence_e", "improvement_action",
 ]
-SPRINT_SHEET_COLS = [
+MONTHLY_DETAIL_COLS = [
     "period_key", "period_start", "ai_users_weekly_avg", "ai_prs", "total_prs",
     "ai_pr_pct", "agent_tasks", "ai_tasks", "total_tasks", "agent_task_pct",
     "lead_time_h", "deploys", "weeks", "deploys_per_week", "incidents",
@@ -32,42 +32,27 @@ SPRINT_SHEET_COLS = [
     "ai_pr_review_pct", "security_alerts", "agent_prs_total",
     "agent_prs_merged", "agent_prs_human_fixed", "agent_prs_autonomous",
     "agent_completion_pct", "human_intervention_pct", "autonomy_pct",
-    "agent_cycle_h", "sprint_committed", "sprint_completed", "predictability_pct",
+    "agent_cycle_h",
 ]
 
 
-def parse_sprint_range(spec: str | None) -> tuple[int, int] | None:
+def parse_month_range(spec: str | None) -> tuple[str, str] | None:
     if not spec:
         return None
-    m = re.fullmatch(r"S(\d+)(?::S(\d+))?", spec)
+    m = re.fullmatch(r"(\d{4}-\d{2})(?::(\d{4}-\d{2}))?", spec)
     if not m:
-        raise ValueError(f"sprints must look like 'S3' or 'S1:S6', got {spec!r}")
-    lo = int(m.group(1))
-    hi = int(m.group(2)) if m.group(2) else lo
+        raise ValueError(f"months must look like '2026-06' or '2026-01:2026-06', got {spec!r}")
+    lo = m.group(1)
+    hi = m.group(2) if m.group(2) else lo
     if lo > hi:
-        raise ValueError(f"empty sprint range {spec!r}")
+        raise ValueError(f"empty month range {spec!r}")
     return lo, hi
 
 
-def sprint_in_range(period_key: str, rng: tuple[int, int] | None) -> bool:
+def month_in_range(period_key: str, rng: tuple[str, str] | None) -> bool:
     if rng is None:
         return True
-    index = int(period_key[1:])
-    return rng[0] <= index <= rng[1]
-
-
-def _month_iter(start, end):
-    y, m = start.year, start.month
-    while (y, m) <= (end.year, end.month):
-        yield f"{y}-{m:02d}"
-        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
-
-
-def months_overlapped(sprint_rows: list[dict]) -> list[str]:
-    months: set[str] = set()
-    for row in sprint_rows:
-        months.update(_month_iter(row["period_start"], row["period_end"]))
-    return sorted(months)
+    return rng[0] <= period_key <= rng[1]
 
 
 def quarters_of(months: list[str]) -> list[str]:
@@ -80,8 +65,7 @@ def _num(value):
 
 
 def fill_workbook(wb: openpyxl.Workbook, projects: list[str],
-                  sprint_rows: list[dict], month_rows: list[dict],
-                  manual: dict) -> openpyxl.Workbook:
+                  month_rows: list[dict], manual: dict) -> openpyxl.Workbook:
     ids = {name: f"P{i + 1:02d}" for i, name in enumerate(sorted(projects))}
 
     ws = wb["2. Projects"]
@@ -112,14 +96,14 @@ def fill_workbook(wb: openpyxl.Workbook, projects: list[str],
             if field in entries:
                 ws.cell(row=r, column=3 + j, value=entries[field])
 
-    ws = wb.create_sheet("Sprint data")
-    header = ["Project"] + [c.replace("_", " ").title() for c in SPRINT_SHEET_COLS]
+    ws = wb.create_sheet("Monthly detail")
+    header = ["Project"] + [c.replace("_", " ").title() for c in MONTHLY_DETAIL_COLS]
     for j, title in enumerate(header, start=1):
         ws.cell(row=1, column=j, value=title)
-    for i, row in enumerate(sorted(sprint_rows,
+    for i, row in enumerate(sorted(month_rows,
                                    key=lambda r: (r["project"], r["period_start"])), start=2):
         ws.cell(row=i, column=1, value=row["project"])
-        for j, key in enumerate(SPRINT_SHEET_COLS, start=2):
+        for j, key in enumerate(MONTHLY_DETAIL_COLS, start=2):
             v = row.get(key)
             if key == "period_key":
                 ws.cell(row=i, column=j, value=v)

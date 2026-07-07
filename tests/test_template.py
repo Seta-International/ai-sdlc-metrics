@@ -48,7 +48,7 @@ def test_fill_columns_have_headers(generated):
 
 
 def test_fill_workbook_runs_on_generated_template():
-    wb = fill_workbook(build_workbook(), ["Future"], [], [
+    wb = fill_workbook(build_workbook(), ["Future"], [
         {"project": "Future", "period_key": "2026-06",
          "period_start": date(2026, 6, 1), "ai_prs": 20, "total_prs": 50},
     ], {})
