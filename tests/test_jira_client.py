@@ -124,6 +124,19 @@ def test_closed_issues_window_excludes_exclusive_upper_bound():
 
 
 @responses.activate
+def test_closed_issues_requires_current_status_done():
+    # A ticket that passed through Done and was later moved elsewhere (e.g.
+    # Cancel) didn't ship - its AI-usage/time-saved credit shouldn't count.
+    rsp = responses.get(
+        "https://x.atlassian.net/rest/api/3/search/jql",
+        json={"issues": [], "isLast": True},
+    )
+    _jc().get_closed_issues(_SINCE, _UNTIL)
+    jql = rsp.calls[0].request.params["jql"]
+    assert 'AND status = "Done"' in jql
+
+
+@responses.activate
 def test_closed_issues_requests_extra_fields():
     rsp = responses.get(
         "https://x.atlassian.net/rest/api/3/search/jql",

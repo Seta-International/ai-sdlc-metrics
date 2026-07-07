@@ -5,7 +5,14 @@ AI_USAGE_TIERS = {"None": 0, "Assisted": 1, "Agent": 2}
 
 _CLAUDE_TRAILER_RE = re.compile(r"co-authored-by:\s*claude\b", re.I)
 _COPILOT_TRAILER_RE = re.compile(r"co-authored-by:\s*(github\s*)?copilot", re.I)
-_TIME_SAVED_RE = re.compile(r"ai time saved\s*\(hours\)\s*:\s*([0-9]+(?:\.[0-9]+)?)", re.I)
+_TIME_SAVED_RE = re.compile(
+    r"ai time saved\s*\(hours\)\s*:\s*(?:~|≈|approx\.?|approximately|about)?\s*"
+    r"([0-9]+(?:\.[0-9]+)?)",
+    re.I,
+)
+# Matches the same label even when the number itself is unparseable (e.g. a
+# vague "a lot" or "N/A") — used to warn instead of silently dropping it.
+_TIME_SAVED_LABEL_RE = re.compile(r"ai time saved\s*\(hours\)\s*:", re.I)
 
 
 def extract_issue_key(title: str, branch: str, project: str) -> Optional[str]:
@@ -45,11 +52,22 @@ def detect_ai_usage(labels: list[str], commit_messages: list[str]) -> str:
 
 
 def extract_time_saved(body: str) -> Optional[float]:
-    """Parses 'AI time saved (hours): <n>' from a PR description."""
+    """Parses 'AI time saved (hours): <n>' from a PR description. Tolerates a
+    leading '~'/'approx'/'about' before the number (common informal phrasing)."""
     if not body:
         return None
     m = _TIME_SAVED_RE.search(body)
     return float(m.group(1)) if m else None
+
+
+def time_saved_unparseable(body: str) -> bool:
+    """True when the PR body has an 'AI time saved (hours):' line but the
+    value after it isn't a number extract_time_saved can parse (e.g. 'a lot',
+    'N/A', or other free text) — a silent drop worth flagging to the author
+    instead of just disappearing."""
+    if not body:
+        return False
+    return bool(_TIME_SAVED_LABEL_RE.search(body)) and extract_time_saved(body) is None
 
 
 def higher_tier(a: str, b: str) -> str:

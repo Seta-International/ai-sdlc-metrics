@@ -1,6 +1,6 @@
 from collector.ticket_extract import (
     extract_issue_key, detect_ai_tool, detect_ai_usage, extract_time_saved,
-    higher_tier, compute_field_updates,
+    time_saved_unparseable, higher_tier, compute_field_updates,
 )
 
 CLAUDE_TRAILER = "feat: add thing\n\nCo-Authored-By: Claude <noreply@anthropic.com>"
@@ -58,6 +58,21 @@ def test_extract_time_saved_no_match():
 
 def test_extract_time_saved_empty_body():
     assert extract_time_saved("") is None
+
+def test_extract_time_saved_tolerates_approx_prefix():
+    assert extract_time_saved("AI time saved (hours): ~40") == 40.0
+    assert extract_time_saved("AI time saved (hours): approx 5") == 5.0
+    assert extract_time_saved("AI time saved (hours): about 2.5") == 2.5
+
+def test_time_saved_unparseable_flags_vague_text():
+    assert time_saved_unparseable("AI time saved (hours): a lot") is True
+
+def test_time_saved_unparseable_false_when_parseable():
+    assert time_saved_unparseable("AI time saved (hours): 3") is False
+
+def test_time_saved_unparseable_false_when_absent():
+    assert time_saved_unparseable("no mention here") is False
+    assert time_saved_unparseable("") is False
 
 # higher_tier
 def test_higher_tier_upgrades():

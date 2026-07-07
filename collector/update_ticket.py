@@ -17,7 +17,7 @@ from collector.github_client import GitHubClient
 from collector.jira_client import JiraClient
 from collector.ticket_extract import (
     extract_issue_key, detect_ai_usage, detect_ai_tool, extract_time_saved,
-    compute_field_updates,
+    time_saved_unparseable, compute_field_updates,
 )
 
 def main() -> None:
@@ -44,18 +44,31 @@ def main() -> None:
 
         pr = gh.get_pr(args.pr)
         branch = pr.get("head", {}).get("ref", "")
+        body = pr.get("body") or ""
+        labels = [l["name"] for l in pr.get("labels", [])]
+
         issue_key = extract_issue_key(pr["title"], branch, args.jira_project)
         if not issue_key:
-            print(f"No Jira key found for PR #{args.pr}, skipping.")
+            if {"ai-assisted", "ai-agent"} & set(labels) or time_saved_unparseable(body):
+                print(f"WARNING: PR #{args.pr} is AI-labeled/claims time saved but has "
+                      f"no Jira key in its title or branch - its AI usage/hours are "
+                      f"NOT recorded anywhere. Link a ticket and re-run "
+                      f"`python -m collector.update_ticket --pr {args.pr}` to fix.",
+                      file=sys.stderr)
+            else:
+                print(f"No Jira key found for PR #{args.pr}, skipping.")
             return
 
         commits = gh.get_pr_commits(args.pr)
         messages = [c["commit"]["message"] for c in commits]
-        labels = [l["name"] for l in pr.get("labels", [])]
 
         detected_usage = detect_ai_usage(labels, messages)
         detected_tool = detect_ai_tool(messages)
-        detected_hours = extract_time_saved(pr.get("body") or "")
+        detected_hours = extract_time_saved(body)
+        if detected_hours is None and time_saved_unparseable(body):
+            print(f"WARNING: {issue_key} (PR #{args.pr}) has an 'AI time saved (hours):' "
+                  f"line that isn't a plain number - it was NOT recorded. Fix the PR "
+                  f"description's wording and re-run this command.", file=sys.stderr)
 
         fields = [JIRA_AI_USAGE_FIELD, JIRA_AI_TOOL_FIELD, JIRA_AI_TIME_SAVED_FIELD]
         current = jira.get_issue_fields(issue_key, fields)

@@ -34,7 +34,10 @@ class JiraClient:
 
     def get_closed_issues(self, since: datetime, until: datetime,
                           extra_fields: tuple[str, ...] = ()) -> list[dict]:
-        """All issues transitioned to Done in [since, until].
+        """All issues transitioned to Done in [since, until] AND still
+        currently sitting in Done (not e.g. later moved to Cancel) - an issue
+        that passed through Done and was then cancelled didn't ship, so its
+        AI-usage/time-saved credit shouldn't count.
 
         JQL AFTER/BEFORE are exclusive of the named calendar day, so widen the
         bounds by a day: `after` = day before `since` (include the first day),
@@ -46,7 +49,7 @@ class JiraClient:
         before = (until - timedelta(microseconds=1)).date() + timedelta(days=1)
         jql = (
             f'project = {self._project} AND status changed to Done '
-            f'AFTER "{after:%Y-%m-%d}" BEFORE "{before:%Y-%m-%d}"'
+            f'AFTER "{after:%Y-%m-%d}" BEFORE "{before:%Y-%m-%d}" AND status = "Done"'
         )
         fields = [self._ai_usage_field, "assignee", "resolutiondate", *extra_fields]
         return self._jql_all(jql, fields)
