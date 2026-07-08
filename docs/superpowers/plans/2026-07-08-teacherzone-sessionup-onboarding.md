@@ -574,6 +574,8 @@ Expected: a `TeacherZone` folder is listed. (Full permission verification requir
 
 **Blocked on:** Tasks 5 (workflows merged), 7 (secrets set).
 
+**Update 2026-07-08:** First dispatch attempt failed with `startup_failure` (zero jobs ever created — a GitHub validation-time rejection, not a runtime error) on both the `pull_request` auto-trigger and a manual `gh workflow run`. Root cause: `ai-sdlc-metrics.yml`'s `uses: Seta-International/ai-sdlc-metrics/.github/workflows/collect.yml@main` reusable-workflow calls — agent-platform's identical pattern works because it's same-org + public; SessionUp is a different org (`SETA-International-Vietnam`) + private, and something (org/enterprise policy, not visible via the `admin:org`-gated billing/permissions APIs available to this token) blocks external reusable workflows despite `allowed_actions: all` at the repo level. Canh chose to inline the collector steps rather than chase the org policy — see PR [#4095](https://github.com/SETA-International-Vietnam/SessionUp/pull/4095), which rewrites all 4 jobs to checkout+run the collector directly (the same pattern `ai-sdlc-jira-sync.yml` already uses successfully). Merge that PR before re-running Step 1 below. Trade-off recorded in that file's own header comment: future changes to `collect.yml`/`quarterly-check.yml`/`manual-input.yml` upstream need a matching manual update here since the logic is now duplicated, not delegated.
+
 **Files:** none
 
 **Interfaces:**
