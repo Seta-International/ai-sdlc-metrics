@@ -26,6 +26,7 @@ jobs:
       pull-requests: read
       deployments: read
       security-events: read
+      actions: read
     steps:
       - name: Checkout ai-sdlc-metrics
         uses: actions/checkout@v7
