@@ -582,28 +582,13 @@ Expected: a `TeacherZone` folder is listed. (Full permission verification requir
 - Consumes: everything above.
 - Produces: confirmation that `reporting.metric_counts` has a `project = 'TeacherZone'` row sourced from SessionUp, visible on the Grafana TeacherZone dashboard.
 
-- [ ] **Step 1: Manually dispatch the metrics workflow**
+- [x] **Step 1: Manually dispatch the metrics workflow** — done 2026-07-08.
 
-```bash
-gh workflow run ai-sdlc-metrics.yml --repo SETA-International-Vietnam/SessionUp
-```
+- [x] **Step 2: Watch the run** — run [28917395916](https://github.com/SETA-International-Vietnam/SessionUp/actions/runs/28917395916), `collect-current-month` succeeded (39s).
 
-- [ ] **Step 2: Watch the run**
+- [x] **Step 2b: Second real bug found and fixed** — the `workflow_runs:deploy-prod.yml` deploy-strategy 403'd (`GET .../actions/workflows/deploy-prod.yml/runs`) because the job's `permissions:` block never granted `actions: read` — a latent bug in upstream `collect.yml` too (never exercised before; Future uses the `deployments` strategy, not `workflow_runs:`). Fixed in this repo's `collect.yml` (commit `31cfdf3`, pushed to `main`) and in SessionUp's inlined copy (PR [#4096](https://github.com/SETA-International-Vietnam/SessionUp/pull/4096), merged). Re-dispatch after that succeeded clean.
 
-```bash
-gh run list --repo SETA-International-Vietnam/SessionUp --workflow ai-sdlc-metrics.yml --limit 1
-gh run watch --repo SETA-International-Vietnam/SessionUp $(gh run list --repo SETA-International-Vietnam/SessionUp --workflow ai-sdlc-metrics.yml --limit 1 --json databaseId -q '.[0].databaseId')
-```
-
-Expected: the `collect-current-month` job succeeds.
-
-- [ ] **Step 2: If it fails, diagnose before re-running**
-
-Common causes at this stage: a secret typo (Task 7), the `SU` Jira fields not attached to issue types the collector's JQL touches (Task 6 Step 4.1), or `deploy-prod.yml`'s exact filename/case not matching the `workflow_runs:` strategy string. Check the failed job's logs (`gh run view --repo SETA-International-Vietnam/SessionUp --log-failed`) rather than guessing.
-
-- [ ] **Step 3: Confirm data landed**
-
-Open the Grafana `TeacherZone` dashboard folder (or ask the user to, if you don't have direct DB/Grafana access) and confirm the current month now shows non-empty PR/adoption panels.
+- [x] **Step 3: Confirm data landed** — confirmed via job logs (DB access not directly available to the assistant): `[TeacherZone] 2026-07: 2026-07-01 -> 2026-07-08 (1.0 weeks)` / `Upserted 22 metric rows: {'ai_prs': 0, 'total_prs': 39, ..., 'deploys': 5, 'incidents': 0, ...}`. `deploys: 5` confirms the `workflow_runs:` strategy is correctly counting `deploy-prod.yml` runs. `ai_prs`/`incidents` are 0 as expected (labels/template just added, no `Incident` issue type yet — Task 6 manual steps still pending). Grafana dashboard visual confirmation still worth doing when convenient, but the DB row is the ground truth and it's there.
 
 ---
 
@@ -619,26 +604,53 @@ Canh asked to backfill PR/Jira history "back 2 months" in addition to normal for
 - Consumes: the `month` workflow_dispatch input on `ai-sdlc-metrics.yml` (`collector/collect.py --month YYYY-MM`, already generic — no code change needed).
 - Produces: two additional `reporting.metric_counts` rows for `project = 'TeacherZone'`, `period = '2026-05'` and `period = '2026-06'`.
 
-- [ ] **Step 1: Dispatch May 2026**
+- [x] **Step 1: Dispatch May 2026** — done 2026-07-08, run [28917446527](https://github.com/SETA-International-Vietnam/SessionUp/actions/runs/28917446527): `Upserted 22 metric rows: {'ai_prs': 0, 'total_prs': 98, ..., 'engineers_active': 6, 'deploys': 22, ...}`.
 
-```bash
-gh workflow run ai-sdlc-metrics.yml --repo SETA-International-Vietnam/SessionUp -f month=2026-05
-```
+- [x] **Step 2: Watch it, then dispatch June 2026** — done 2026-07-08, run [28917517829](https://github.com/SETA-International-Vietnam/SessionUp/actions/runs/28917517829): `Upserted 22 metric rows: {'ai_prs': 0, 'total_prs': 175, ..., 'engineers_active': 10, 'deploys': 44, ...}`.
 
-- [ ] **Step 2: Watch it, then dispatch June 2026**
+- [x] **Step 3: Confirm both months landed** — confirmed via job logs (real `Upserted` counts above); Grafana visual check still pending, not blocking.
 
-```bash
-gh run list --repo SETA-International-Vietnam/SessionUp --workflow ai-sdlc-metrics.yml --limit 1
-gh run watch --repo SETA-International-Vietnam/SessionUp $(gh run list --repo SETA-International-Vietnam/SessionUp --workflow ai-sdlc-metrics.yml --limit 1 --json databaseId -q '.[0].databaseId')
-gh workflow run ai-sdlc-metrics.yml --repo SETA-International-Vietnam/SessionUp -f month=2026-06
-gh run list --repo SETA-International-Vietnam/SessionUp --workflow ai-sdlc-metrics.yml --limit 1
-gh run watch --repo SETA-International-Vietnam/SessionUp $(gh run list --repo SETA-International-Vietnam/SessionUp --workflow ai-sdlc-metrics.yml --limit 1 --json databaseId -q '.[0].databaseId')
-```
+**Correction to the note originally here:** it claimed a "Co-authored-by trailer fallback" would partially cover backfilled months' `ai_prs` — **that's wrong**, verified by reading the actual code. `collector/metrics.py`'s `_is_ai_pr`/`ai_prs` counting is **label-only** (`AI_LABELS = {"ai-assisted", "ai-agent"}`, checked against `pr.get("labels", [])`) — there is no trailer fallback anywhere in the metrics-counting path. The `Co-authored-by: Claude/Copilot` trailer fallback that CLAUDE.md describes only exists in `collector/ticket_extract.py`, used by `update_ticket.py` for the *Jira ticket field* sync direction (PR → Jira), not for `collect.py`'s PR-counting direction. That's why `ai_prs: 0` for both May and June despite SessionUp's git history actually containing **404 commits with `Co-authored-by: Claude ...` trailers and 62 with `Co-authored-by: Copilot`** in that window (`git log --since=2026-05-01 --until=2026-07-01 --grep=... | grep -c "Co-authored-by"` — see Task 11) — none of those PRs ever got the `ai-assisted`/`ai-agent` label because the labels didn't exist on this repo until Task 2 today. This is real signal being lost, not a hypothetical undercount — see Task 11.
 
-Expected: both `collect-current-month` job runs succeed (the job name is generic — the `month` input, not the job name, decides which month is collected).
+---
 
-- [ ] **Step 3: Confirm both months landed**
+### Task 11: Backfill AI-usage labels + Jira fields on May–June merged PRs
 
-Open the Grafana `TeacherZone` dashboard, switch its month selector to May and June 2026, and confirm both show non-empty panels (or ask Canh to, per Task 9 Step 3).
+Canh asked to retroactively apply AI-usage evidence to already-merged May/June PRs, since they predate the labels/PR template (Task 2/3). Decisions made with Canh:
+- Trailer → label mapping: **both** Claude and Copilot commit trailers map to `ai-assisted` only (never `ai-agent` — too uncertain from a trailer alone that an agent, not a human, drove the PR).
+- Both labels **and** PR body edits (not labels-only) — body gets a clearly-marked `## AI usage` section.
+- `AI time saved (hours)` has no real historical data, so it's an **explicit estimate** from PR diff size (`additions + deletions`), tiered: ≤20→0.5h, ≤100→1.5h, ≤300→3h, ≤800→5h, >800→8h. Marked in the PR body as backfilled/estimated (`<!-- backfilled 2026-07-08, estimated from PR diff size (N lines changed), not measured -->`) — but the **Jira "AI Time Saved" field itself is just a number once written and can't carry that caveat**; this is a real, roughly permanent tradeoff, flagged to Canh before running.
 
-Note: PRs merged in May/June that predate the `ai-assisted`/`ai-agent` labels (Task 2) and the PR template checklist (Task 3) will have no AI-usage signal beyond the `Co-authored-by: Claude/Copilot` trailer fallback — expect adoption metrics (a2–a4) for the backfilled months to undercount versus July onward. This is inherent to backfilling past a label's introduction date, not a bug.
+**Files:**
+- Scratch script (not committed, not part of this repo): `<scratchpad>/backfill_ai_usage.py` — reuses `collector.ticket_extract.detect_ai_tool` for trailer detection (so it matches production logic exactly) and shells out to the existing `python -m collector.update_ticket --pr N --repo ... --jira-project SU` for the Jira write (best-effort/non-blocking by that script's own design — no new Jira-writing code needed).
+
+**Mechanics per qualifying PR:**
+1. Search API finds merged PRs in `2026-05-01..2026-06-30` (**544**, not the ~270 originally assumed — see Task 12, the number was wrong because of a real collector bug).
+2. For each with a Claude/Copilot commit trailer: add `ai-assisted` label (idempotent), append the AI-usage body section with the estimated hours (idempotent — marked with a `<!-- ai-usage-backfill-2026-07-08 -->` marker comment so re-runs skip the edit and only retry the Jira sync step).
+3. Run `update_ticket` for it (resolves the Jira ticket from the PR title/branch, writes AI Usage=Assisted + AI Tool + AI Time Saved via the existing merge policy in `ticket_extract.compute_field_updates` — usage never downgrades, tool set once, hours accumulate).
+
+**Scope decision:** Canh chose to include "Release/x.x.x"/"Sync ..." branch-merge-back PRs in the backfill (544 total, not filtered down to "real" feature PRs), matching `collect.py`'s own methodology exactly — it doesn't filter these out of `total_prs` either, so excluding them from the AI backfill would have been inconsistent with what the metric actually counts, even though it means some AI-authored commits could in principle be represented by two PR numbers (their original feature PR and a later release-sync PR that bundles it). This is a pre-existing quirk of the repo's git flow / this metric's methodology, not something Task 11 introduces.
+
+**Bugs hit and fixed while running the script** (both in the scratch script, not the shared collector):
+- `subprocess.run(["python", ...])` — no bare `python` binary on this Mac, only `python3`/`sys.executable`. Fixed. Left 12 PRs (#3375, #3402, #3434, #3435, #3439, #3440, #3443, #3444, #3454, #3456, #3465, #3471) correctly labeled/body-edited but without their Jira sync — script is idempotent (checks for its own marker comment in the body) so re-running finishes just the Jira step for those without re-touching the label/body.
+- Second bug: the "already backfilled, only retry Jira sync" branch didn't set `hours`/`total_changed` before the function's summary-line f-string referenced them → crash on every already-backfilled PR. Fixed (defaults to `"n/a"` in that branch; the real values were already written to the PR body on first pass, this only affected the log line).
+
+- [ ] **Step 1: Run the backfill script** (env: `METRICS_GH_TOKEN`, `JIRA_EMAIL`/`JIRA_TOKEN`/`JIRA_BASE` from `privates/teacherzone/jira.md`, `JIRA_AI_USAGE_FIELD=customfield_10145`, `JIRA_AI_TOOL_FIELD=customfield_10147`, `JIRA_AI_TIME_SAVED_FIELD=customfield_10146`) — in progress as of this edit, run in background (task `bqvq7yhw8`), ~544 PRs, expect ~10-15 min.
+
+- [ ] **Step 2: Re-dispatch May and June collection** once the backfill finishes, so `ai_prs`/`ai_time_saved_h`/etc. reflect the new labels — same commands as Task 10 Steps 1-2.
+
+- [ ] **Step 3: Spot-check a handful of backfilled PRs and their Jira tickets** for sanity (label present, body section present, Jira AI Usage/Tool/Time Saved populated) before considering this done.
+
+---
+
+### Task 12: Fix `get_merged_prs`'s pagination-order bug (found while investigating Task 11's PR-count mismatch)
+
+**Root cause:** `collector/github_client.py`'s `get_merged_prs` paginated `/pulls?state=closed&sort=updated&direction=desc` and returned as soon as it saw one PR with `merged_at < since`, assuming `updated` order tracks `merged_at` order. It doesn't — a PR merged well before the window but commented on/relabeled recently sorts *above* a PR genuinely merged inside the window but untouched since. Verified empirically on SessionUp: paginating pages 1-15 this way found only 273 in-window PRs before hitting page 5's first out-of-window PR and returning, while pages 6-12 alone contained 190 more genuinely in-window PRs that would've been silently dropped. The Search API's `merged:` date filter (which Task 11's script already used) returned the correct **544**.
+
+**Impact:** every project's every already-collected month is potentially undercounted for `total_prs`, `ai_prs`, `lead_time_*`, `pr_size_*`, `rework_prs`, `ai_prs_reviewed` — anything derived from `get_merged_prs`'s output. Not limited to TeacherZone.
+
+**Fix** (commit `a944b69`, pushed to `main`): `get_merged_prs` now queries the Search API (`repo:{repo} is:pr is:merged merged:{since:%Y-%m-%d}..{until:%Y-%m-%d}`) for the exact set of in-window PR numbers, then hydrates each via the existing `get_pr()`. Exact, no ordering assumption. Rewrote `tests/test_github_client.py`'s two `get_merged_prs` tests to mock the Search endpoint instead of `/pulls`, and added a pagination test. All 194 tests pass (`test_db.py` excluded, needs Docker).
+
+**Not done (explicitly out of scope for this plan):** re-collecting Future's (or TeacherZone's own already-backfilled May/June, before Task 11 re-runs it) historical months with the fixed code. Every already-collected month across every project is now suspect. This needs its own decision (which months, which projects, whether to just let the next scheduled run silently correct going forward vs. deliberately re-run `--month` for specific past months) — flagged here so it isn't lost, not executed.
+
+- [ ] **Follow-up (not part of this plan):** decide whether/how to re-collect Future's historical months now that `get_merged_prs` is fixed.
