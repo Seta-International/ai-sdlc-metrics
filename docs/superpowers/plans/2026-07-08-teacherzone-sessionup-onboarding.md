@@ -637,7 +637,9 @@ Canh asked to retroactively apply AI-usage evidence to already-merged May/June P
 
 - [ ] **Step 1: Run the backfill script** (env: `METRICS_GH_TOKEN`, `JIRA_EMAIL`/`JIRA_TOKEN`/`JIRA_BASE` from `privates/teacherzone/jira.md`, `JIRA_AI_USAGE_FIELD=customfield_10145`, `JIRA_AI_TOOL_FIELD=customfield_10147`, `JIRA_AI_TIME_SAVED_FIELD=customfield_10146`) — in progress as of this edit, run in background (task `bqvq7yhw8`), ~544 PRs, expect ~10-15 min.
 
-- [ ] **Step 2: Re-dispatch May and June collection** once the backfill finishes, so `ai_prs`/`ai_time_saved_h`/etc. reflect the new labels — same commands as Task 10 Steps 1-2.
+- [x] **Step 1 (script run):** done 2026-07-08 — `total=544 labeled=95 no_trailer=449 errors=0`. 95 PRs got the `ai-assisted` label + body section; their Jira tickets got AI Usage/Tool/Time Saved via `update_ticket` (some skipped with a warning where the PR had no resolvable Jira key, e.g. `SU-000`-titled or untitled — expected, best-effort by design).
+
+- [x] **Step 2: Re-dispatch May and June collection** — done 2026-07-08, runs [28919128337](https://github.com/SETA-International-Vietnam/SessionUp/actions/runs/28919128337) (May) and [28919133733](https://github.com/SETA-International-Vietnam/SessionUp/actions/runs/28919133733) (June).
 
 - [ ] **Step 3: Spot-check a handful of backfilled PRs and their Jira tickets** for sanity (label present, body section present, Jira AI Usage/Tool/Time Saved populated) before considering this done.
 
@@ -654,3 +656,27 @@ Canh asked to retroactively apply AI-usage evidence to already-merged May/June P
 **Not done (explicitly out of scope for this plan):** re-collecting Future's (or TeacherZone's own already-backfilled May/June, before Task 11 re-runs it) historical months with the fixed code. Every already-collected month across every project is now suspect. This needs its own decision (which months, which projects, whether to just let the next scheduled run silently correct going forward vs. deliberately re-run `--month` for specific past months) — flagged here so it isn't lost, not executed.
 
 - [ ] **Follow-up (not part of this plan):** decide whether/how to re-collect Future's historical months now that `get_merged_prs` is fixed.
+
+---
+
+### Task 13: Manual inputs — headcount, tool cost, blended rate correction
+
+Canh supplied these directly in chat; stored via `python -m collector.manual_input` (Task 7's REPORTING_DB_URL, same credentials as everything else):
+
+- [x] `total_engineers=6` for TeacherZone 2026-05, 2026-06, 2026-07.
+- [x] `ai_tool_cost_monthly=150` for TeacherZone 2026-07 only (6 × $25 Claude Team Pro seats) — **not backfilled to May/June**, unconfirmed whether that seat count was active then. Ask Canh if it should be.
+- [x] `blended_hourly_rate` corrected from the stale default `12` to `5.77` (= $1000/dev/month ÷ 173.33 standard monthly hours, 40h/week × 52 ÷ 12) in both `infra/grafana/projects.json` (the live config) and `infra/grafana/generate.py`'s `DEFAULTS` (dead fallback, kept in sync for hygiene) — commit `b46cb6b`, pushed to `main`, auto-deployed via `deploy-dashboards.yml` (run `28918924369`, succeeded). This is a **shared default** — since neither project has a `blended_hourly_rate` override, this also corrects Future's ROI dollar figures, not just TeacherZone's. Flagged to Canh that the $1000/month→hourly conversion assumption may need adjusting if their intended basis differs.
+
+---
+
+### Task 14: Clear the maturity-level gates (currently stuck at Level 1)
+
+Canh asked why TeacherZone still shows Level 1 after all the above. Root cause: `reporting.v_levels`'s `overall = LEAST(governance_level, quality_level, round(avg of 5 dimensions))` — Governance (E) and Quality (C) are hard gates, and both require Yes/No judgment flags (`g1`-`g8`, `c3`-`c9` etc.) that had **never been set for TeacherZone at all** — the quarterly auto-check (`collector/quarterly.py`) had never run for this project (its only trigger is a cron hitting 1 Jan/Apr/Jul/Oct, and TeacherZone onboarded 2026-07-08, one week after that quarter's window).
+
+- [x] Ran `python -m collector.quarterly --project TeacherZone --repo SETA-International-Vietnam/SessionUp --quarter 2026-Q3` manually (first run) — auto-derived from real repo facts: `g1_agents_md=Yes` (SessionUp has one), `g3_required_review=No`, `g6_security_controls=No`, `c3_scan_ci=No`, `a2_dashboard=Yes`, `d4_cycle_measured=No`. `b4_dora_improving` not suggested (needs 2 quarters of DORA history, TeacherZone only has partial Q3).
+- [x] Enabled GitHub **Code Security** + **CodeQL default setup** (`javascript-typescript`) on SessionUp via API (`PATCH /repos/.../code-scanning/default-setup`) — first scan run `28919083312`, kicked off automatically.
+- [x] Enabled **secret scanning** + **push protection** via the same `security_and_analysis` PATCH.
+- [x] Enabled **branch protection on `main`** requiring 1 approving review (`required_pull_request_reviews.required_approving_review_count=1`, `enforce_admins=false`, force-push/delete disabled) — a real workflow change for the team, explicitly confirmed with Canh first since it blocks direct-to-main pushes.
+- [x] Re-ran the quarterly auto-check immediately after — `g3_required_review` flipped to `Yes` right away (branch protection is read live via the API). `c3_scan_ci`/`g6_security_controls` still `No` as of this edit — waiting on CodeQL's first scan to finish (`/code-scanning/alerts` 404s until at least one analysis exists; `security_scanning_status()` in `github_client.py` checks that endpoint returns 200). Re-run `collector.quarterly` again once run `28919083312` completes.
+- [ ] **Still needed from Canh** — 5 governance judgment flags `quarterly.py` can't auto-derive: `g2_ai_policy` (written AI policy?), `g4_eval_suite` (pass/fail eval suite for agents?), `g5_shared_library` (shared prompt/agent library?), `g7_traceability` (AI artifacts traceable + agent runs logged?), `g8_model_governance` (governance over which AI models/versions are allowed?). Canh said he'd answer these but hasn't given the actual Yes/No yet — store via `python -m collector.manual_input --project TeacherZone --period 2026-Q3 --entered-by canh.ta@seta-international.vn --set gN_field=Yes|No` once given.
+- [ ] Once `c3_scan_ci`/`g6_security_controls` resolve and the 5 manual flags land, recheck `reporting.v_levels` for `project='TeacherZone'` to see the new overall level and report back.
