@@ -64,7 +64,7 @@ TH = {
 
 
 DEFAULTS = {
-    "blended_hourly_rate": 12,
+    "blended_hourly_rate": 5.77,
     "has_production": True,
     "sections": ["steering", "roi", "cause_effect", "dora", "maturity", "adoption"],
     "thresholds": {"lead_time_h": [72, 168]},
