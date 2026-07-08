@@ -31,31 +31,28 @@ class GitHubClient:
         return results
 
     def get_merged_prs(self, since: datetime, until: datetime) -> list[dict]:
-        """All PRs merged within [since, until]."""
-        prs = []
+        """All PRs merged within [since, until].
+
+        Uses the Search API's `merged:` date filter rather than paginating
+        `/pulls` sorted by `updated` with an early-exit on `merged < since`:
+        `updated` (last activity — a comment, CI rerun, label change) isn't
+        monotonic with `merged_at`, so a PR merged in-window but not touched
+        since sorts below a stale PR that was recently commented on, and the
+        early exit drops it silently. Confirmed on a real repo: 190+ actually
+        in-window PRs were being missed this way."""
+        q = f"repo:{self._repo} is:pr is:merged merged:{since:%Y-%m-%d}..{until:%Y-%m-%d}"
+        numbers = []
         page = 1
         while True:
-            r = self._s.get(
-                f"{self._BASE}/repos/{self._repo}/pulls",
-                params={"state": "closed", "sort": "updated", "direction": "desc",
-                        "per_page": 100, "page": page},
-            )
+            r = self._s.get(f"{self._BASE}/search/issues",
+                             params={"q": q, "per_page": 100, "page": page})
             r.raise_for_status()
-            batch = r.json()
-            if not batch:
-                break
-            for pr in batch:
-                if not pr.get("merged_at"):
-                    continue
-                merged = datetime.fromisoformat(pr["merged_at"].replace("Z", "+00:00"))
-                if merged < since:
-                    return prs
-                if merged <= until:
-                    prs.append(pr)
-            if len(batch) < 100:
+            items = r.json()["items"]
+            numbers.extend(item["number"] for item in items)
+            if len(items) < 100:
                 break
             page += 1
-        return prs
+        return [self.get_pr(n) for n in numbers]
 
     def get_deployments(self, environment: str, since: datetime, until: datetime) -> list[dict]:
         """Production deployments within [since, until]."""

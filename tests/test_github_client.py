@@ -10,20 +10,16 @@ REPO = "seta-international/agent-platform"
 
 @rsps_lib.activate
 def test_get_merged_prs_returns_prs_in_window():
-    rsps_lib.add(rsps_lib.GET, f"{BASE}/repos/{REPO}/pulls", json=[
-        {
-            "number": 1, "title": "Add feature",
-            "merged_at": "2026-07-01T10:00:00Z",
-            "created_at": "2026-07-01T08:00:00Z",
-            "labels": [{"name": "ai-assisted"}],
-        },
-        {
-            "number": 2, "title": "Fix bug",
-            "merged_at": "2026-06-28T10:00:00Z",  # before window
-            "created_at": "2026-06-28T08:00:00Z",
-            "labels": [],
-        },
-    ], status=200)
+    # Search API only returns items in-window (server-side `merged:` date
+    # filter) — the fake response reflects that, not a raw unfiltered list.
+    rsps_lib.add(rsps_lib.GET, f"{BASE}/search/issues", json={
+        "items": [{"number": 1}],
+    }, status=200)
+    rsps_lib.add(rsps_lib.GET, f"{BASE}/repos/{REPO}/pulls/1", json={
+        "number": 1, "title": "Add feature",
+        "merged_at": "2026-07-01T10:00:00Z",
+        "labels": [{"name": "ai-assisted"}],
+    }, status=200)
 
     client = GitHubClient("fake-token", REPO)
     prs = client.get_merged_prs(SINCE, UNTIL)
@@ -32,13 +28,25 @@ def test_get_merged_prs_returns_prs_in_window():
 
 @rsps_lib.activate
 def test_get_merged_prs_excludes_unmerged():
-    rsps_lib.add(rsps_lib.GET, f"{BASE}/repos/{REPO}/pulls", json=[
-        {"number": 3, "title": "Draft", "merged_at": None, "created_at": "2026-07-01T08:00:00Z", "labels": []},
-    ], status=200)
+    rsps_lib.add(rsps_lib.GET, f"{BASE}/search/issues", json={"items": []}, status=200)
 
     client = GitHubClient("fake-token", REPO)
     prs = client.get_merged_prs(SINCE, UNTIL)
     assert prs == []
+
+@rsps_lib.activate
+def test_get_merged_prs_paginates_search_results():
+    page1 = {"items": [{"number": n} for n in range(1, 101)]}
+    page2 = {"items": [{"number": 101}]}
+    rsps_lib.add(rsps_lib.GET, f"{BASE}/search/issues", json=page1, status=200)
+    rsps_lib.add(rsps_lib.GET, f"{BASE}/search/issues", json=page2, status=200)
+    for n in list(range(1, 101)) + [101]:
+        rsps_lib.add(rsps_lib.GET, f"{BASE}/repos/{REPO}/pulls/{n}",
+                      json={"number": n, "merged_at": "2026-07-01T10:00:00Z", "labels": []}, status=200)
+
+    client = GitHubClient("fake-token", REPO)
+    prs = client.get_merged_prs(SINCE, UNTIL)
+    assert len(prs) == 101
 
 @rsps_lib.activate
 def test_get_code_scanning_alerts_returns_404_gracefully():
