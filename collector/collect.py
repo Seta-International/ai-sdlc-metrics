@@ -63,7 +63,7 @@ def build_counts(window: Window, prs: list[dict], all_prs: list[dict],
         "lead_time_h": lead_time_hours(prs, deploy_times),
         "ai_prs_with_tests": ai_prs_with_tests(prs, pr_files),
         "ai_time_saved_h": ai_time_saved_hours(issues, time_saved_field),
-        "ai_users_weekly_avg": ai_users_weekly_avg(prs, issues, field, window.since, window.until),
+        "ai_users_weekly_avg": ai_users_weekly_avg(prs, window.since, window.until),
     }
 
 

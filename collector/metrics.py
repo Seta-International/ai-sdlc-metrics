@@ -38,11 +38,25 @@ def adoption_counts(prs: list[dict], issues: list[dict], field: str) -> dict:
     }
 
 
-def ai_users_weekly_avg(prs: list[dict], issues: list[dict], field: str,
-                        since: datetime, until: datetime) -> Optional[float]:
-    """Mean per-ISO-week distinct AI users: authors of AI-labeled merged PRs
-    plus assignees of AI-usage Jira issues. Proxy for license/survey data;
-    the quarterly review cross-checks and can override via manual_inputs."""
+def ai_users_weekly_avg(prs: list[dict], since: datetime,
+                        until: datetime) -> Optional[float]:
+    """Mean per-ISO-week distinct AI users, from authors of AI-labeled merged
+    PRs. Proxy for license/survey data; the quarterly review cross-checks and
+    can override via manual_inputs.
+
+    GitHub-only by design: an earlier version also counted Jira-issue
+    assignees (keyed separately as "jira:<accountId>") to catch AI usage
+    that never produced a PR. But there's no way to link a GitHub login to
+    a Jira account here — this Jira Cloud site doesn't expose assignee
+    email via the API (neither the issue's assignee field nor
+    /rest/api/3/user) — so the same human showing up on both sides was
+    silently counted as two different "users". Rather than guess at an
+    identity mapping, this only counts the one identity-consistent signal.
+
+    n_weeks counts actual ISO-week buckets spanned by [since, until] using
+    the same week_of() bucketing as the numerator — NOT (until-since).days/7,
+    which rounds a short window like an 8-day partial month down to 1 even
+    when it genuinely straddles 2 ISO weeks, inflating the average ~2x."""
     def week_of(dt: datetime):
         d = dt.date()
         return d - timedelta(days=d.weekday())
@@ -52,16 +66,11 @@ def ai_users_weekly_avg(prs: list[dict], issues: list[dict], field: str,
         if _is_ai_pr(p) and p.get("merged_at"):
             login = (p.get("user") or {}).get("login")
             if login and login not in BOT_LOGINS:
-                weeks.setdefault(week_of(_dt(p["merged_at"])), set()).add(f"gh:{login}")
-    for i in issues:
-        f = i["fields"]
-        account = (f.get("assignee") or {}).get("accountId")
-        if _usage(i, field) != "None" and f.get("resolutiondate") and account:
-            weeks.setdefault(week_of(_dt(f["resolutiondate"])), set()).add(f"jira:{account}")
+                weeks.setdefault(week_of(_dt(p["merged_at"])), set()).add(login)
 
     if not weeks:
         return None
-    n_weeks = max(1, round((until - since).days / 7))
+    n_weeks = (week_of(until) - week_of(since)).days // 7 + 1
     return round(sum(len(users) for users in weeks.values()) / n_weeks, 2)
 
 

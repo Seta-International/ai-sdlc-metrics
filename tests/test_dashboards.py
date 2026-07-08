@@ -113,7 +113,7 @@ def test_maturity_reads_v_levels_not_computed(tmp_path):
     body = json.dumps(future) + json.dumps(bod)
     assert "reporting.v_levels" in body
     # the blended-rate literal still embeds (ROI panel), proving config still flows
-    assert "ai_time_saved_h * 12" in json.dumps(future)
+    assert "ai_time_saved_h * 5.77" in json.dumps(future)
     # no in-Grafana maturity ladder
     assert "THEN 4 " not in body and "THEN 3 " not in body
 

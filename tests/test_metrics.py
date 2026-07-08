@@ -50,19 +50,30 @@ def test_engineers_active_distinct_humans_only():
 
 # ai_users_weekly_avg
 def test_ai_users_two_weeks_average():
-    since, until = dt("2026-07-06"), dt("2026-07-20")  # exactly 2 ISO weeks
+    since, until = dt("2026-07-06"), dt("2026-07-19")  # 2 ISO weeks: Jul 6-12, Jul 13-19
     prs = [pr(["ai-assisted"], merged="2026-07-07T10:00:00Z", login="alice"),
-           pr(["ai-agent"], merged="2026-07-08T10:00:00Z", login="bob", number=2)]
-    issues = [issue("Assisted", assignee="acc-9", resolved="2026-07-15T10:00:00Z")]
-    # week 1: {alice, bob} = 2, week 2: {acc-9} = 1 -> avg 1.5
-    assert ai_users_weekly_avg(prs, issues, FIELD, since, until) == 1.5
+           pr(["ai-agent"], merged="2026-07-08T10:00:00Z", login="bob", number=2),
+           pr(["ai-assisted"], merged="2026-07-15T10:00:00Z", login="carol", number=3)]
+    # week 1 (Jul6-12): {alice, bob} = 2, week 2 (Jul13-19): {carol} = 1 -> avg 1.5
+    assert ai_users_weekly_avg(prs, since, until) == 1.5
+
+
+def test_ai_users_short_window_spanning_two_iso_weeks_not_inflated():
+    # A partial-month window can straddle 2 ISO weeks despite being < 7 days
+    # elapsed (e.g. Jul 1-8: week of Jun 29, then week of Jul 6) — n_weeks
+    # must reflect the 2 real buckets, not round(days/7) which would give 1.
+    since, until = dt("2026-07-01"), dt("2026-07-08")
+    prs = [pr(["ai-assisted"], merged="2026-07-01T10:00:00Z", login="alice"),
+           pr(["ai-assisted"], merged="2026-07-07T10:00:00Z", login="bob", number=2)]
+    # week 1 (Jun29-Jul5): {alice} = 1, week 2 (Jul6-12): {bob} = 1 -> avg 1.0, not 2.0
+    assert ai_users_weekly_avg(prs, since, until) == 1.0
 
 
 def test_ai_users_excludes_bots_and_non_ai():
     since, until = dt("2026-07-06"), dt("2026-07-13")
     prs = [pr(["ai-assisted"], merged="2026-07-07T10:00:00Z", login="dependabot[bot]"),
            pr(merged="2026-07-07T11:00:00Z", login="carol", number=2)]
-    assert ai_users_weekly_avg(prs, [issue("None")], FIELD, since, until) is None
+    assert ai_users_weekly_avg(prs, since, until) is None
 
 
 # delivery_counts
