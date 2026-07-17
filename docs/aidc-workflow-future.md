@@ -23,7 +23,7 @@ A coding agent is only as good as the context and guardrails around it. The harn
 |---|---|---|
 | Project rules | `CLAUDE.md` + `.claude/rules/` split by module (`frontend.md`, `backend.md`, `agent.md`) | Loaded into every session automatically, so the agent follows team conventions from turn one.<br/>Rules are enforced by context, not tribal knowledge. |
 | Pre-installed skills | A process library (superpowers) that scripts the agent's workflow: brainstorm → spec → plan → test-first coding → verification → review.<br/>Plus skills for UI design, browser testing, and live library docs. | Every developer's agent follows the same scripted workflow, so quality does not depend on individual prompting skill. |
-| On-demand docs | `docs/agent/architecture.md`, module guides, DB & domain design, infra briefs | Keeps the always-loaded context small; the agent pulls deep detail only when the task needs it. |
+| On-demand docs | The repo's `docs/` tree: architecture, per-module docs, design, DB & domain design, platform and infra, guides, reference | Keeps the always-loaded context small; the agent pulls deep detail only when the task needs it. |
 | Design handoff | UI/UX mockups handed off to Claude as design files | The agent builds to the approved mockup instead of inventing its own UI. |
 | Hard local gates | Automatic checks that run before any commit or push.<br/>They cover formatting, lint, type checks, architecture boundaries, naming conventions, and tests. | A machine-enforced quality floor.<br/>A failed check sends the work back to the agent, not to a person. |
 | Estimation guide | `docs/guides/estimation.md`: story-point anchors, team velocity constant (recalibrated quarterly), and the time-saved formula | Makes "AI time saved" a derived number, not a guess.<br/>Formula: `points × velocity − actual hours`, cross-checked against the real diff. |
@@ -69,7 +69,7 @@ The most expensive mistake is building the wrong thing, so this phase spends its
 | 1 | Dev | Picks a planned ticket (FUT-n) from the sprint board and starts a Claude Code session with the ticket id | Ticket has AC, story points, PRD/SRS links | Session started | The ticket key is the thread that ties spec, branch, PR, and metrics together later. |
 | 2 | Claude Code | Automatically loads `CLAUDE.md` and the relevant `.claude/rules/*` | Harness in place (§0) | Conventions in context | The rules load on every session, so the agent cannot forget them. |
 | 3 | Claude Code | Pulls the Jira ticket and linked Confluence PRD/SRS via Atlassian MCP | Ticket id from step 1 | Requirement context in session | No copy-paste: context comes from the live source of truth, so the agent works from the same documents the PO signed off. |
-| 4 | Claude Code | Reads architecture and module guides on demand (`docs/agent/architecture.md`, guides) | On-demand docs exist | System context | The solution fits the existing architecture instead of fighting it. |
+| 4 | Claude Code | Reads the project docs the task needs on demand: architecture, the affected modules' docs, design, DB & domain design, platform, guides | On-demand docs exist | System context | The solution fits the existing architecture instead of fighting it. |
 | 5 | Dev + Claude Code | Guided brainstorming: the agent asks clarifying questions one at a time against the AC, codebase, and docs | Steps 2–4 done | Ambiguities resolved | Ambiguity is cheapest to fix here, before any code exists. |
 | 6 | Claude Code | *(optional)* Fetches current library docs via context7 or web search | A technical unknown surfaces | Up-to-date technical facts | Prevents building on outdated library knowledge. |
 | 7 | Claude Code | Writes the spec (requirements, approach, impact, test strategy) and saves it in the repo | Brainstorm converged | Spec file committed | A written spec can be reviewed and versioned; a chat log cannot. |
@@ -86,7 +86,7 @@ sequenceDiagram
     Dev->>CC: 1. Ticket id (FUT-n)
     CC->>ATL: 2. Pull ticket (AC, points) + PRD/SRS
     ATL-->>CC: Requirement context
-    Note over CC: 3. Read architecture.md,<br/>module guides on demand
+    Note over CC: 3. Read project docs on demand:<br/>architecture, modules, design, guides
     loop 4. Brainstorming, one question at a time
         CC->>Dev: Clarifying question
         Dev-->>CC: Decision
