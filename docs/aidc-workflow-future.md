@@ -72,7 +72,7 @@ The most expensive mistake is building the wrong thing, so this phase spends its
 | 4 | Claude Code | Reads the project docs the task needs on demand:<br/>• architecture<br/>• the affected modules' docs<br/>• design<br/>• DB & domain design<br/>• platform and guides | On-demand docs exist | System context | The solution fits the existing architecture instead of fighting it. |
 | 5 | Dev + Claude Code | Guided brainstorming: the agent asks clarifying questions one at a time against the AC, codebase, and docs | Steps 2–4 done | Ambiguities resolved | Ambiguity is cheapest to fix here, before any code exists. |
 | 6 | Claude Code | *(optional)* Fetches current library docs via context7 or web search | A technical unknown surfaces | Up-to-date technical facts | Prevents building on outdated library knowledge. |
-| 7 | Claude Code | Writes the spec and saves it in the repo:<br/>• requirements<br/>• approach and impact<br/>• test strategy | Brainstorm converged | Spec file committed | A written spec can be reviewed and versioned; a chat log cannot. |
+| 7 | Claude Code | Writes the spec as a file:<br/>• requirements<br/>• approach and impact<br/>• test strategy | Brainstorm converged | Spec file | A written spec can be read and reviewed line by line; a chat log cannot. |
 | 8 | Dev | **Human gate 1:** reviews the spec line by line, loops with the agent until final | Spec draft | Approved spec | Everything downstream (plan, code, tests, PR) is generated from this document, so this review has the most leverage. |
 
 ```mermaid
@@ -112,7 +112,7 @@ An approved spec says *what*; the plan says *exactly how*. The agent analyses th
 | # | Actor | Action | Precondition / Input | Output / Gate | Why |
 |---|---|---|---|---|---|
 | 1 | Claude Code | Analyses the codebase against the approved spec: which files change, which are created or deleted, what can break | Approved spec (gate 1) | Impact analysis | Grounding the plan in the real code prevents the classic AI failure of planning against an imagined codebase. |
-| 2 | Claude Code | Writes the plan, saved in the repo: ordered small tasks, each with the failing test to write first, then the change (TDD) | Impact analysis | Plan file | Small, test-first tasks are verifiable one by one; a mistake is caught at its own step, not at the end. |
+| 2 | Claude Code | Writes the plan as a file: ordered small tasks, each with the failing test to write first, then the change (TDD) | Impact analysis | Plan file | Small, test-first tasks are verifiable one by one; a mistake is caught at its own step, not at the end. |
 | 3 | Dev | **Human gate 2:** reviews and approves the plan | Plan draft | Approved plan | The plan is the contract for the implementation session; approving it is what makes hands-off execution safe. |
 
 ```mermaid
