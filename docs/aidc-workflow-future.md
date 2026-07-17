@@ -47,7 +47,7 @@ flowchart LR
     P3["P3 · Implementation<br/>tasks → code + tests,<br/>local gates green"]
     P4["P4 · PR & Review<br/>auto PR → CI → human review"]
     G3["Human:<br/>approve & merge"]
-    P5["P5 · Metrics & Release<br/>Jira sync → Grafana → UAT<br/>→ release notes"]
+    P5["P5 · Metrics & Release<br/>Jira sync → Grafana → UAT"]
     G4["Human:<br/>QA on UAT"]
 
     P1 --> G1 --> P2 --> G2 --> P3 --> P4 --> G3 --> P5 --> G4
@@ -82,25 +82,25 @@ sequenceDiagram
     participant ATL as Jira + Confluence<br/>(Atlassian MCP)
     participant C7 as Context7 / Web
 
-    Note over CC: Session start: CLAUDE.md +<br/>.claude/rules load automatically
     Dev->>CC: 1. Ticket id (FUT-n)
-    CC->>ATL: 2. Pull ticket (AC, points) + PRD/SRS
+    Note over CC: 2. Session start: CLAUDE.md +<br/>.claude/rules load automatically
+    CC->>ATL: 3. Pull ticket (AC, points) + PRD/SRS
     ATL-->>CC: Requirement context
-    Note over CC: 3. Read project docs on demand:<br/>architecture, modules, design, guides
-    loop 4. Brainstorming, one question at a time
+    Note over CC: 4. Read project docs on demand:<br/>architecture, modules, design, guides
+    loop 5. Brainstorming, one question at a time
         CC->>Dev: Clarifying question
         Dev-->>CC: Decision
     end
     opt Technical unknown
-        CC->>C7: 5. Fetch current library docs
+        CC->>C7: 6. Fetch current library docs
         C7-->>CC: Live documentation
     end
-    CC->>Dev: 6. Draft spec (SDD)
+    CC->>Dev: 7. Draft spec
     loop Until final
         Dev->>CC: Review comments
         CC-->>Dev: Revised spec
     end
-    Note over Dev: 7. HUMAN GATE 1<br/>Spec approved
+    Note over Dev: 8. HUMAN GATE 1<br/>Spec approved
 ```
 
 ---
@@ -188,7 +188,7 @@ The agent assembles the PR the same way every time (template, tier, AI-usage dec
 | 6 | Reviewer *(optional AI assist)* | Pastes the PR link into their own Claude Code session for an AI first pass: summary, hot/cold file map, suspicious spots to read first.<br/>Other projects can plug in CodeRabbit or GitHub Copilot code review as the same first pass. | PR open, checks green | AI first-pass comments | The reviewer starts from an AI map of the diff instead of a cold read.<br/>The tool is a per-project choice; the principle stays the same: AI clears the mechanical layer, a person judges. |
 | 7 | Reviewer | **Human gate 3:** reads the diff (hot files closely), requests changes or approves | Checks green | Approved PR | No agent-written code ships without a person reading it; the merge decision is never delegated to the machine. |
 | 8 | Claude Code | Fixes review comments; reviewer re-checks | Change requests | Updated PR | The fix loop stays with the agent; the reviewer's time is spent only on judgment. |
-| 9 | Dev | Merges the PR | Approval | Merged to main | — |
+| 9 | Dev / reviewer | Merges the PR once all reviewers have approved | Approval | Merged to main | — |
 
 ```mermaid
 sequenceDiagram
@@ -199,22 +199,22 @@ sequenceDiagram
 
     Note over CC: 1. Compute AI usage + time saved<br/>(estimation.md formula)
     Note over CC: 2. Fill PR template:<br/>tier, risk, evidence
-    CC->>GH: 3. Create PR, labels ai-assisted / ai-agent,<br/>reviewers auto-assigned by tier
-    GH->>CI: 4. Trigger pre-merge suite
+    CC->>GH: 3–4. Create PR, labels ai-assisted / ai-agent,<br/>reviewers auto-assigned by tier
+    GH->>CI: 5. Trigger pre-merge suite
     Note over CI: conventions · tests · build ·<br/>config validation · security scan ·<br/>SonarQube · AI-label check
     CI-->>GH: Checks green
-    GH->>Rev: 5. Review request
+    GH->>Rev: Review request
     opt AI first pass (reviewer's choice)
         Note over Rev: 6. Paste PR link into own Claude Code:<br/>summary, hot/cold map, spots to read first<br/>(other projects: CodeRabbit / Copilot review)
     end
     alt Changes requested
-        Rev->>CC: Comments
+        Rev->>CC: 8. Comments
         CC->>GH: Fixes pushed
         GH->>Rev: Re-review
     else Approved
         Note over Rev: 7. HUMAN GATE 3<br/>Approve
     end
-    Rev->>GH: 8. Merge
+    Rev->>GH: 9. Merge (anyone, once all approvals are in)
 ```
 
 ---
@@ -230,7 +230,7 @@ After merge the pipeline closes the loop on its own: AI metrics flow back to the
 | 3 | Assignee | For tasks with no PR (analysis, design, documentation, research, QA), sets AI Usage and AI Time Saved manually on the Jira ticket | Task done with AI, no PR to sync from | Jira fields set | The automatic sync only covers merged PRs.<br/>The manual path keeps every other kind of work in the same metrics, so the dashboard reflects the whole team, not just coding. |
 | 4 | Scheduled collector (`ai-sdlc-metrics`) | Periodically queries GitHub + Jira and upserts per-project monthly metrics into the shared reporting database | Merged PRs, Jira fields | `reporting.metric_counts` rows | One shared pipeline and schema across projects, so numbers are comparable and re-runs are safe. |
 | 5 | Grafana | Shared dashboards visualise AI adoption, time saved, DORA, and quality metrics | Reporting DB populated | Leadership dashboard | Leadership watches trends from live data, not slide-deck claims assembled by hand. |
-| 6 | Dev | Deploys the merged build to UAT (or the QA environment); CI then runs the end-to-end suite against it | Merged to main | Build on UAT, e2e green | E2e tests are heavy and slow, so they run in CI as the release gate on UAT instead of on every PR. |
+| 6 | Dev | Triggers the UAT deploy workflow; CI then runs the end-to-end suite against the deployed build | Merged to main | Build on UAT, e2e green | E2e tests are heavy and slow, so they run in CI as the release gate on UAT instead of on every PR. |
 | 7 | QA | **Human gate 4:** runs acceptance test cases against the ticket's AC, passes or fails the feature | Build on UAT | Accepted feature | Final independent check against the original requirement. |
 | 8 | SM | Drafts release notes with Jira Rovo (Release Notes Drafter agent): Rovo summarises the version's completed tickets into themed notes, published to Confluence after the SM edits | Version released in Jira | Release notes on Confluence | The tickets already hold everything the notes need; Rovo drafts in minutes and the SM edits instead of writing from scratch. |
 
@@ -241,23 +241,25 @@ sequenceDiagram
     participant Jira
     participant Col as Scheduled collector<br/>(ai-sdlc-metrics)
     participant Graf as Reporting DB<br/>+ Grafana
+    actor Dev
     actor Asg as Assignee
     actor QA
     actor SM
 
     alt Task has a PR
-        GH->>CI: 1a. PR merged
-        CI->>Jira: Write AI Usage / Tool / Time Saved
+        GH->>CI: 1. PR merged
+        CI->>Jira: 2. Write AI Usage / Tool / Time Saved
     else Task with no PR (analysis, design, docs, research, QA)
-        Asg->>Jira: 1b. Set AI Usage / Time Saved manually
+        Asg->>Jira: 3. Set AI Usage / Time Saved manually
     end
-    Col->>GH: 2. Periodic: read PRs, labels, deployments
+    Col->>GH: 4. Periodic: read PRs, labels, deployments
     Col->>Jira: Read tickets, incidents, AI fields
-    Col->>Graf: 3. Upsert monthly metrics per project
-    Note over Graf: AI adoption · time saved ·<br/>DORA · quality
-    GH->>QA: 4. Build deployed to UAT
-    Note over QA: 5. HUMAN GATE 4<br/>Acceptance against the ticket's AC
-    SM->>Jira: 6. Jira Rovo drafts release notes<br/>from the version's tickets
+    Col->>Graf: Upsert monthly metrics per project
+    Note over Graf: 5. AI adoption · time saved ·<br/>DORA · quality
+    Dev->>GH: 6. Trigger UAT deploy
+    GH->>QA: Build on UAT, e2e suite green
+    Note over QA: 7. HUMAN GATE 4<br/>Acceptance against the ticket's AC
+    SM->>Jira: 8. Jira Rovo drafts release notes<br/>from the version's tickets
     Jira-->>SM: Draft → SM edits →<br/>publish to Confluence
 ```
 
