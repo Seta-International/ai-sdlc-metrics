@@ -25,11 +25,11 @@ A coding agent is only as good as the context and guardrails around it. The harn
 | Pre-installed skills | A process library (superpowers) that scripts the agent's workflow: brainstorm → spec → plan → test-first coding → verification → review.<br/>Plus skills for UI design, browser testing, and live library docs. | Every developer's agent follows the same scripted workflow, so quality does not depend on individual prompting skill. |
 | On-demand docs | The repo's `docs/` tree: architecture, per-module docs, design, DB & domain design, platform and infra, guides, reference | Keeps the always-loaded context small; the agent pulls deep detail only when the task needs it. |
 | Design handoff | UI/UX mockups handed off to Claude as design files | The agent builds to the approved mockup instead of inventing its own UI. |
-| Hard local gates | Automatic checks that run before any commit or push.<br/>They cover formatting, lint, type checks, architecture boundaries, naming conventions, and tests. | A machine-enforced quality floor.<br/>A failed check sends the work back to the agent, not to a person. |
+| Hard local gates | Automatic checks that run before any commit or push:<br/>• formatting and lint<br/>• type checks<br/>• architecture boundaries<br/>• naming conventions<br/>Plus the affected modules' unit tests before opening a PR. | A machine-enforced quality floor.<br/>A failed check sends the work back to the agent, not to a person. |
 | Estimation guide | `docs/guides/estimation.md`: story-point anchors, team velocity constant (recalibrated quarterly), and the time-saved formula | Makes "AI time saved" a derived number, not a guess.<br/>Formula: `points × velocity − actual hours`, cross-checked against the real diff. |
-| Review routing | `.github/CODEOWNERS` maps each code area to its owner.<br/>Every PR declares a risk tier: **T1** = inside one feature module, **T2** = touches code shared across modules, **T3** = core / high-risk areas (identity, DB migrations, CI), always shipped as its own PR. | Review depth follows risk automatically: a T1 goes to the module owner, a T3 always goes to the tech lead. |
+| Review routing | `.github/CODEOWNERS` maps each code area to its owner.<br/>Every PR declares a risk tier:<br/>• **T1** = inside one feature module<br/>• **T2** = touches code shared across modules<br/>• **T3** = core / high-risk areas (identity, DB migrations, CI), always shipped as its own PR | Review depth follows risk automatically: a T1 goes to the module owner, a T3 always goes to the tech lead. |
 | PR template + label check | `.github/pull_request_template.md` with AI-usage labels and AI-time-saved field; a CI check enforces the labels | Every PR declares its AI usage the same way, so adoption metrics come free as a by-product of working. |
-| CI + metrics pipeline | CI workflows (convention checks, tests, build and bundle budgets, e2e, config validation) plus `ai-sdlc-jira-sync.yml` and the scheduled metrics collector feeding Grafana | Independent verification of every PR, and automatic ROI reporting without anyone filling in a spreadsheet. |
+| CI + metrics pipeline | CI workflows (convention checks, tests, build and bundle budgets, config validation, security and quality scans, e2e) plus `ai-sdlc-jira-sync.yml` and the scheduled metrics collector feeding Grafana | Independent verification of every PR, and automatic ROI reporting without anyone filling in a spreadsheet. |
 
 ---
 
@@ -143,7 +143,7 @@ A fresh session executes the plan, so the plan file is the single source of trut
 | 2 | Claude Code (orchestrator) | Breaks the plan into small bounded tasks; parallel tasks run in isolated workspaces | Plan file | Task list | Small tasks keep the work reliable; isolation stops parallel tasks colliding. |
 | 3 | Implementation agent | Per task: writes the failing test first, then the code to make it pass (TDD) | Task definition | Code + passing test | The test pins the requirement before the code exists; the agent cannot declare success without proof. |
 | 4 | Review agent | Per task: a second pass checks the change against the spec and quality rules; bug-fix rounds until clean | Task implemented | Task accepted | Implementer and reviewer are separated even inside the AI, the same separation of duties we require of people. |
-| 5 | Claude Code | Runs the full local gate stack: formatting, lint, type checks, architecture boundaries, naming conventions, tests | All tasks done | All gates green | Humans never spend review time on what a machine can catch. |
+| 5 | Claude Code | Runs the full local gate stack:<br/>• formatting and lint<br/>• type checks<br/>• architecture boundaries<br/>• naming conventions<br/>• the affected modules' unit tests | All tasks done | All gates green | Humans never spend review time on what a machine can catch. |
 | 6 | Claude Code | Self-corrects anything a gate flags and re-runs until everything passes | Any red gate | Green working tree | Failures cost agent cycles, not developer attention.<br/>The agent must show green output, not claim it. |
 
 ```mermaid
@@ -167,7 +167,7 @@ sequenceDiagram
         end
     end
     loop 5. Until all green
-        Orch->>Gate: format · lint · types ·<br/>architecture · tests
+        Orch->>Gate: format · lint · types ·<br/>architecture · unit tests
         Gate-->>Orch: Red gates → self-fix
     end
 ```
@@ -184,7 +184,7 @@ The agent assembles the PR the same way every time (template, tier, AI-usage dec
 | 2 | Claude Code | Fills the PR template: Jira key, tier (T1/T2/T3), risk & affected modules, evidence of verification, and for big diffs a hot/cold review map (hot: files to read closely; cold: safe to skim) | Template in repo | Complete PR description | Every PR arrives in the same structure, so reviewers spend their time judging the change, not reconstructing it. |
 | 3 | Claude Code | Assigns reviewers via CODEOWNERS and the tier rules; core / identity / shared-ui / migrations / CI auto-request the tech lead | CODEOWNERS in repo | Right reviewers requested | Review depth scales with blast radius automatically; nobody has to remember who owns what. |
 | 4 | Claude Code | Opens the PR on GitHub | Gates green (Phase 3) | PR created | — |
-| 5 | GitHub CI | Runs the pre-merge suite: commit/branch convention checks, unit and integration tests, build with per-app bundle budgets, dashboard and infra config validation, Playwright e2e tests, AI-label check.<br/>Dependabot keeps dependencies patched.<br/>Per-project optional additions: SonarQube-style quality scans, Sentry release checks. | PR opened | Checks green or red | Local green is a claim; CI green is evidence from an environment the agent does not control. |
+| 5 | GitHub CI | Runs the pre-merge suite:<br/>• commit/branch convention checks<br/>• unit and integration tests<br/>• build with per-app bundle budgets<br/>• dashboard and infra config validation<br/>• AI-label check<br/>• security scan (CodeQL) and SonarQube (duplication, code smells)<br/>• dependency patching (Dependabot) | PR opened | Checks green or red | Local green is a claim; CI green is evidence from an environment the agent does not control. |
 | 6 | Reviewer *(optional AI assist)* | Pastes the PR link into their own Claude Code session for an AI first pass: summary, hot/cold file map, suspicious spots to read first.<br/>Other projects can plug in CodeRabbit or GitHub Copilot code review as the same first pass. | PR open, checks green | AI first-pass comments | The reviewer starts from an AI map of the diff instead of a cold read.<br/>The tool is a per-project choice; the principle stays the same: AI clears the mechanical layer, a person judges. |
 | 7 | Reviewer | **Human gate 3:** reads the diff (hot files closely), requests changes or approves | Checks green | Approved PR | No agent-written code ships without a person reading it; the merge decision is never delegated to the machine. |
 | 8 | Claude Code | Fixes review comments; reviewer re-checks | Change requests | Updated PR | The fix loop stays with the agent; the reviewer's time is spent only on judgment. |
@@ -201,7 +201,7 @@ sequenceDiagram
     Note over CC: 2. Fill PR template:<br/>tier, risk, evidence
     CC->>GH: 3. Create PR, labels ai-assisted / ai-agent,<br/>reviewers auto-assigned by tier
     GH->>CI: 4. Trigger pre-merge suite
-    Note over CI: conventions · tests · build +<br/>bundle budgets · config validation ·<br/>e2e · AI-label check
+    Note over CI: conventions · tests · build ·<br/>config validation · security scan ·<br/>SonarQube · AI-label check
     CI-->>GH: Checks green
     GH->>Rev: 5. Review request
     opt AI first pass (reviewer's choice)
@@ -230,7 +230,7 @@ After merge the pipeline closes the loop on its own: AI metrics flow back to the
 | 3 | Assignee | For tasks with no PR (analysis, design, documentation, research, QA), sets AI Usage and AI Time Saved manually on the Jira ticket | Task done with AI, no PR to sync from | Jira fields set | The automatic sync only covers merged PRs.<br/>The manual path keeps every other kind of work in the same metrics, so the dashboard reflects the whole team, not just coding. |
 | 4 | Scheduled collector (`ai-sdlc-metrics`) | Periodically queries GitHub + Jira and upserts per-project monthly metrics into the shared reporting database | Merged PRs, Jira fields | `reporting.metric_counts` rows | One shared pipeline and schema across projects, so numbers are comparable and re-runs are safe. |
 | 5 | Grafana | Shared dashboards visualise AI adoption, time saved, DORA, and quality metrics | Reporting DB populated | Leadership dashboard | Leadership watches trends from live data, not slide-deck claims assembled by hand. |
-| 6 | Dev | Deploys the merged build to UAT (or the QA environment) | Merged to main | Build on UAT | — |
+| 6 | Dev | Deploys the merged build to UAT (or the QA environment); CI then runs the end-to-end suite against it | Merged to main | Build on UAT, e2e green | E2e tests are heavy and slow, so they run in CI as the release gate on UAT instead of on every PR. |
 | 7 | QA | **Human gate 4:** runs acceptance test cases against the ticket's AC, passes or fails the feature | Build on UAT | Accepted feature | Final independent check against the original requirement. |
 | 8 | SM | Drafts release notes with Jira Rovo (Release Notes Drafter agent): Rovo summarises the version's completed tickets into themed notes, published to Confluence after the SM edits | Version released in Jira | Release notes on Confluence | The tickets already hold everything the notes need; Rovo drafts in minutes and the SM edits instead of writing from scratch. |
 
