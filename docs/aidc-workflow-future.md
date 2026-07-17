@@ -221,13 +221,13 @@ sequenceDiagram
 
 ## Phase 5: Metrics & Release
 
-After merge the pipeline closes the loop on its own: AI metrics flow back to the Jira ticket, a scheduled collector aggregates them into the shared reporting database behind Grafana, the build ships to UAT for QA acceptance, and release notes are drafted from the same tickets.
+After merge the pipeline closes the loop on its own: AI metrics flow back to the Jira ticket, a scheduled collector aggregates them into the shared reporting database behind Grafana, the build ships to UAT for QA acceptance, and release notes are drafted from the same tickets. Tasks that never produce a PR follow one manual step instead: the assignee fills the same two AI fields on the ticket.
 
 | # | Actor | Action | Precondition / Input | Output / Gate | Why |
 |---|---|---|---|---|---|
 | 1 | GitHub CI (`ai-sdlc-jira-sync`) | On merge, runs the collector's `update_ticket`: writes AI Usage, AI Tool, and AI Time Saved to the Jira ticket | PR merged with labels + template fields | Jira fields updated | Captured at merge by the pipeline, so the data stays complete without anyone remembering to fill it in. A sync failure never blocks the merge. |
 | 2 | Jira | Merge policy applies: usage never downgrades, tool set once, hours accumulate; a human edit always wins | Sync ran | Consistent ticket data | Multiple PRs per ticket do not corrupt each other's data, and people keep the final say over the numbers. |
-| 3 | Dev / anyone | For non-code tasks (analysis, docs, design), sets AI Usage and Time Saved manually on the Jira ticket | Non-code work done with AI | Jira fields set | Non-code work still counts; one manual path covers it without building tooling for every task type. |
+| 3 | Assignee | For tasks with no PR (analysis, design, documentation, research, QA), sets AI Usage and AI Time Saved manually on the Jira ticket | Task done with AI, no PR to sync from | Jira fields set | The automatic sync only covers merged PRs. The manual path keeps every other kind of work in the same metrics, so the dashboard reflects the whole team, not just coding. |
 | 4 | Scheduled collector (`ai-sdlc-metrics`) | Periodically queries GitHub + Jira and upserts per-project monthly metrics into the shared reporting database | Merged PRs, Jira fields | `reporting.metric_counts` rows | One shared pipeline and schema across projects, so numbers are comparable and re-runs are safe. |
 | 5 | Grafana | Shared dashboards visualise AI adoption, time saved, DORA, and quality metrics | Reporting DB populated | Leadership dashboard | Leadership watches trends from live data, not slide-deck claims assembled by hand. |
 | 6 | Dev | Deploys the merged build to UAT (or the QA environment) | Merged to main | Build on UAT | — |
@@ -246,7 +246,7 @@ sequenceDiagram
 
     GH->>CI: 1. PR merged
     CI->>Jira: 2. Write AI Usage / Tool / Time Saved<br/>(human edits always win)
-    Note over Jira: Non-code tasks:<br/>fields set manually
+    Note over Jira: Tasks with no PR (analysis, design,<br/>docs, research, QA): assignee sets<br/>AI Usage / Time Saved manually
     Col->>GH: 3. Periodic: read PRs, labels, deployments
     Col->>Jira: Read tickets, incidents, AI fields
     Col->>Graf: 4. Upsert monthly metrics per project
