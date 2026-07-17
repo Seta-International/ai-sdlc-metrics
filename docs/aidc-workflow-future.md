@@ -22,10 +22,10 @@ A coding agent is only as good as the context and guardrails around it. The harn
 | Component | What it is (in the repo) | Why it is needed |
 |---|---|---|
 | Project rules | `CLAUDE.md` + `.claude/rules/` split by module (`frontend.md`, `backend.md`, `agent.md`) | Loaded into every session automatically, so the agent follows team conventions from turn one. Rules are enforced by context, not tribal knowledge. |
-| Pre-installed skills | superpowers, a 14-skill process library covering the whole loop (brainstorming, writing-plans, executing-plans, subagent-driven-development, test-driven-development, systematic-debugging, requesting/receiving-code-review, verification-before-completion, finishing-a-development-branch, git worktrees), plus frontend-design, playwright, context7 | Turns prompting into a repeatable process. Every dev's agent follows the same workflow, so quality does not depend on individual prompt skill. |
+| Pre-installed skills | A process library (superpowers) that scripts the agent's workflow: brainstorm → spec → plan → test-first coding → verification → review; plus skills for UI design, browser testing, and live library docs | Every developer's agent follows the same scripted workflow, so quality does not depend on individual prompting skill. |
 | On-demand docs | `docs/agent/architecture.md`, module guides, DB & domain design, infra briefs | Keeps the always-loaded context small and cheap; the agent pulls deep detail only when the task needs it, which is both faster and more accurate than stuffing everything in up front. |
 | Design handoff | UI/UX mockups handed off to Claude as design files | The agent builds to the approved mockup instead of inventing its own UI. |
-| Hard local gates | lefthook hooks: commitlint, branch-name check, biome format/lint, typecheck, dependency-cruiser (DDD module boundaries), unit & integration tests | A machine-enforced quality floor. A red gate sends the work back to the agent, not to a person. |
+| Hard local gates | Automatic checks that run before any commit or push: formatting, lint, type checks, architecture-boundary checks, naming conventions, tests | A machine-enforced quality floor. A failed check sends the work back to the agent, not to a person. |
 | Estimation guide | `docs/guides/estimation.md`: story-point anchors, team velocity constant (recalibrated quarterly), and the time-saved formula | Makes "AI time saved" a derived number (`points × velocity − actual hours`, cross-checked against the real diff), not a self-reported guess. |
 | Review routing | `.github/CODEOWNERS` + review tiers T1/T2/T3 in the PR template | Review depth follows risk automatically: a feature module goes to its owner, anything touching core / identity / shared-ui / migrations / CI auto-requests the tech lead. |
 | PR template + label check | `.github/pull_request_template.md` with AI-usage labels and AI-time-saved field; a CI check enforces the labels | Every PR declares its AI usage the same way, so adoption metrics come free as a by-product of working. |
@@ -70,9 +70,9 @@ The most expensive mistake is building the wrong thing, so this phase spends its
 | 2 | Claude Code | Automatically loads `CLAUDE.md` and the relevant `.claude/rules/*` | Harness in place (§0) | Conventions in context | The rules load on every session, so the agent cannot forget them. |
 | 3 | Claude Code | Pulls the Jira ticket and linked Confluence PRD/SRS via Atlassian MCP | Ticket id from step 1 | Requirement context in session | No copy-paste: context comes from the live source of truth, so the agent works from the same documents the PO signed off. |
 | 4 | Claude Code | Reads architecture and module guides on demand (`docs/agent/architecture.md`, guides) | On-demand docs exist | System context | The solution fits the existing architecture instead of fighting it. |
-| 5 | Dev + Claude Code | Brainstorming (superpowers skill): the agent asks clarifying questions one at a time against AC, codebase, and docs | Steps 2–4 done | Ambiguities resolved | Ambiguity is cheapest to fix here, before any code exists. |
-| 6 | Claude Code | *(optional)* Fetches current library docs via context7 or web search | A technical unknown surfaces | Up-to-date technical facts | Model training data ages; live docs prevent building on deprecated APIs. |
-| 7 | Claude Code | Writes the spec to `docs/superpowers/specs/` (SDD style: requirements, approach, impact, test strategy) | Brainstorm converged | `spec` file committed | A written spec can be reviewed and diffed; a chat log cannot. |
+| 5 | Dev + Claude Code | Guided brainstorming: the agent asks clarifying questions one at a time against the AC, codebase, and docs | Steps 2–4 done | Ambiguities resolved | Ambiguity is cheapest to fix here, before any code exists. |
+| 6 | Claude Code | *(optional)* Fetches current library docs via context7 or web search | A technical unknown surfaces | Up-to-date technical facts | Prevents building on outdated library knowledge. |
+| 7 | Claude Code | Writes the spec (requirements, approach, impact, test strategy) and saves it in the repo | Brainstorm converged | Spec file committed | A written spec can be reviewed and versioned; a chat log cannot. |
 | 8 | Dev | **Human gate 1:** reviews the spec line by line, loops with the agent until final | Spec draft | Approved spec | Everything downstream (plan, code, tests, PR) is generated from this document, so this review has the most leverage. |
 
 ```mermaid
@@ -112,7 +112,7 @@ An approved spec says *what*; the plan says *exactly how*. The agent analyses th
 | # | Actor | Action | Precondition / Input | Output / Gate | Why |
 |---|---|---|---|---|---|
 | 1 | Claude Code | Analyses the codebase against the approved spec: which files change, which are created or deleted, what can break | Approved spec (gate 1) | Impact analysis | Grounding the plan in the real code prevents the classic AI failure of planning against an imagined codebase. |
-| 2 | Claude Code | Writes the plan (superpowers *writing-plans* skill, saved under `docs/superpowers/plans/`): ordered small tasks, each with the failing test to write first, then the change (TDD) | Impact analysis | Plan file | Small, test-first tasks are verifiable one by one; a mistake is caught at its own step, not at the end. |
+| 2 | Claude Code | Writes the plan, saved in the repo: ordered small tasks, each with the failing test to write first, then the change (TDD) | Impact analysis | Plan file | Small, test-first tasks are verifiable one by one; a mistake is caught at its own step, not at the end. |
 | 3 | Dev | **Human gate 2:** reviews and approves the plan | Plan draft | Approved plan | The plan is the contract for the implementation session; approving it is what makes hands-off execution safe. |
 
 ```mermaid
@@ -140,11 +140,11 @@ A fresh session executes the plan, so the plan file is the single source of trut
 | # | Actor | Action | Precondition / Input | Output / Gate | Why |
 |---|---|---|---|---|---|
 | 1 | Dev | Opens a new Claude Code session pointed at the approved plan | Approved plan (gate 2) | Execution session | A clean session executes exactly what was approved, nothing more. |
-| 2 | Claude Code (orchestrator) | Breaks the plan into small bounded tasks (superpowers *executing-plans* / *subagent-driven-development*); parallel tasks run in isolated git worktrees (*using-git-worktrees*) | Plan file | Task list | Small tasks keep each unit inside what an agent can hold reliably in context; worktrees stop parallel work colliding. |
-| 3 | Implementation agent | Per task: writes the failing test first, then the code to make it pass (*test-driven-development*) | Task definition | Code + passing test | The test pins the requirement before the code exists; the agent cannot declare success without proof. |
-| 4 | Review agent | Per task: a second pass checks the change against the spec and quality rules (*requesting-code-review*); bug-fix rounds follow a disciplined root-cause loop (*systematic-debugging*) until clean | Task implemented | Task accepted | Implementer and reviewer are separated even inside the AI, the same separation of duties we require of people. |
-| 5 | Claude Code | Runs the full local gate stack (pre-commit / pre-push): commitlint, branch name, biome format + lint, typecheck, dependency-cruiser DDD boundaries, tests | All tasks done | All gates green | Machines reject mechanical defects for free; a red gate loops back to the agent, so humans never spend review time on what a linter can catch. |
-| 6 | Claude Code | Self-corrects anything a gate flags and re-runs until everything passes; only claims "done" after re-running the verification commands and reading their output (*verification-before-completion*) | Any red gate | Green working tree | Failures cost agent cycles, not developer attention. The agent must show green output, not claim it. |
+| 2 | Claude Code (orchestrator) | Breaks the plan into small bounded tasks; parallel tasks run in isolated workspaces | Plan file | Task list | Small tasks keep the work reliable; isolation stops parallel tasks colliding. |
+| 3 | Implementation agent | Per task: writes the failing test first, then the code to make it pass (TDD) | Task definition | Code + passing test | The test pins the requirement before the code exists; the agent cannot declare success without proof. |
+| 4 | Review agent | Per task: a second pass checks the change against the spec and quality rules; bug-fix rounds until clean | Task implemented | Task accepted | Implementer and reviewer are separated even inside the AI, the same separation of duties we require of people. |
+| 5 | Claude Code | Runs the full local gate stack: formatting, lint, type checks, architecture boundaries, naming conventions, tests | All tasks done | All gates green | Humans never spend review time on what a machine can catch. |
+| 6 | Claude Code | Self-corrects anything a gate flags and re-runs until everything passes | Any red gate | Green working tree | Failures cost agent cycles, not developer attention. The agent must show green output, not claim it. |
 
 ```mermaid
 sequenceDiagram
@@ -152,7 +152,7 @@ sequenceDiagram
     participant Orch as Claude Code<br/>(orchestrator)
     participant Impl as Implementation<br/>agent
     participant Rev as Review<br/>agent
-    participant Gate as Local gates<br/>(lefthook)
+    participant Gate as Local gates
 
     Dev->>Orch: 1. New session: execute plan.md
     Note over Orch: 2. Break into small tasks<br/>(worktrees if parallel)
@@ -167,7 +167,7 @@ sequenceDiagram
         end
     end
     loop 5. Until all green
-        Orch->>Gate: pre-commit / pre-push:<br/>lint, format, typecheck,<br/>depcruise (DDD), tests
+        Orch->>Gate: format · lint · types ·<br/>architecture · tests
         Gate-->>Orch: Red gates → self-fix
     end
 ```
@@ -183,11 +183,11 @@ The agent assembles the PR the same way every time (template, tier, AI-usage dec
 | 1 | Claude Code | Computes AI usage (labels `ai-assisted` / `ai-agent`) and AI time saved per `docs/guides/estimation.md`: `baseline = story points × team velocity`, reconciled against the real diff size, minus actual hours spent | Ticket points; work done | Declared AI metrics | The number is derived from a formula and checked against the real diff, not guessed. A human can still override it in Jira, and the human value wins. |
 | 2 | Claude Code | Fills the PR template: Jira key, tier (T1/T2/T3), risk & affected modules, hot/cold review map for big diffs, evidence of verification | Template in repo | Complete PR description | Every PR arrives in the same structure, so reviewers spend their time judging the change, not reconstructing it. |
 | 3 | Claude Code | Assigns reviewers via CODEOWNERS and the tier rules; core / identity / shared-ui / migrations / CI auto-request the tech lead | CODEOWNERS in repo | Right reviewers requested | Review depth scales with blast radius automatically; nobody has to remember who owns what. |
-| 4 | Claude Code | Opens the PR on GitHub (superpowers *finishing-a-development-branch*) | Gates green (Phase 3) | PR created | — |
+| 4 | Claude Code | Opens the PR on GitHub | Gates green (Phase 3) | PR created | — |
 | 5 | GitHub CI | Runs the pre-merge suite: commit/branch convention checks, unit and integration tests, build with per-app bundle budgets, dashboard and infra config validation, Playwright e2e tests, AI-label check. Dependabot keeps dependencies patched. Per-project optional additions: SonarQube-style quality scans, Sentry release checks | PR opened | Checks green or red | Local green is a claim; CI green is evidence from an environment the agent does not control. |
 | 6 | Reviewer *(optional AI assist)* | Pastes the PR link into their own Claude Code session for an AI first pass: summary, hot/cold file map, suspicious spots to read first. Other projects can plug in CodeRabbit or GitHub Copilot code review as the same first pass | PR open, checks green | AI first-pass comments | The reviewer starts from an AI map of the diff instead of a cold read. The tool is a per-project choice; the principle stays the same: AI clears the mechanical layer, a person judges. |
 | 7 | Reviewer | **Human gate 3:** reads the diff (hot files closely), requests changes or approves | Checks green | Approved PR | No agent-written code ships without a person reading it; the merge decision is never delegated to the machine. |
-| 8 | Claude Code | Fixes review comments (*receiving-code-review*: verify the feedback technically, don't just comply); reviewer re-checks | Change requests | Updated PR | The fix loop stays with the agent; the reviewer's time is spent only on judgment. |
+| 8 | Claude Code | Fixes review comments; reviewer re-checks | Change requests | Updated PR | The fix loop stays with the agent; the reviewer's time is spent only on judgment. |
 | 9 | Dev | Merges the PR | Approval | Merged to main | — |
 
 ```mermaid
