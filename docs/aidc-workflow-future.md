@@ -263,6 +263,15 @@ sequenceDiagram
 
 ---
 
+## Planned next (designed, not yet built)
+
+Two extensions the team has scoped but not started. Both build on what already runs: the monitoring stack (Prometheus, Alertmanager, Loki, Grafana) with a scripted self-heal job in production, and the ticket-to-merge pipeline above.
+
+| Initiative | What it adds | Why it is worth it |
+|---|---|---|
+| Ops agent on AWS CloudWatch | An AI agent that watches system metrics and logs, and runs operational workflows on its own: raise and triage alerts, restart or update resources, roll back a bad deploy. Today production has a scripted self-heal (redeploy the last good image when the app is down); the agent generalises this from one hard-coded recovery to reasoning about the incident. | Shorter incident response without waking an engineer, and every action is logged the same way the coding pipeline is. |
+| Fully autonomous tickets | An agent that watches the Jira board and picks up tickets a human has labeled as safe for autonomy (small, well-specified tasks), then runs the whole pipeline in this document end to end with no developer in the session. The human gates shrink to two: the label that marks the ticket as safe, and the PR review before merge. | The team's capacity stops being the bottleneck for small work. The label keeps a person in charge of what qualifies, and the PR review gate stays untouched. |
+
 ## What leadership sees
 
 Every number on the Grafana dashboard is a by-product of the process above, not a survey: AI usage comes from enforced PR labels, time saved from a formula a human can override, and delivery signals (DORA, incidents, review coverage) from GitHub and Jira directly. The whole loop, from sprint ticket to measured merge, runs today on the Future app.
