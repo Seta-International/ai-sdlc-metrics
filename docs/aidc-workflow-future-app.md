@@ -1,6 +1,6 @@
-# AIDC on the Future App: From Sprint Ticket to Measured Merge
+# AIDC on the Future App
 
-How the Future team runs AI-Driven Coding (AIDC) on the `agent-platform` repository: a developer picks up a sprint ticket, an AI agent (Claude Code) does most of the build inside a harness of rules and gates, and the result is a reviewed, merged change with its AI usage and time saved recorded automatically. This is the process running today: every rule file, gate, template, and workflow referenced below exists in the repo.
+Repo: [Seta-International/agent-platform](https://github.com/Seta-International/agent-platform)
 
 **Scope.** The flow starts *after* the PO/PM has broken work down: the ticket is sprint-planned in Jira with acceptance criteria, story points, and links to the PRD/SRS on Confluence. How tickets get to that state (requirement analysis and breakdown by the PO/PM) is outside the scope of this document.
 
@@ -15,21 +15,23 @@ How the Future team runs AI-Driven Coding (AIDC) on the `agent-platform` reposit
 
 ---
 
+<div class="page-break"></div>
+
 ## 0. The harness: built before any session starts
 
 A coding agent is only as good as the context and guardrails around it. The harness below is set up once per project, so every developer's agent works the same way and no agent output reaches a reviewer without passing machine checks first.
 
 | Component | What it is (in the repo) | Why it is needed |
 |---|---|---|
-| Project rules | `CLAUDE.md` + `.claude/rules/` split by module (`frontend.md`, `backend.md`, `agent.md`) | Loaded into every session automatically, so the agent follows team conventions from turn one.<br/>Rules are enforced by context, not tribal knowledge. |
+| Project rules | [CLAUDE.md](https://github.com/Seta-International/agent-platform/blob/main/CLAUDE.md) + [.claude/rules/](https://github.com/Seta-International/agent-platform/tree/main/.claude/rules) split by module (`frontend.md`, `backend.md`, `agent.md`) | Loaded into every session automatically, so the agent follows team conventions from turn one.<br/>Rules are enforced by context, not tribal knowledge. |
 | Pre-installed skills | A process library (superpowers) that scripts the agent's workflow: brainstorm → spec → plan → test-first coding → verification → review.<br/>Plus skills for:<br/>• UI design (frontend-design)<br/>• browser testing (playwright)<br/>• live library docs (context7) | Every developer's agent follows the same scripted workflow, so quality does not depend on individual prompting skill. |
-| On-demand docs | The repo's `docs/` tree:<br/>• architecture<br/>• per-module docs<br/>• design<br/>• DB & domain design<br/>• platform and infra<br/>• guides and reference | Keeps the always-loaded context small; the agent pulls deep detail only when the task needs it. |
+| On-demand docs | The repo's [docs/](https://github.com/Seta-International/agent-platform/tree/main/docs) tree:<br/>• architecture<br/>• per-module docs<br/>• design<br/>• DB & domain design<br/>• platform and infra<br/>• guides and reference | Keeps the always-loaded context small; the agent pulls deep detail only when the task needs it. |
 | Design handoff | UI/UX mockups handed off from Claude Design (claude.ai/design) or Figma | The agent builds to the approved mockup instead of inventing its own UI. |
 | Hard local gates | Automatic checks that run before any commit or push:<br/>• formatting and lint<br/>• type checks<br/>• architecture boundaries<br/>• naming conventions<br/>Plus the affected modules' unit tests before opening a PR. | A machine-enforced quality floor.<br/>A failed check sends the work back to the agent, not to a person. |
-| Estimation guide | `docs/guides/estimation.md`:<br/>• story-point anchors<br/>• team velocity constant (recalibrated quarterly)<br/>• the time-saved formula | Makes "AI time saved" a derived number, not a guess.<br/>Formula: `points × velocity − actual hours`, cross-checked against the real diff. |
-| Review routing | `.github/CODEOWNERS` maps each code area to its owner.<br/>Every PR declares a risk tier:<br/>• **T1** = inside one feature module<br/>• **T2** = touches code shared across modules<br/>• **T3** = core / high-risk areas (identity, DB migrations, CI), always shipped as its own PR | Review depth follows risk automatically: a T1 goes to the module owner, a T3 always goes to the tech lead. |
-| PR template + label check | `.github/pull_request_template.md` with AI-usage labels and AI-time-saved field; a CI job applies the labels from the template checkboxes and reminds the author when they are missing | Every PR declares its AI usage the same way, so adoption metrics come free as a by-product of working. |
-| CI + metrics pipeline | CI workflows (convention checks, tests, build and bundle budgets, config validation, security and quality scans, e2e) plus `ai-sdlc-jira-sync.yml` and the scheduled metrics collector feeding Grafana | Independent verification of every PR, and automatic ROI reporting without anyone filling in a spreadsheet. |
+| Estimation guide | [docs/guides/estimation.md](https://github.com/Seta-International/agent-platform/blob/main/docs/guides/estimation.md):<br/>• story-point anchors<br/>• team velocity constant (recalibrated quarterly)<br/>• the time-saved formula | Makes "AI time saved" a derived number, not a guess.<br/>Formula: `points × velocity − actual hours`, cross-checked against the real diff. |
+| Review routing | [.github/CODEOWNERS](https://github.com/Seta-International/agent-platform/blob/main/.github/CODEOWNERS) maps each code area to its owner.<br/>Every PR declares a risk tier:<br/>• **T1** = inside one feature module<br/>• **T2** = touches code shared across modules<br/>• **T3** = core / high-risk areas (identity, DB migrations, CI), always shipped as its own PR | Review depth follows risk automatically: a T1 goes to the module owner, a T3 always goes to the tech lead. |
+| PR template + label check | [.github/pull_request_template.md](https://github.com/Seta-International/agent-platform/blob/main/.github/pull_request_template.md) with AI-usage labels and AI-time-saved field; a CI job applies the labels from the template checkboxes and reminds the author when they are missing | Every PR declares its AI usage the same way, so adoption metrics come free as a by-product of working. |
+| CI + metrics pipeline | CI workflows (convention checks, tests, build and bundle budgets, config validation, security and quality scans, e2e) plus [ai-sdlc-jira-sync.yml](https://github.com/Seta-International/agent-platform/blob/main/.github/workflows/ai-sdlc-jira-sync.yml) and the scheduled metrics collector feeding Grafana | Independent verification of every PR, and automatic ROI reporting without anyone filling in a spreadsheet. |
 
 ---
 
@@ -59,6 +61,8 @@ flowchart LR
 Each phase below has a step table (`Actor · Action · Precondition · Output · Why`) and its own sequence diagram.
 
 ---
+
+<div class="page-break"></div>
 
 ## Phase 1: Context & Spec
 
@@ -105,6 +109,8 @@ sequenceDiagram
 
 ---
 
+<div class="page-break"></div>
+
 ## Phase 2: Plan
 
 An approved spec says *what*; the plan says *exactly how*. The agent analyses the codebase and produces a TDD implementation plan small enough to verify step by step.
@@ -132,6 +138,8 @@ sequenceDiagram
 ```
 
 ---
+
+<div class="page-break"></div>
 
 ## Phase 3: Implementation
 
@@ -173,6 +181,8 @@ sequenceDiagram
 ```
 
 ---
+
+<div class="page-break"></div>
 
 ## Phase 4: Pull Request & Review
 
@@ -219,6 +229,8 @@ sequenceDiagram
 
 ---
 
+<div class="page-break"></div>
+
 ## Phase 5: Metrics & Release
 
 After merge the pipeline closes the loop on its own: AI metrics flow back to the Jira ticket, a scheduled collector aggregates them into the shared reporting database behind Grafana, the build ships to UAT for QA acceptance, and release notes are drafted from the same tickets. Tasks that never produce a PR follow one manual step instead: the assignee fills the same two AI fields on the ticket.
@@ -263,6 +275,8 @@ sequenceDiagram
 ```
 
 ---
+
+<div class="page-break"></div>
 
 ## Planned next (designed, not yet built)
 
