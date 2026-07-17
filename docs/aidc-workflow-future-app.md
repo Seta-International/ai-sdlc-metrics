@@ -1,6 +1,8 @@
 # AIDC on the Future App
 
-Repo: [Seta-International/agent-platform](https://github.com/Seta-International/agent-platform). *Every rule, gate, template, and workflow referenced in this document can be viewed in this repository.*
+Repo: [Seta-International/agent-platform](https://github.com/Seta-International/agent-platform)<br/>*Every rule, gate, template, and workflow referenced in this document can be viewed in this repository.*<br/>Future team · July 2026
+
+<div class="page-break"></div>
 
 **Scope.** The flow starts *after* the PO/PM has broken work down: the ticket is sprint-planned in Jira with acceptance criteria, story points, and links to the PRD/SRS on Confluence. How tickets get to that state (requirement analysis and breakdown by the PO/PM) is outside the scope of this document.
 
