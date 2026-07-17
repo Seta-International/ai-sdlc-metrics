@@ -8,9 +8,9 @@ Future team · July 2026
 
 Repo: [Seta-International/agent-platform](https://github.com/Seta-International/agent-platform). *Every rule, gate, template, and workflow referenced in this document can be viewed in this repository.*
 
-**Positioning.** This workflow is **agentic engineering, not vibe coding**: AI acts as the implementation engine inside human-designed constraints, tests, and feedback loops, with people keeping oversight of architecture, correctness, and quality. Industry-wide, 85% of professional developers already use AI coding agents and an estimated 41% of new code is AI-generated (*The new SDLC with vibe coding*, May 2026); what separates risk from leverage is **the discipline around the AI's output**, which is what this document describes.
+**Positioning.** This is **agentic engineering, not vibe coding**: AI implements inside human-designed constraints, tests, and feedback loops. Industry-wide, 85% of professional developers use AI coding agents and about 41% of new code is AI-generated (*The new SDLC with vibe coding*, May 2026). What separates risk from leverage is **the discipline around the AI's output**.
 
-**Scope.** The flow starts *after* the PO/PM has broken work down: the ticket is sprint-planned in Jira with acceptance criteria, story points, and links to the PRD/SRS on Confluence. How tickets get to that state (requirement analysis and breakdown by the PO/PM) is outside the scope of this document.
+**Scope.** The flow starts *after* the PO/PM has broken work down: the ticket is sprint-planned in Jira with acceptance criteria, story points, and links to the PRD/SRS on Confluence. How tickets get to that state is outside this document's scope.
 
 **Principle.** The agent produces specs, plans, code, tests, and PRs, but **four gates are always held by people**:
 
