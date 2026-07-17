@@ -180,7 +180,7 @@ The agent assembles the PR the same way every time (template, tier, AI-usage dec
 
 | # | Actor | Action | Precondition / Input | Output / Gate | Why |
 |---|---|---|---|---|---|
-| 1 | Claude Code | Computes AI usage (labels `ai-assisted` / `ai-agent`) and AI time saved per `docs/guides/estimation.md`: `baseline = story points × team velocity`, reconciled against the real diff size, minus actual hours spent | Ticket points; work done | Declared AI metrics | The number is derived from a formula and checked against the real diff, not guessed.<br/>A human can still override it in Jira, and the human value wins. |
+| 1 | Claude Code | Computes AI usage (labels `ai-assisted` / `ai-agent`) and AI time saved per `docs/guides/estimation.md`: `baseline = story points × team velocity`, reconciled against the real diff size, minus actual hours spent | Ticket points; work done | Declared AI metrics | The number is derived from a formula and checked against the real diff, not guessed.<br/>A human can still correct it directly in Jira. |
 | 2 | Claude Code | Fills the PR template:<br/>• Jira key<br/>• risk tier (T1/T2/T3)<br/>• risk & affected modules<br/>• evidence of verification<br/>• for big diffs, a hot/cold review map (hot: read closely; cold: safe to skim) | Template in repo | Complete PR description | Every PR arrives in the same structure, so reviewers spend their time judging the change, not reconstructing it. |
 | 3 | Claude Code | Assigns reviewers via CODEOWNERS and the tier rules; core / identity / shared-ui / migrations / CI auto-request the tech lead | CODEOWNERS in repo | Right reviewers requested | Review depth scales with blast radius automatically; nobody has to remember who owns what. |
 | 4 | Claude Code | Opens the PR on GitHub | Gates green (Phase 3) | PR created | — |
@@ -226,7 +226,7 @@ After merge the pipeline closes the loop on its own: AI metrics flow back to the
 | # | Actor | Action | Precondition / Input | Output / Gate | Why |
 |---|---|---|---|---|---|
 | 1 | GitHub CI (`ai-sdlc-jira-sync`) | On merge, runs the collector's `update_ticket`: writes AI Usage, AI Tool, and AI Time Saved to the Jira ticket | PR merged with labels + template fields | Jira fields updated | Captured at merge by the pipeline, so the data stays complete without anyone remembering to fill it in.<br/>A sync failure never blocks the merge. |
-| 2 | Jira | Merge policy applies: usage never downgrades, tool set once, hours accumulate; a human edit always wins | Sync ran | Consistent ticket data | Multiple PRs per ticket do not corrupt each other's data, and people keep the final say over the numbers. |
+| 2 | Jira | Merge policy applies: usage never downgrades, tool set once, hours accumulate; a human can correct the fields directly in Jira | Sync ran | Consistent ticket data | Multiple PRs per ticket do not corrupt each other's data. |
 | 3 | Assignee | For tasks with no PR (analysis, design, documentation, research, QA), sets AI Usage and AI Time Saved manually on the Jira ticket | Task done with AI, no PR to sync from | Jira fields set | The automatic sync only covers merged PRs.<br/>The manual path keeps every other kind of work in the same metrics, so the dashboard reflects the whole team, not just coding. |
 | 4 | Scheduled collector (`ai-sdlc-metrics`) | Periodically queries GitHub + Jira and upserts per-project monthly metrics into the shared reporting database | Merged PRs, Jira fields | `reporting.metric_counts` rows | One shared pipeline and schema across projects, so numbers are comparable and re-runs are safe. |
 | 5 | Grafana | Shared dashboards visualise AI adoption, time saved, DORA, and quality metrics | Reporting DB populated | Leadership dashboard | Leadership watches trends from live data, not slide-deck claims assembled by hand. |
@@ -247,7 +247,7 @@ sequenceDiagram
 
     alt Task has a PR
         GH->>CI: 1a. PR merged
-        CI->>Jira: Write AI Usage / Tool / Time Saved<br/>(human edits always win)
+        CI->>Jira: Write AI Usage / Tool / Time Saved
     else Task with no PR (analysis, design, docs, research, QA)
         Asg->>Jira: 1b. Set AI Usage / Time Saved manually
     end
