@@ -265,12 +265,12 @@ sequenceDiagram
 
 ## Planned next (designed, not yet built)
 
-Two extensions the team has scoped but not started. Both build on what already runs: the monitoring stack (Prometheus, Alertmanager, Loki, Grafana) with a scripted self-heal job in production, and the ticket-to-merge pipeline above.
+Two extensions are scoped but not started, both building on what already runs.
 
 | Initiative | What it adds | Why it is worth it |
 |---|---|---|
-| Ops agent on AWS CloudWatch | An AI agent that watches system metrics and logs, and runs operational workflows on its own: raise and triage alerts, restart or update resources, roll back a bad deploy.<br/>Today production has a scripted self-heal (redeploy the last good image when the app is down); the agent generalises this from one hard-coded recovery to reasoning about the incident. | Shorter incident response without waking an engineer, and every action is logged the same way the coding pipeline is. |
-| Fully autonomous tickets | An agent that watches the Jira board and picks up tickets a human has labeled as safe for autonomy (small, well-specified tasks), then runs the whole pipeline in this document end to end with no developer in the session.<br/>The human gates shrink to two: the label that marks the ticket as safe, and the PR review before merge. | The team's capacity stops being the bottleneck for small work.<br/>The label keeps a person in charge of what qualifies, and the PR review gate stays untouched. |
+| Ops agent on AWS CloudWatch | An AI agent that watches system metrics and logs and acts on its own: alerts, restarts or updates resources, rolls back a bad deploy.<br/>It generalises today's scripted production self-heal into reasoning about the incident. | Shorter incident response without waking an engineer, with every action logged. |
+| Fully autonomous tickets | An agent that watches Jira and picks up tickets a human has labeled safe for autonomy (small, well-specified tasks), then runs this pipeline end to end on its own.<br/>Two human gates remain: the label, and the PR review before merge. | Small work stops consuming team capacity, while a person still decides what qualifies. |
 
 ## What leadership sees
 
