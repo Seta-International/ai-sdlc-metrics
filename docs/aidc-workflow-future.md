@@ -241,19 +241,23 @@ sequenceDiagram
     participant Jira
     participant Col as Scheduled collector<br/>(ai-sdlc-metrics)
     participant Graf as Reporting DB<br/>+ Grafana
+    actor Asg as Assignee
     actor QA
     actor SM
 
-    GH->>CI: 1. PR merged
-    CI->>Jira: 2. Write AI Usage / Tool / Time Saved<br/>(human edits always win)
-    Note over Jira: Tasks with no PR (analysis, design,<br/>docs, research, QA): assignee sets<br/>AI Usage / Time Saved manually
-    Col->>GH: 3. Periodic: read PRs, labels, deployments
+    alt Task has a PR
+        GH->>CI: 1a. PR merged
+        CI->>Jira: Write AI Usage / Tool / Time Saved<br/>(human edits always win)
+    else Task with no PR (analysis, design, docs, research, QA)
+        Asg->>Jira: 1b. Set AI Usage / Time Saved manually
+    end
+    Col->>GH: 2. Periodic: read PRs, labels, deployments
     Col->>Jira: Read tickets, incidents, AI fields
-    Col->>Graf: 4. Upsert monthly metrics per project
+    Col->>Graf: 3. Upsert monthly metrics per project
     Note over Graf: AI adoption · time saved ·<br/>DORA · quality
-    GH->>QA: 5. Build deployed to UAT
-    Note over QA: 6. HUMAN GATE 4<br/>Acceptance against the ticket's AC
-    SM->>Jira: 7. Jira Rovo drafts release notes<br/>from the version's tickets
+    GH->>QA: 4. Build deployed to UAT
+    Note over QA: 5. HUMAN GATE 4<br/>Acceptance against the ticket's AC
+    SM->>Jira: 6. Jira Rovo drafts release notes<br/>from the version's tickets
     Jira-->>SM: Draft → SM edits →<br/>publish to Confluence
 ```
 
