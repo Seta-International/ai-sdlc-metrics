@@ -1,12 +1,18 @@
 # AIDC on the Future App
 
-Repo: [Seta-International/agent-platform](https://github.com/Seta-International/agent-platform)<br/>*Every rule, gate, template, and workflow referenced in this document can be viewed in this repository.*<br/>Future team · July 2026
+***AI drafts, a human decides.***<br/>*The machine handles implementation. The human provides intent, architecture, and judgment.*
+
+Future team · July 2026
 
 <div class="page-break"></div>
 
+Repo: [Seta-International/agent-platform](https://github.com/Seta-International/agent-platform). *Every rule, gate, template, and workflow referenced in this document can be viewed in this repository.*
+
+**Positioning.** This workflow is **agentic engineering, not vibe coding**: AI acts as the implementation engine inside human-designed constraints, tests, and feedback loops, with people keeping oversight of architecture, correctness, and quality. Industry-wide, 85% of professional developers already use AI coding agents and an estimated 41% of new code is AI-generated (*The new SDLC with vibe coding*, May 2026); what separates risk from leverage is **the discipline around the AI's output**, which is what this document describes.
+
 **Scope.** The flow starts *after* the PO/PM has broken work down: the ticket is sprint-planned in Jira with acceptance criteria, story points, and links to the PRD/SRS on Confluence. How tickets get to that state (requirement analysis and breakdown by the PO/PM) is outside the scope of this document.
 
-**Principle.** ***AI drafts, a human decides.*** The agent produces specs, plans, code, tests, and PRs, but **four gates are always held by people**:
+**Principle.** The agent produces specs, plans, code, tests, and PRs, but **four gates are always held by people**:
 
 | # | Human gate | Where |
 |---|---|---|
