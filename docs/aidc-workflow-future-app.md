@@ -1,10 +1,10 @@
 # AIDC on the Future App
 
-Repo: [Seta-International/agent-platform](https://github.com/Seta-International/agent-platform)
+Repo: [Seta-International/agent-platform](https://github.com/Seta-International/agent-platform). *Every rule, gate, template, and workflow referenced in this document can be viewed in this repository.*
 
 **Scope.** The flow starts *after* the PO/PM has broken work down: the ticket is sprint-planned in Jira with acceptance criteria, story points, and links to the PRD/SRS on Confluence. How tickets get to that state (requirement analysis and breakdown by the PO/PM) is outside the scope of this document.
 
-**Principle.** *AI drafts, a human decides.* The agent produces specs, plans, code, tests, and PRs, but four gates are always held by people:
+**Principle.** ***AI drafts, a human decides.*** The agent produces specs, plans, code, tests, and PRs, but **four gates are always held by people**:
 
 | # | Human gate | Where |
 |---|---|---|
@@ -19,7 +19,7 @@ Repo: [Seta-International/agent-platform](https://github.com/Seta-International/
 
 ## 0. The harness: built before any session starts
 
-A coding agent is only as good as the context and guardrails around it. The harness below is set up once per project, so every developer's agent works the same way and no agent output reaches a reviewer without passing machine checks first.
+A coding agent is only as good as the context and guardrails around it. The harness below is **set up once per project**, so every developer's agent works the same way and **no agent output reaches a reviewer without passing machine checks first**.
 
 | Component | What it is (in the repo) | Why it is needed |
 |---|---|---|
@@ -66,7 +66,7 @@ Each phase below has a step table (`Actor · Action · Precondition · Output ·
 
 ## Phase 1: Context & Spec
 
-The most expensive mistake is building the wrong thing, so this phase spends its time before code: the agent assembles the requirement context, clarifies it with the developer, and freezes the result as a spec.
+The most expensive mistake is **building the wrong thing**, so this phase spends its time before code: the agent assembles the requirement context, clarifies it with the developer, and **freezes the result as a spec**.
 
 | # | Actor | Action | Precondition / Input | Output / Gate | Why |
 |---|---|---|---|---|---|
@@ -74,10 +74,10 @@ The most expensive mistake is building the wrong thing, so this phase spends its
 | 2 | Claude Code | Automatically loads `CLAUDE.md` and the relevant `.claude/rules/*` | Harness in place (§0) | Conventions in context | The rules load on every session, so the agent cannot forget them. |
 | 3 | Claude Code | Pulls the Jira ticket and linked Confluence PRD/SRS via Atlassian MCP | Ticket id from step 1 | Requirement context in session | No copy-paste: context comes from the live source of truth, so the agent works from the same documents the PO signed off. |
 | 4 | Claude Code | Reads the project docs the task needs on demand:<br/>• architecture<br/>• the affected modules' docs<br/>• design<br/>• DB & domain design<br/>• platform and guides | On-demand docs exist | System context | The solution fits the existing architecture instead of fighting it. |
-| 5 | Dev + Claude Code | Guided brainstorming: the agent asks clarifying questions one at a time against the AC, codebase, and docs | Steps 2–4 done | Ambiguities resolved | Ambiguity is cheapest to fix here, before any code exists. |
+| 5 | Dev + Claude Code | Guided brainstorming: the agent asks clarifying questions one at a time against the AC, codebase, and docs | Steps 2–4 done | Ambiguities resolved | Ambiguity is **cheapest to fix here**, before any code exists. |
 | 6 | Claude Code | *(optional)* Fetches current library docs via context7 or web search | A technical unknown surfaces | Up-to-date technical facts | Prevents building on outdated library knowledge. |
 | 7 | Claude Code | Writes the spec as a file:<br/>• requirements<br/>• approach and impact<br/>• test strategy | Brainstorm converged | Spec file | A written spec can be read and reviewed line by line; a chat log cannot. |
-| 8 | Dev | **Human gate 1:** reviews the spec line by line, loops with the agent until final | Spec draft | Approved spec | Everything downstream (plan, code, tests, PR) is generated from this document, so this review has the most leverage. |
+| 8 | Dev | **Human gate 1:** reviews the spec line by line, loops with the agent until final | Spec draft | Approved spec | Everything downstream (plan, code, tests, PR) is generated from this document, so **this review has the most leverage**. |
 
 ```mermaid
 sequenceDiagram
@@ -113,13 +113,13 @@ sequenceDiagram
 
 ## Phase 2: Plan
 
-An approved spec says *what*; the plan says *exactly how*. The agent analyses the codebase and produces a TDD implementation plan small enough to verify step by step.
+An approved spec says *what*; the plan says *exactly how*. The agent analyses the codebase and produces a TDD implementation plan **small enough to verify step by step**.
 
 | # | Actor | Action | Precondition / Input | Output / Gate | Why |
 |---|---|---|---|---|---|
 | 1 | Claude Code | Analyses the codebase against the approved spec: which files change, which are created or deleted, what can break | Approved spec (gate 1) | Impact analysis | Grounding the plan in the real code prevents the classic AI failure of planning against an imagined codebase. |
 | 2 | Claude Code | Writes the plan as a file: ordered small tasks, each with the failing test to write first, then the change (TDD) | Impact analysis | Plan file | Small, test-first tasks are verifiable one by one; a mistake is caught at its own step, not at the end. |
-| 3 | Dev | **Human gate 2:** reviews and approves the plan | Plan draft | Approved plan | The plan is the contract for the implementation session; approving it is what makes hands-off execution safe. |
+| 3 | Dev | **Human gate 2:** reviews and approves the plan | Plan draft | Approved plan | **The plan is the contract** for the implementation session; approving it is what makes hands-off execution safe. |
 
 ```mermaid
 sequenceDiagram
@@ -143,15 +143,15 @@ sequenceDiagram
 
 ## Phase 3: Implementation
 
-A fresh session executes the plan, so the plan file is the single source of truth with no leftover assumptions from brainstorming. Work is split into small tasks; each task passes an implement round and a review round, and nothing leaves the machine until every local gate is green.
+A **fresh session** executes the plan, so the plan file is the single source of truth. Work is split into small tasks; each task passes an implement round and a review round, and **nothing leaves the machine until every local gate is green**.
 
 | # | Actor | Action | Precondition / Input | Output / Gate | Why |
 |---|---|---|---|---|---|
 | 1 | Dev | Opens a new Claude Code session pointed at the approved plan | Approved plan (gate 2) | Execution session | A clean session executes exactly what was approved, nothing more. |
 | 2 | Claude Code (orchestrator) | Breaks the plan into small bounded tasks; parallel tasks run in isolated workspaces | Plan file | Task list | Small tasks keep the work reliable; isolation stops parallel tasks colliding. |
-| 3 | Implementation agent | Per task: writes the failing test first, then the code to make it pass (TDD) | Task definition | Code + passing test | The test pins the requirement before the code exists; the agent cannot declare success without proof. |
-| 4 | Review agent | Per task: a second pass checks the change against the spec and quality rules; bug-fix rounds until clean | Task implemented | Task accepted | Implementer and reviewer are separated even inside the AI, the same separation of duties we require of people. |
-| 5 | Claude Code | Runs the full local gate stack:<br/>• formatting and lint<br/>• type checks<br/>• architecture boundaries<br/>• naming conventions<br/>• the affected modules' unit tests | All tasks done | All gates green | Humans never spend review time on what a machine can catch. |
+| 3 | Implementation agent | Per task: writes the failing test first, then the code to make it pass (TDD) | Task definition | Code + passing test | The test pins the requirement before the code exists; **the agent cannot declare success without proof**. |
+| 4 | Review agent | Per task: a second pass checks the change against the spec and quality rules; bug-fix rounds until clean | Task implemented | Task accepted | **Implementer and reviewer are separated even inside the AI**, the same separation of duties we require of people. |
+| 5 | Claude Code | Runs the full local gate stack:<br/>• formatting and lint<br/>• type checks<br/>• architecture boundaries<br/>• naming conventions<br/>• the affected modules' unit tests | All tasks done | All gates green | Humans **never spend review time on what a machine can catch**. |
 | 6 | Claude Code | Self-corrects anything a gate flags and re-runs until everything passes | Any red gate | Green working tree | Failures cost agent cycles, not developer attention.<br/>The agent must show green output, not claim it. |
 
 ```mermaid
@@ -186,17 +186,17 @@ sequenceDiagram
 
 ## Phase 4: Pull Request & Review
 
-The agent assembles the PR the same way every time (template, tier, AI-usage declaration, time-saved figure, auto-assigned reviewers), then CI verifies independently and a human makes the merge decision.
+The agent assembles the PR the same way every time (template, tier, AI-usage declaration, time-saved figure, auto-assigned reviewers), then CI verifies independently and **a human makes the merge decision**.
 
 | # | Actor | Action | Precondition / Input | Output / Gate | Why |
 |---|---|---|---|---|---|
-| 1 | Claude Code | Computes AI usage (labels `ai-assisted` / `ai-agent`) and AI time saved per `docs/guides/estimation.md`: `baseline = story points × team velocity`, reconciled against the real diff size, minus actual hours spent | Ticket points; work done | Declared AI metrics | The number is derived from a formula and checked against the real diff, not guessed.<br/>A human can still correct it directly in Jira. |
+| 1 | Claude Code | Computes AI usage (labels `ai-assisted` / `ai-agent`) and AI time saved per `docs/guides/estimation.md`: `baseline = story points × team velocity`, reconciled against the real diff size, minus actual hours spent | Ticket points; work done | Declared AI metrics | The number is **derived from a formula and checked against the real diff**, not guessed.<br/>A human can still correct it directly in Jira. |
 | 2 | Claude Code | Fills the PR template:<br/>• Jira key<br/>• risk tier (T1/T2/T3)<br/>• risk & affected modules<br/>• evidence of verification<br/>• for big diffs, a hot/cold review map (hot: read closely; cold: safe to skim) | Template in repo | Complete PR description | Every PR arrives in the same structure, so reviewers spend their time judging the change, not reconstructing it. |
 | 3 | Claude Code | Assigns reviewers via CODEOWNERS and the tier rules; core / identity / shared-ui / migrations / CI auto-request the tech lead | CODEOWNERS in repo | Right reviewers requested | Review depth scales with blast radius automatically; nobody has to remember who owns what. |
 | 4 | Claude Code | Opens the PR on GitHub | Gates green (Phase 3) | PR created | — |
-| 5 | GitHub CI | Runs the pre-merge suite:<br/>• commit/branch convention checks<br/>• unit and integration tests<br/>• build with per-app bundle budgets<br/>• dashboard and infra config validation<br/>• AI-label check<br/>• security scan (CodeQL) and SonarQube (duplication, code smells)<br/>• dependency patching (Dependabot) | PR opened | Checks green or red | Local green is a claim; CI green is evidence from an environment the agent does not control. |
+| 5 | GitHub CI | Runs the pre-merge suite:<br/>• commit/branch convention checks<br/>• unit and integration tests<br/>• build with per-app bundle budgets<br/>• dashboard and infra config validation<br/>• AI-label check<br/>• security scan (CodeQL) and SonarQube (duplication, code smells)<br/>• dependency patching (Dependabot) | PR opened | Checks green or red | Local green is a claim; **CI green is evidence** from an environment the agent does not control. |
 | 6 | Reviewer *(optional AI assist)* | Pastes the PR link into their own Claude Code session for an AI first pass: summary, hot/cold file map, suspicious spots to read first.<br/>Other projects can plug in CodeRabbit or GitHub Copilot code review as the same first pass. | PR open, checks green | AI first-pass comments | The reviewer starts from an AI map of the diff instead of a cold read.<br/>The tool is a per-project choice; the principle stays the same: AI clears the mechanical layer, a person judges. |
-| 7 | Reviewer | **Human gate 3:** reads the diff (hot files closely), requests changes or approves | Checks green | Approved PR | No agent-written code ships without a person reading it; the merge decision is never delegated to the machine. |
+| 7 | Reviewer | **Human gate 3:** reads the diff (hot files closely), requests changes or approves | Checks green | Approved PR | **No agent-written code ships without a person reading it**; the merge decision is never delegated to the machine. |
 | 8 | Claude Code | Fixes review comments; reviewer re-checks | Change requests | Updated PR | The fix loop stays with the agent; the reviewer's time is spent only on judgment. |
 | 9 | Dev / reviewer | Merges the PR once all reviewers have approved | Approval | Merged to main | — |
 
@@ -233,16 +233,16 @@ sequenceDiagram
 
 ## Phase 5: Metrics & Release
 
-After merge the pipeline closes the loop on its own: AI metrics flow back to the Jira ticket, a scheduled collector aggregates them into the shared reporting database behind Grafana, the build ships to UAT for QA acceptance, and release notes are drafted from the same tickets. Tasks that never produce a PR follow one manual step instead: the assignee fills the same two AI fields on the ticket.
+After merge the pipeline closes the loop on its own: AI metrics flow back to the Jira ticket, a scheduled collector aggregates them into the shared reporting database behind Grafana, the build ships to UAT for QA acceptance, and release notes are drafted from the same tickets. Tasks that never produce a PR follow **one manual step** instead: the assignee fills the same two AI fields on the ticket.
 
 | # | Actor | Action | Precondition / Input | Output / Gate | Why |
 |---|---|---|---|---|---|
 | 1 | GitHub CI (`ai-sdlc-jira-sync`) | On merge, runs the collector's `update_ticket`: writes AI Usage, AI Tool, and AI Time Saved to the Jira ticket | PR merged with labels + template fields | Jira fields updated | Captured at merge by the pipeline, so the data stays complete without anyone remembering to fill it in.<br/>A sync failure never blocks the merge. |
 | 2 | Jira | Merge policy applies: usage never downgrades, tool set once, hours accumulate; a human can correct the fields directly in Jira | Sync ran | Consistent ticket data | Multiple PRs per ticket do not corrupt each other's data. |
-| 3 | Dev (task assignee) | For tasks with no PR (analysis, design, documentation, research, QA), sets AI Usage and AI Time Saved manually on the Jira ticket | Task done with AI, no PR to sync from | Jira fields set | The automatic sync only covers merged PRs.<br/>The manual path keeps every other kind of work in the same metrics, so the dashboard reflects the whole team, not just coding. |
+| 3 | Dev (task assignee) | For tasks with no PR (analysis, design, documentation, research, QA), sets AI Usage and AI Time Saved manually on the Jira ticket | Task done with AI, no PR to sync from | Jira fields set | The automatic sync only covers merged PRs.<br/>The manual path keeps every other kind of work in the same metrics, so the dashboard reflects **the whole team, not just coding**. |
 | 4 | Scheduled collector (`ai-sdlc-metrics`) | Periodically queries GitHub + Jira and upserts per-project monthly metrics into the shared reporting database | Merged PRs, Jira fields | `reporting.metric_counts` rows | One shared pipeline and schema across projects, so numbers are comparable and re-runs are safe. |
-| 5 | Grafana | Shared dashboards visualise AI adoption, time saved, DORA, and quality metrics | Reporting DB populated | Leadership dashboard | Leadership watches trends from live data, not slide-deck claims assembled by hand. |
-| 6 | Dev | Triggers the UAT deploy workflow; CI then runs the end-to-end suite against the deployed build | Merged to main | Build on UAT, e2e green | E2e tests are heavy and slow, so they run in CI as the release gate on UAT instead of on every PR. |
+| 5 | Grafana | Shared dashboards visualise AI adoption, time saved, DORA, and quality metrics | Reporting DB populated | Leadership dashboard | Leadership watches trends from **live data, not slide-deck claims** assembled by hand. |
+| 6 | Dev | Triggers the UAT deploy workflow; CI then runs the end-to-end suite against the deployed build | Merged to main | Build on UAT, e2e green | E2e tests are heavy and slow, so they run in CI as **the release gate on UAT** instead of on every PR. |
 | 7 | QA | **Human gate 4:** runs acceptance test cases against the ticket's AC, passes or fails the feature | Build on UAT | Accepted feature | Final independent check against the original requirement. |
 | 8 | SM | Drafts release notes with Jira Rovo (Release Notes Drafter agent): Rovo summarises the version's completed tickets into themed notes, published to Confluence after the SM edits | Version released in Jira | Release notes on Confluence | The tickets already hold everything the notes need; Rovo drafts in minutes and the SM edits instead of writing from scratch. |
 
@@ -280,13 +280,13 @@ sequenceDiagram
 
 ## Planned next (designed, not yet built)
 
-Two extensions are scoped but not started, both building on what already runs.
+Two extensions are **scoped but not started**, both building on what already runs.
 
 | Initiative | What it adds | Why it is worth it |
 |---|---|---|
 | Ops agent on AWS CloudWatch | An AI agent that watches system metrics and logs and acts on its own: alerts, restarts or updates resources, rolls back a bad deploy.<br/>It generalises today's scripted production self-heal into reasoning about the incident. | Shorter incident response without waking an engineer, with every action logged. |
-| Fully autonomous tickets | An agent that watches Jira and picks up tickets a human has labeled safe for autonomy (small, well-specified tasks), then runs this pipeline end to end on its own.<br/>Two human gates remain: the label, and the PR review before merge. | Small work stops consuming team capacity, while a person still decides what qualifies. |
+| Fully autonomous tickets | An agent that watches Jira and picks up tickets a human has labeled safe for autonomy (small, well-specified tasks), then runs this pipeline end to end on its own.<br/>**Two human gates remain**: the label, and the PR review before merge. | Small work stops consuming team capacity, while a person still decides what qualifies. |
 
 ## What leadership sees
 
-Every number on the Grafana dashboard is a by-product of the process above, not a survey: AI usage comes from PR labels the pipeline applies automatically, time saved from a formula a human can override, and delivery signals (DORA, incidents, review coverage) from GitHub and Jira directly. The whole loop, from sprint ticket to measured merge, runs today on the Future app.
+Every number on the Grafana dashboard is **a by-product of the process above, not a survey**: AI usage comes from PR labels the pipeline applies automatically, time saved from a formula a human can override, and delivery signals (DORA, incidents, review coverage) from GitHub and Jira directly. The whole loop, from sprint ticket to measured merge, runs today on the Future app.
