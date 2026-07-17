@@ -35,7 +35,7 @@ The harness below is **set up once per project**: every developer's agent works 
 | Pre-installed skills | A process library ([superpowers](https://github.com/obra/superpowers)) that scripts the agent's workflow: brainstorm → spec → plan → test-first coding → verification → review.<br/>Plus skills for:<br/>• UI design ([frontend-design](https://github.com/anthropics/claude-code/tree/main/plugins/frontend-design))<br/>• browser testing ([playwright](https://github.com/microsoft/playwright-mcp))<br/>• live library docs ([context7](https://github.com/upstash/context7)) | Every developer's agent follows the same scripted workflow, so quality does not depend on individual prompting skill. |
 | On-demand docs | The repo's [docs/](https://github.com/Seta-International/agent-platform/tree/main/docs) tree:<br/>• architecture<br/>• per-module docs<br/>• design<br/>• DB & domain design<br/>• platform and infra<br/>• guides and reference | Keeps the always-loaded context small; the agent pulls deep detail only when the task needs it. |
 | Design handoff | UI/UX mockups handed off from [Claude Design](https://claude.ai/design) or [Figma](https://www.figma.com) | The agent builds to the approved mockup instead of inventing its own UI. |
-| Hard local gates | Automatic checks that run before any commit or push:<br/>• formatting and lint<br/>• type checks<br/>• architecture boundaries<br/>• naming conventions<br/>Plus the affected modules' unit tests before opening a PR. | A machine-enforced quality floor.<br/>A failed check sends the work back to the agent, not to a person. |
+| Hard local gates | Automatic checks that run before any commit or push:<br/>• formatting and lint<br/>• type checks<br/>• architecture boundaries (module dependency rules)<br/>• branch-name and commit-message conventions<br/>Plus **unit and integration tests, written test-first (TDD)** and run against a real database, before opening a PR. | A machine-enforced quality floor.<br/>A failed check sends the work back to the agent, not to a person. |
 | Estimation guide | [docs/guides/estimation.md](https://github.com/Seta-International/agent-platform/blob/main/docs/guides/estimation.md):<br/>• story-point anchors<br/>• team velocity constant (recalibrated quarterly)<br/>• the time-saved formula | Makes "AI time saved" a derived number, not a guess.<br/>Formula: `points × velocity − actual hours`, cross-checked against the real diff. |
 | Review routing | [.github/CODEOWNERS](https://github.com/Seta-International/agent-platform/blob/main/.github/CODEOWNERS) maps each code area to its owner.<br/>Every PR declares a risk tier:<br/>• **T1** = inside one feature module<br/>• **T2** = touches code shared across modules<br/>• **T3** = core / high-risk areas (identity, DB migrations, CI), always shipped as its own PR | Review depth follows risk automatically: a T1 goes to the module owner, a T3 always goes to the tech lead. |
 | PR template + label check | [.github/pull_request_template.md](https://github.com/Seta-International/agent-platform/blob/main/.github/pull_request_template.md) with AI-usage labels and AI-time-saved field; a CI job applies the labels from the template checkboxes and reminds the author when they are missing | Every PR declares its AI usage the same way, with no extra paperwork. |
@@ -159,7 +159,7 @@ A **fresh session** executes the plan, so the plan file is the single source of 
 | 2 | Claude Code (orchestrator) | Breaks the plan into small bounded tasks; parallel tasks run in isolated workspaces | Plan file | Task list | Small tasks keep the work reliable; isolation stops parallel tasks colliding. |
 | 3 | Implementation agent | Per task: writes the failing test first, then the code to make it pass (TDD) | Task definition | Code + passing test | The test pins the requirement before the code exists; **the agent cannot declare success without proof**. |
 | 4 | Review agent | Per task: a second pass checks the change against the spec and quality rules; bug-fix rounds until clean | Task implemented | Task accepted | **Implementer and reviewer are separated even inside the AI**, the same separation of duties we require of people. |
-| 5 | Claude Code | Runs the full local gate stack from the harness (format, lint, types, architecture, naming, unit tests) | All tasks done | All gates green | Humans **never spend review time on what a machine can catch**. |
+| 5 | Claude Code | Runs the full local gate stack from the harness (format, lint, types, architecture, conventions, **unit and integration tests**) | All tasks done | All gates green | Humans **never spend review time on what a machine can catch**. |
 | 6 | Claude Code | Self-corrects anything a gate flags and re-runs until everything passes | Any red gate | Green working tree | Failures cost agent cycles, not developer attention.<br/>The agent must show green output, not claim it. |
 
 ```mermaid
@@ -183,7 +183,7 @@ sequenceDiagram
         end
     end
     loop 5. Until all green
-        Orch->>Gate: format · lint · types ·<br/>architecture · unit tests
+        Orch->>Gate: format · lint · types · architecture ·<br/>unit + integration tests
         Gate-->>Orch: Red gates → self-fix
     end
 ```
