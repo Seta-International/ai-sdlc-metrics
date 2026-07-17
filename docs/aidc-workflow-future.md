@@ -227,7 +227,7 @@ After merge the pipeline closes the loop on its own: AI metrics flow back to the
 |---|---|---|---|---|---|
 | 1 | GitHub CI (`ai-sdlc-jira-sync`) | On merge, runs the collector's `update_ticket`: writes AI Usage, AI Tool, and AI Time Saved to the Jira ticket | PR merged with labels + template fields | Jira fields updated | Captured at merge by the pipeline, so the data stays complete without anyone remembering to fill it in.<br/>A sync failure never blocks the merge. |
 | 2 | Jira | Merge policy applies: usage never downgrades, tool set once, hours accumulate; a human can correct the fields directly in Jira | Sync ran | Consistent ticket data | Multiple PRs per ticket do not corrupt each other's data. |
-| 3 | Assignee | For tasks with no PR (analysis, design, documentation, research, QA), sets AI Usage and AI Time Saved manually on the Jira ticket | Task done with AI, no PR to sync from | Jira fields set | The automatic sync only covers merged PRs.<br/>The manual path keeps every other kind of work in the same metrics, so the dashboard reflects the whole team, not just coding. |
+| 3 | Dev (task assignee) | For tasks with no PR (analysis, design, documentation, research, QA), sets AI Usage and AI Time Saved manually on the Jira ticket | Task done with AI, no PR to sync from | Jira fields set | The automatic sync only covers merged PRs.<br/>The manual path keeps every other kind of work in the same metrics, so the dashboard reflects the whole team, not just coding. |
 | 4 | Scheduled collector (`ai-sdlc-metrics`) | Periodically queries GitHub + Jira and upserts per-project monthly metrics into the shared reporting database | Merged PRs, Jira fields | `reporting.metric_counts` rows | One shared pipeline and schema across projects, so numbers are comparable and re-runs are safe. |
 | 5 | Grafana | Shared dashboards visualise AI adoption, time saved, DORA, and quality metrics | Reporting DB populated | Leadership dashboard | Leadership watches trends from live data, not slide-deck claims assembled by hand. |
 | 6 | Dev | Triggers the UAT deploy workflow; CI then runs the end-to-end suite against the deployed build | Merged to main | Build on UAT, e2e green | E2e tests are heavy and slow, so they run in CI as the release gate on UAT instead of on every PR. |
@@ -242,7 +242,6 @@ sequenceDiagram
     participant Col as Scheduled collector<br/>(ai-sdlc-metrics)
     participant Graf as Reporting DB<br/>+ Grafana
     actor Dev
-    actor Asg as Assignee
     actor QA
     actor SM
 
@@ -250,7 +249,7 @@ sequenceDiagram
         GH->>CI: 1. PR merged
         CI->>Jira: 2. Write AI Usage / Tool / Time Saved
     else Task with no PR (analysis, design, docs, research, QA)
-        Asg->>Jira: 3. Set AI Usage / Time Saved manually
+        Dev->>Jira: 3. Set AI Usage / Time Saved manually
     end
     Col->>GH: 4. Periodic: read PRs, labels, deployments
     Col->>Jira: Read tickets, incidents, AI fields
