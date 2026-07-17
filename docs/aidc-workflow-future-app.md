@@ -6,8 +6,6 @@ Future team · July 2026
 
 <div class="page-break"></div>
 
-Repo: [Seta-International/agent-platform](https://github.com/Seta-International/agent-platform). *Every rule, gate, template, and workflow referenced in this document can be viewed in this repository.*
-
 **Positioning.** This is **agentic engineering, not vibe coding**: AI implements inside human-designed constraints, tests, and feedback loops. Industry-wide, 85% of professional developers use AI coding agents and about 41% of new code is AI-generated (*The new SDLC with vibe coding*, May 2026). What separates risk from leverage is **the discipline around the AI's output**.
 
 **Scope.** The flow starts *after* the PO/PM has broken work down: the ticket is sprint-planned in Jira with acceptance criteria, story points, and links to the PRD/SRS on Confluence. How tickets get to that state is outside this document's scope.
@@ -21,13 +19,15 @@ Repo: [Seta-International/agent-platform](https://github.com/Seta-International/
 | 3 | PR review & merge | Phase 4 |
 | 4 | QA acceptance on UAT | Phase 5 |
 
+*Every rule, gate, template, and workflow referenced in this document can be viewed in the repo:* [Seta-International/agent-platform](https://github.com/Seta-International/agent-platform)
+
 ---
 
 <div class="page-break"></div>
 
 ## 0. The harness: built before any session starts
 
-A coding agent is only as good as the context and guardrails around it. The harness below is **set up once per project**, so every developer's agent works the same way and **no agent output reaches a reviewer without passing machine checks first**.
+The harness below is **set up once per project**: every developer's agent works the same way, and **no agent output reaches a reviewer without passing machine checks first**.
 
 | Component | What it is (in the repo) | Why it is needed |
 |---|---|---|
@@ -38,8 +38,8 @@ A coding agent is only as good as the context and guardrails around it. The harn
 | Hard local gates | Automatic checks that run before any commit or push:<br/>• formatting and lint<br/>• type checks<br/>• architecture boundaries<br/>• naming conventions<br/>Plus the affected modules' unit tests before opening a PR. | A machine-enforced quality floor.<br/>A failed check sends the work back to the agent, not to a person. |
 | Estimation guide | [docs/guides/estimation.md](https://github.com/Seta-International/agent-platform/blob/main/docs/guides/estimation.md):<br/>• story-point anchors<br/>• team velocity constant (recalibrated quarterly)<br/>• the time-saved formula | Makes "AI time saved" a derived number, not a guess.<br/>Formula: `points × velocity − actual hours`, cross-checked against the real diff. |
 | Review routing | [.github/CODEOWNERS](https://github.com/Seta-International/agent-platform/blob/main/.github/CODEOWNERS) maps each code area to its owner.<br/>Every PR declares a risk tier:<br/>• **T1** = inside one feature module<br/>• **T2** = touches code shared across modules<br/>• **T3** = core / high-risk areas (identity, DB migrations, CI), always shipped as its own PR | Review depth follows risk automatically: a T1 goes to the module owner, a T3 always goes to the tech lead. |
-| PR template + label check | [.github/pull_request_template.md](https://github.com/Seta-International/agent-platform/blob/main/.github/pull_request_template.md) with AI-usage labels and AI-time-saved field; a CI job applies the labels from the template checkboxes and reminds the author when they are missing | Every PR declares its AI usage the same way, so adoption metrics come free as a by-product of working. |
-| CI + metrics pipeline | CI workflows (convention checks, tests, build and bundle budgets, config validation, security and quality scans, e2e) plus [ai-sdlc-jira-sync.yml](https://github.com/Seta-International/agent-platform/blob/main/.github/workflows/ai-sdlc-jira-sync.yml) and the scheduled metrics collector feeding Grafana | Independent verification of every PR, and automatic ROI reporting without anyone filling in a spreadsheet. |
+| PR template + label check | [.github/pull_request_template.md](https://github.com/Seta-International/agent-platform/blob/main/.github/pull_request_template.md) with AI-usage labels and AI-time-saved field; a CI job applies the labels from the template checkboxes and reminds the author when they are missing | Every PR declares its AI usage the same way, with no extra paperwork. |
+| CI + metrics pipeline | CI checks on every PR (detailed in Phase 4) plus [ai-sdlc-jira-sync.yml](https://github.com/Seta-International/agent-platform/blob/main/.github/workflows/ai-sdlc-jira-sync.yml) and the scheduled metrics collector feeding Grafana | Independent verification of every PR, and automatic ROI reporting without anyone filling in a spreadsheet. |
 
 ---
 
@@ -79,7 +79,7 @@ The most expensive mistake is **building the wrong thing**, so this phase spends
 | # | Actor | Action | Precondition / Input | Output / Gate | Why |
 |---|---|---|---|---|---|
 | 1 | Dev | Picks a planned ticket (FUT-n) from the sprint board and starts a Claude Code session with the ticket id | Ticket has AC, story points, PRD/SRS links | Session started | The ticket key is the thread that ties spec, branch, PR, and metrics together later. |
-| 2 | Claude Code | Automatically loads `CLAUDE.md` and the relevant `.claude/rules/*` | Harness in place (§0) | Conventions in context | The rules load on every session, so the agent cannot forget them. |
+| 2 | Claude Code | Automatically loads `CLAUDE.md` and the relevant `.claude/rules/*` | Harness in place (§0) | Conventions in context | The constraints are in place before any work starts. |
 | 3 | Claude Code | Pulls the Jira ticket and linked Confluence PRD/SRS via Atlassian MCP | Ticket id from step 1 | Requirement context in session | No copy-paste: context comes from the live source of truth, so the agent works from the same documents the PO signed off. |
 | 4 | Claude Code | Reads the project docs the task needs on demand:<br/>• architecture<br/>• the affected modules' docs<br/>• design<br/>• DB & domain design<br/>• platform and guides | On-demand docs exist | System context | The solution fits the existing architecture instead of fighting it. |
 | 5 | Dev + Claude Code | Guided brainstorming: the agent asks clarifying questions one at a time against the AC, codebase, and docs | Steps 2–4 done | Ambiguities resolved | Ambiguity is **cheapest to fix here**, before any code exists. |
@@ -159,7 +159,7 @@ A **fresh session** executes the plan, so the plan file is the single source of 
 | 2 | Claude Code (orchestrator) | Breaks the plan into small bounded tasks; parallel tasks run in isolated workspaces | Plan file | Task list | Small tasks keep the work reliable; isolation stops parallel tasks colliding. |
 | 3 | Implementation agent | Per task: writes the failing test first, then the code to make it pass (TDD) | Task definition | Code + passing test | The test pins the requirement before the code exists; **the agent cannot declare success without proof**. |
 | 4 | Review agent | Per task: a second pass checks the change against the spec and quality rules; bug-fix rounds until clean | Task implemented | Task accepted | **Implementer and reviewer are separated even inside the AI**, the same separation of duties we require of people. |
-| 5 | Claude Code | Runs the full local gate stack:<br/>• formatting and lint<br/>• type checks<br/>• architecture boundaries<br/>• naming conventions<br/>• the affected modules' unit tests | All tasks done | All gates green | Humans **never spend review time on what a machine can catch**. |
+| 5 | Claude Code | Runs the full local gate stack from the harness (format, lint, types, architecture, naming, unit tests) | All tasks done | All gates green | Humans **never spend review time on what a machine can catch**. |
 | 6 | Claude Code | Self-corrects anything a gate flags and re-runs until everything passes | Any red gate | Green working tree | Failures cost agent cycles, not developer attention.<br/>The agent must show green output, not claim it. |
 
 ```mermaid
@@ -198,7 +198,7 @@ The agent assembles the PR the same way every time (template, tier, AI-usage dec
 
 | # | Actor | Action | Precondition / Input | Output / Gate | Why |
 |---|---|---|---|---|---|
-| 1 | Claude Code | Computes AI usage (labels `ai-assisted` / `ai-agent`) and AI time saved per `docs/guides/estimation.md`: `baseline = story points × team velocity`, reconciled against the real diff size, minus actual hours spent | Ticket points; work done | Declared AI metrics | The number is **derived from a formula and checked against the real diff**, not guessed.<br/>A human can still correct it directly in Jira. |
+| 1 | Claude Code | Computes AI usage (labels `ai-assisted` / `ai-agent`) and AI time saved with the formula from the estimation guide (harness) | Ticket points; work done | Declared AI metrics | The number is **derived from a formula and checked against the real diff**, not guessed.<br/>A human can still correct it directly in Jira. |
 | 2 | Claude Code | Fills the PR template:<br/>• Jira key<br/>• risk tier (T1/T2/T3)<br/>• risk & affected modules<br/>• evidence of verification<br/>• for big diffs, a hot/cold review map (hot: read closely; cold: safe to skim) | Template in repo | Complete PR description | Every PR arrives in the same structure, so reviewers spend their time judging the change, not reconstructing it. |
 | 3 | Claude Code | Assigns reviewers via CODEOWNERS and the tier rules; core / identity / shared-ui / migrations / CI auto-request the tech lead | CODEOWNERS in repo | Right reviewers requested | Review depth scales with blast radius automatically; nobody has to remember who owns what. |
 | 4 | Claude Code | Opens the PR on GitHub | Gates green (Phase 3) | PR created | — |
